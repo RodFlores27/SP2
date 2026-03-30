@@ -15,3 +15,10 @@ app.get('/api/health', (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
 });
+
+// DB connection
+const { sequelize } = require('./models');
+
+sequelize.authenticate()
+  .then(() => console.log('DB connection OK'))
+  .catch(err => console.error('DB connection error:', err));
