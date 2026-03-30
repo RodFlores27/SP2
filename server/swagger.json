@@ -1,0 +1,695 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "PTCF Room & Equipment Reservation System API",
+    "description": "API documentation for the UPLB ICropS Plant Tissue Culture Facility reservation management system.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "PTCF Development Team"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:4000/api",
+      "description": "Local development server"
+    },
+    {
+      "url": "https://your-render-url.onrender.com/api",
+      "description": "Production server (Render)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "Server health and status endpoints"
+    },
+    {
+      "name": "Authentication",
+      "description": "User registration, login, and authentication endpoints"
+    },
+    {
+      "name": "User",
+      "description": "User profile and role-based access endpoints"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Check server health",
+        "description": "Returns the current status of the server and confirms it's running.",
+        "operationId": "checkHealth",
+        "responses": {
+          "200": {
+            "description": "Server is healthy and running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "example": "ok"
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "PTCF server is running"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register a new user",
+        "description": "Creates a new user account. Email must be unique. Password is hashed using bcrypt. No JWT token is returned (login-only JWT pattern).",
+        "operationId": "registerUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterRequest"
+              },
+              "examples": {
+                "regularUser": {
+                  "summary": "Regular user registration",
+                  "value": {
+                    "email": "student@uplb.edu.ph",
+                    "password": "password123",
+                    "accountType": "regular_user",
+                    "userCategory": "student"
+                  }
+                },
+                "staffUser": {
+                  "summary": "PTCF staff registration",
+                  "value": {
+                    "email": "staff@uplb.edu.ph",
+                    "password": "staff123",
+                    "accountType": "ptcf_staff",
+                    "userCategory": "lab_technician"
+                  }
+                },
+                "adminUser": {
+                  "summary": "System admin registration",
+                  "value": {
+                    "email": "admin@uplb.edu.ph",
+                    "password": "admin123",
+                    "accountType": "system_admin"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User successfully registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RegisterResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "missingEmail": {
+                    "value": {
+                      "message": "email is required"
+                    }
+                  },
+                  "missingPassword": {
+                    "value": {
+                      "message": "password is required"
+                    }
+                  },
+                  "missingAccountType": {
+                    "value": {
+                      "message": "accountType is required"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Email already in use",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Email already in use"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "User login",
+        "description": "Authenticates a user and returns a JWT token for subsequent authenticated requests.",
+        "operationId": "loginUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              },
+              "examples": {
+                "regularUser": {
+                  "summary": "Student login",
+                  "value": {
+                    "email": "student@uplb.edu.ph",
+                    "password": "password123"
+                  }
+                },
+                "staffUser": {
+                  "summary": "Staff login",
+                  "value": {
+                    "email": "staff@uplb.edu.ph",
+                    "password": "staff123"
+                  }
+                },
+                "adminUser": {
+                  "summary": "Admin login",
+                  "value": {
+                    "email": "admin@uplb.edu.ph",
+                    "password": "admin123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful - JWT token returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Missing email or password",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "email and password are required"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Invalid credentials"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error - JWT_SECRET not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "JWT_SECRET not configured"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Get current user info",
+        "description": "Returns the authenticated user's profile information. Requires a valid JWT token.",
+        "operationId": "getCurrentUser",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current user information retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "user": {
+                      "$ref": "#/components/schemas/UserProfile"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "missingToken": {
+                    "value": {
+                      "message": "Missing Bearer token"
+                    }
+                  },
+                  "invalidToken": {
+                    "value": {
+                      "message": "Invalid or expired token"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/staff-only": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Staff-only endpoint (Test)",
+        "description": "Test endpoint accessible only to PTCF staff and system administrators. Used for role-based access control verification.",
+        "operationId": "staffOnlyTest",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Staff access granted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Staff access granted"
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/UserProfile"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient role (requires staff or admin)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Forbidden: insufficient role"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/admin-only": {
+      "get": {
+        "tags": ["User"],
+        "summary": "Admin-only endpoint (Test)",
+        "description": "Test endpoint accessible only to system administrators. Used for role-based access control verification.",
+        "operationId": "adminOnlyTest",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admin access granted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Admin access granted"
+                    },
+                    "user": {
+                      "$ref": "#/components/schemas/UserProfile"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Insufficient role (requires admin)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Forbidden: insufficient role"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RegisterRequest": {
+        "type": "object",
+        "required": ["email", "password", "accountType"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email address (will be normalized to lowercase)",
+            "example": "user@uplb.edu.ph"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "User password (will be hashed with bcrypt)",
+            "example": "password123"
+          },
+          "accountType": {
+            "type": "string",
+            "enum": ["regular_user", "ptcf_staff", "system_admin"],
+            "description": "User role for access control",
+            "example": "regular_user"
+          },
+          "userCategory": {
+            "type": "string",
+            "enum": ["student", "faculty", "researcher", "research_assistant", "lab_technician", "external", "others"],
+            "description": "User category for classification (optional)",
+            "example": "student"
+          }
+        }
+      },
+      "RegisterResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "User registered"
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "example": 1
+              },
+              "email": {
+                "type": "string",
+                "example": "user@uplb.edu.ph"
+              },
+              "accountType": {
+                "type": "string",
+                "example": "regular_user"
+              },
+              "userCategory": {
+                "type": "string",
+                "example": "student"
+              }
+            }
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "description": "User email address",
+            "example": "user@uplb.edu.ph"
+          },
+          "password": {
+            "type": "string",
+            "format": "password",
+            "description": "User password",
+            "example": "password123"
+          }
+        }
+      },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "JWT token for authenticated requests",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "example": 1
+              },
+              "email": {
+                "type": "string",
+                "example": "user@uplb.edu.ph"
+              },
+              "accountType": {
+                "type": "string",
+                "example": "regular_user"
+              },
+              "userCategory": {
+                "type": "string",
+                "example": "student"
+              }
+            }
+          }
+        }
+      },
+      "UserProfile": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "role": {
+            "type": "string",
+            "description": "User account type (from JWT payload)",
+            "example": "regular_user"
+          },
+          "userCategory": {
+            "type": "string",
+            "example": "student"
+          }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "Error message",
+            "example": "Invalid credentials"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "description": "User model schema",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "readOnly": true,
+            "description": "Auto-generated primary key"
+          },
+          "email": {
+            "type": "string",
+            "description": "User email address"
+          },
+          "passwordHash": {
+            "type": "string",
+            "description": "Bcrypt hashed password (never returned in API responses)"
+          },
+          "accountType": {
+            "type": "string",
+            "enum": ["regular_user", "ptcf_staff", "system_admin"],
+            "description": "User role for access control"
+          },
+          "userCategory": {
+            "type": "string",
+            "enum": ["student", "faculty", "researcher", "research_assistant", "lab_technician", "external", "others"],
+            "description": "User category for classification"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      },
+      "Equipment": {
+        "type": "object",
+        "description": "Equipment model schema (for future Milestone 3)",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "name": {
+            "type": "string",
+            "description": "Equipment name"
+          },
+          "category": {
+            "type": "string",
+            "description": "Equipment category"
+          },
+          "description": {
+            "type": "string",
+            "description": "Detailed description"
+          },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Cloudinary image URL"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["available", "unavailable", "maintenance"],
+            "description": "Availability status"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      },
+      "Room": {
+        "type": "object",
+        "description": "Room model schema (for future Milestone 3)",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "readOnly": true
+          },
+          "name": {
+            "type": "string",
+            "description": "Room name"
+          },
+          "description": {
+            "type": "string",
+            "description": "Room description"
+          },
+          "location": {
+            "type": "string",
+            "description": "Physical location"
+          },
+          "capacity": {
+            "type": "integer",
+            "description": "Maximum occupancy"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["available", "unavailable", "maintenance"],
+            "description": "Availability status"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter your JWT token in the format: Bearer {token}"
+      }
+    }
+  },
+  "security": []
+}
