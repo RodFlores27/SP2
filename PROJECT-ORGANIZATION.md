@@ -14,6 +14,8 @@ PTCF Project/
 │   ├── routes/                  # API routes
 │   └── seeders/                 # Database seed data
 ├── milestone_tests/             # Verification test scripts
+│   ├── utils/                   # Reusable test utilities
+│   │   └── test-helpers.js      # Common test helper functions
 │   ├── README.md
 │   └── milestone-{n}-{desc}.js
 ├── milestone_reports/           # Completion reports
@@ -49,6 +51,15 @@ PTCF Project/
 **Controllers:** `{module}.controller.js`  
 **Routes:** `{module}.routes.js`  
 **Middleware:** `{purpose}.middleware.js`
+
+### Test Utilities
+**Location:** `milestone_tests/utils/`  
+**Purpose:** Shared helper functions for milestone tests  
+**Files:**
+- `test-helpers.js` - Common test utilities (server health check, etc.)
+
+**Key Functions:**
+- `checkServerHealth(baseUrl)` - Verifies server is running before tests execute
 
 ## Running Tests
 

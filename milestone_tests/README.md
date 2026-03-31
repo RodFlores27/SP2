@@ -14,6 +14,32 @@ milestone-{number}-{description}.js
 - `milestone-3-crud-endpoints.js` - Equipment/Room CRUD endpoint tests
 - `milestone-4-booking-workflow.js` - Booking system workflow tests
 
+## Test Utilities
+
+The `utils/` directory contains reusable helper functions for milestone tests:
+
+**`utils/test-helpers.js`**
+- `checkServerHealth(baseUrl)` - Verifies the server is running and healthy before executing tests
+  - Returns `{ success: true, message }` if server is accessible
+  - Returns `{ success: false, error }` if server is down
+  - Automatically logs status with ✅/❌ indicators
+
+**Usage in test scripts:**
+```javascript
+const { checkServerHealth } = require('./utils/test-helpers');
+
+async function testMilestone() {
+  // Check server health first
+  const healthCheck = await checkServerHealth(BASE_URL);
+  if (!healthCheck.success) {
+    console.log('❌ Cannot proceed: Server is not running');
+    return;
+  }
+  
+  // Continue with tests...
+}
+```
+
 ## Running Tests
 
 Tests are standalone Node.js scripts that can be run directly:
@@ -24,7 +50,7 @@ node milestone_tests/milestone-{number}-{description}.js
 
 **Prerequisites:**
 - Server must be running on `http://localhost:4000`
-- Database must be seeded with test data
+- Database must be seeded with test data (for Milestone 2+)
 - Required npm packages must be installed
 
 ## Current Tests

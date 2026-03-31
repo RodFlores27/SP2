@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { checkServerHealth } = require('./utils/test-helpers');
 
 const BASE_URL = 'http://localhost:4000/api';
 
@@ -8,8 +9,16 @@ const testUsers = [
   { email: 'admin@uplb.edu.ph', password: 'admin123', role: 'system_admin' },
 ];
 
-async function testDay2() {
-  console.log('=== DAY 2 VERIFICATION TEST ===\n');
+async function testMilestone2() {
+  console.log('=== MILESTONE 2 VERIFICATION TEST ===\n');
+
+  // Check server health first
+  const healthCheck = await checkServerHealth(BASE_URL);
+  if (!healthCheck.success) {
+    console.log('\n❌ Cannot proceed: Server is not running');
+    console.log('   Please start the server and try again.');
+    return;
+  }
 
   for (const user of testUsers) {
     console.log(`\n--- Testing ${user.role} (${user.email}) ---`);
@@ -70,4 +79,4 @@ async function testDay2() {
   console.log('\n=== TEST COMPLETE ===');
 }
 
-testDay2().catch(console.error);
+testMilestone2().catch(console.error);

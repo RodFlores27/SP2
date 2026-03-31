@@ -1,6 +1,6 @@
-const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { checkServerHealth } = require('./utils/test-helpers');
 
 const BASE_URL = 'http://localhost:4000/api';
 
@@ -10,20 +10,11 @@ async function testMilestone1() {
   let allPassed = true;
 
   // Test 1: Server Health Check
-  console.log('--- Test 1: Server Health Check ---');
-  try {
-    const healthRes = await axios.get(`${BASE_URL}/health`);
-    if (healthRes.data.status === 'ok') {
-      console.log('✅ Server is running and responding');
-      console.log(`   Message: ${healthRes.data.message}`);
-    } else {
-      console.log('❌ Server health check failed');
-      allPassed = false;
-    }
-  } catch (error) {
-    console.log('❌ Server is not accessible');
-    console.log(`   Error: ${error.message}`);
-    allPassed = false;
+  const healthCheck = await checkServerHealth(BASE_URL);
+  if (!healthCheck.success) {
+    console.log('\n❌ Cannot proceed: Server is not running');
+    console.log('   Please start the server and try again.');
+    return;
   }
 
   // Test 2: Project Structure
