@@ -8,6 +8,9 @@ PTCF Project/
 ├── server/                      # Backend (Express + Sequelize)
 │   ├── config/                  # Database configuration
 │   ├── controllers/             # Route controllers
+│   ├── docs/                    # Documentation & dev utilities
+│   │   ├── swagger.json         # OpenAPI documentation
+│   │   └── test-token.js        # JWT token debugger
 │   ├── middleware/              # Auth & other middleware
 │   ├── migrations/              # Database migrations
 │   ├── models/                  # Sequelize models
