@@ -1,14 +1,14 @@
-'use strict';
+"use strict";
 
-const jwt = require('jsonwebtoken');
+const jwt = require("jsonwebtoken");
 
 function normalizeRole(role) {
-  return String(role || '')
+  return String(role || "")
     .trim()
     .toLowerCase()
     .replace(/\s+/g, '_');
 }
-
+    
 function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {

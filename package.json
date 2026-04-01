@@ -6,7 +6,8 @@
   "scripts": {
     "test:milestone-1": "node milestone_tests/milestone-1-setup-verification.js",
     "test:milestone-2": "node milestone_tests/milestone-2-auth-verification.js",
-    "test:all": "npm run test:milestone-1 && npm run test:milestone-2"
+    "test:milestone-3": "node milestone_tests/milestone-3-crud-endpoints.js",
+    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3"
   },
   "repository": {
     "type": "git",
@@ -21,6 +22,7 @@
   },
   "homepage": "https://github.com/RodFlores27/SP2#readme",
   "dependencies": {
-    "axios": "^1.14.0"
+    "axios": "^1.14.0",
+    "form-data": "^4.0.5"
   }
 }

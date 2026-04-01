@@ -8,14 +8,23 @@ PTCF Project/
 ├── server/                      # Backend (Express + Sequelize)
 │   ├── config/                  # Database configuration
 │   ├── controllers/             # Route controllers
+│   │   ├── auth.controller.js   # Auth endpoints (register, login)
+│   │   ├── equipment.controller.js  # Equipment CRUD operations
+│   │   └── room.controller.js   # Room CRUD operations
 │   ├── docs/                    # Documentation & dev utilities
 │   │   ├── swagger.json         # OpenAPI documentation
 │   │   └── test-token.js        # JWT token debugger
 │   ├── middleware/              # Auth & other middleware
+│   │   └── auth.middleware.js   # JWT auth & role-based authorization
 │   ├── migrations/              # Database migrations
 │   ├── models/                  # Sequelize models
 │   ├── routes/                  # API routes
-│   └── seeders/                 # Database seed data
+│   │   ├── auth.routes.js       # Auth routes
+│   │   ├── equipment.routes.js  # Equipment routes
+│   │   └── room.routes.js       # Room routes
+│   ├── seeders/                 # Database seed data
+│   └── utils/                   # Utility functions
+│       └── cloudinary.js        # Cloudinary image upload utility
 ├── milestone_tests/             # Verification test scripts
 │   ├── utils/                   # Reusable test utilities
 │   │   └── test-helpers.js      # Common test helper functions
@@ -53,7 +62,8 @@ PTCF Project/
 ### Backend Files
 **Controllers:** `{module}.controller.js`  
 **Routes:** `{module}.routes.js`  
-**Middleware:** `{purpose}.middleware.js`
+**Middleware:** `{purpose}.middleware.js`  
+**Utilities:** `{purpose}.js` (in server/utils/)
 
 ### Test Utilities
 **Location:** `milestone_tests/utils/`  
@@ -72,6 +82,7 @@ The root `package.json` includes scripts to run milestone verification tests:
 # Run individual milestone tests
 npm run test:milestone-1    # Foundation & infrastructure
 npm run test:milestone-2    # Auth module verification
+npm run test:milestone-3    # Equipment & Room CRUD endpoints
 
 # Run all milestone tests
 npm run test:all

@@ -30,6 +30,14 @@
     {
       "name": "User",
       "description": "User profile and role-based access endpoints"
+    },
+    {
+      "name": "Equipment",
+      "description": "Equipment CRUD operations with optional image uploads"
+    },
+    {
+      "name": "Rooms",
+      "description": "Room CRUD operations with optional image uploads"
     }
   ],
   "paths": {
@@ -418,6 +426,669 @@
           }
         }
       }
+    },
+    "/equipment": {
+      "get": {
+        "tags": ["Equipment"],
+        "summary": "Get all equipment",
+        "description": "Returns a list of all equipment items. Accessible to all authenticated users.",
+        "operationId": "getAllEquipment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of equipment retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Equipment"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Equipment"],
+        "summary": "Create new equipment",
+        "description": "Creates a new equipment item with optional image upload. Requires staff or admin role.",
+        "operationId": "createEquipment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "category", "description"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Equipment name",
+                    "example": "Laminar Flow Hood"
+                  },
+                  "category": {
+                    "type": "string",
+                    "description": "Equipment category",
+                    "example": "Sterilization Equipment"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Detailed description",
+                    "example": "Class II Biological Safety Cabinet"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["available", "unavailable", "maintenance"],
+                    "description": "Availability status (optional, defaults to 'available')",
+                    "example": "available"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Image file (optional, max 5MB, JPEG/PNG/GIF/WebP)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Equipment created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Equipment"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Missing required fields: name, category, and description are required"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "500": {
+            "description": "Server error - Failed to upload image or create equipment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/equipment/{id}": {
+      "get": {
+        "tags": ["Equipment"],
+        "summary": "Get equipment by ID",
+        "description": "Returns a single equipment item by ID. Accessible to all authenticated users.",
+        "operationId": "getEquipmentById",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Equipment ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Equipment retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Equipment"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "description": "Equipment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Equipment not found"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Equipment"],
+        "summary": "Update equipment",
+        "description": "Updates an existing equipment item. Can optionally update the image. Requires staff or admin role.",
+        "operationId": "updateEquipment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Equipment ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Equipment name (optional)"
+                  },
+                  "category": {
+                    "type": "string",
+                    "description": "Equipment category (optional)"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Detailed description (optional)"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["available", "unavailable", "maintenance"],
+                    "description": "Availability status (optional)"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "New image file (optional, replaces existing image)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Equipment updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Equipment"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "description": "Equipment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Equipment"],
+        "summary": "Delete equipment",
+        "description": "Deletes an equipment item by ID. Requires staff or admin role.",
+        "operationId": "deleteEquipment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Equipment ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Equipment deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Equipment deleted successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "description": "Equipment not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms": {
+      "get": {
+        "tags": ["Rooms"],
+        "summary": "Get all rooms",
+        "description": "Returns a list of all rooms. Accessible to all authenticated users.",
+        "operationId": "getAllRooms",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of rooms retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Room"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Rooms"],
+        "summary": "Create new room",
+        "description": "Creates a new room with optional image upload. Requires staff or admin role.",
+        "operationId": "createRoom",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "description", "location", "capacity"],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Room name",
+                    "example": "Culture Room A"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Room description",
+                    "example": "Primary tissue culture laboratory"
+                  },
+                  "location": {
+                    "type": "string",
+                    "description": "Physical location",
+                    "example": "ICropS 2nd Floor"
+                  },
+                  "capacity": {
+                    "type": "integer",
+                    "description": "Maximum occupancy",
+                    "example": 8
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["available", "unavailable", "maintenance"],
+                    "description": "Availability status (optional, defaults to 'available')",
+                    "example": "available"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Image file (optional, max 5MB, JPEG/PNG/GIF/WebP)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Room created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Missing required fields",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Missing required fields: name, description, location, and capacity are required"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rooms/{id}": {
+      "get": {
+        "tags": ["Rooms"],
+        "summary": "Get room by ID",
+        "description": "Returns a single room by ID. Accessible to all authenticated users.",
+        "operationId": "getRoomById",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Room ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Room retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "description": "Room not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Room not found"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Rooms"],
+        "summary": "Update room",
+        "description": "Updates an existing room. Can optionally update the image. Requires staff or admin role.",
+        "operationId": "updateRoom",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Room ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Room name (optional)"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Room description (optional)"
+                  },
+                  "location": {
+                    "type": "string",
+                    "description": "Physical location (optional)"
+                  },
+                  "capacity": {
+                    "type": "integer",
+                    "description": "Maximum occupancy (optional)"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["available", "unavailable", "maintenance"],
+                    "description": "Availability status (optional)"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "New image file (optional, replaces existing image)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Room updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Room"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "description": "Room not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Rooms"],
+        "summary": "Delete room",
+        "description": "Deletes a room by ID. Requires staff or admin role.",
+        "operationId": "deleteRoom",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Room ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Room deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Room deleted successfully"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "description": "Room not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -642,7 +1313,7 @@
       },
       "Room": {
         "type": "object",
-        "description": "Room model schema (for future Milestone 3)",
+        "description": "Room model schema",
         "properties": {
           "id": {
             "type": "integer",
@@ -664,6 +1335,11 @@
             "type": "integer",
             "description": "Maximum occupancy"
           },
+          "imageUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Cloudinary image URL"
+          },
           "status": {
             "type": "string",
             "enum": ["available", "unavailable", "maintenance"],
@@ -678,6 +1354,43 @@
             "type": "string",
             "format": "date-time",
             "readOnly": true
+          }
+        }
+      }
+    },
+    "responses": {
+      "UnauthorizedError": {
+        "description": "Unauthorized - Missing or invalid JWT token",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "missingToken": {
+                "value": {
+                  "message": "Missing Bearer token"
+                }
+              },
+              "invalidToken": {
+                "value": {
+                  "message": "Invalid or expired token"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ForbiddenError": {
+        "description": "Forbidden - Insufficient role (requires staff or admin)",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "message": "Forbidden: insufficient role"
+            }
           }
         }
       }

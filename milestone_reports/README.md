@@ -55,3 +55,14 @@ These reports serve as:
 - Auth module (register, login, JWT, bcrypt)
 - Role-based middleware
 - Seed data (3 users, 3 equipment, 2 rooms)
+
+### Milestone 3: Equipment & Room CRUD Endpoints
+**File:** `MILESTONE-3-COMPLETION-REPORT.md`  
+**Status:** ✅ Complete  
+**Date:** April 1, 2026  
+**Deliverables:**
+- Equipment CRUD endpoints (5 endpoints: GET all, GET by ID, POST, PUT, DELETE)
+- Room CRUD endpoints (5 endpoints: GET all, GET by ID, POST, PUT, DELETE)
+- Cloudinary integration for optional image uploads
+- Role-based authorization (staff/admin for CUD, all users for R)
+- Multer middleware for multipart/form-data file uploads

@@ -2,7 +2,7 @@ require('dotenv').config();
 const jwt = require('jsonwebtoken');
 
 // Paste your token here (just the token, no "Bearer" prefix)
-const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOjIsInJvbGUiOiJyZWd1bGFyX3VzZXIiLCJ1c2VyQ2F0ZWdvcnkiOiJzdHVkZW50IiwiaWF0IjoxNzc0OTYyNDA2LCJleHAiOjE3NzUwNDg4MDZ9.zo2Raix9jqw9C4mXw3gKzlzkPZ8wUgppYLJJE3efytM';
+const token = 'YOUR_TOKEN_HERE';
 
 const secret = process.env.JWT_SECRET;
 

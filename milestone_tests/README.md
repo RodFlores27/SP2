@@ -79,8 +79,28 @@ node milestone_tests/milestone-{number}-{description}.js
 - `staff@uplb.edu.ph` / `staff123` (ptcf_staff)
 - `admin@uplb.edu.ph` / `admin123` (system_admin)
 
+### Milestone 3: Equipment & Room CRUD Endpoints
+**File:** `milestone-3-crud-endpoints.js`  
+**Tests:**
+- Equipment CRUD operations (GET all, GET by ID, POST, PUT, DELETE)
+- Room CRUD operations (GET all, GET by ID, POST, PUT, DELETE)
+- Role-based authorization (staff/admin for CUD, all users for R)
+- Regular user access restrictions (403 Forbidden for CUD operations)
+- Resource deletion verification (404 for deleted items)
+- Cloudinary integration (optional image uploads)
+
+**Test Coverage:**
+- 12 automated test scenarios
+- All HTTP methods (GET, POST, PUT, DELETE)
+- All user roles (student, staff, admin)
+- Success and failure cases
+- 404 verification for deleted resources
+
+**Note:** Image upload tests with actual files require manual testing using Postman or similar tools with multipart/form-data support.
+
 ## Notes
 
 - Tests use axios for HTTP requests
 - All tests should be self-contained and not modify production data
 - Tests should provide clear success/failure output with ✅/❌ indicators
+- **API Documentation:** When milestones add/modify API endpoints, `server/docs/swagger.json` must be updated to keep the interactive API docs at `/api-docs` current
