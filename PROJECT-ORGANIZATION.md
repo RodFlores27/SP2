@@ -5,6 +5,32 @@
 ```
 PTCF Project/
 ├── client/                      # Frontend (React + Vite)
+│   ├── src/
+│   │   ├── components/          # React components
+│   │   │   ├── ui/              # shadcn/ui components
+│   │   │   │   ├── button.jsx
+│   │   │   │   ├── card.jsx
+│   │   │   │   ├── form.jsx
+│   │   │   │   ├── input.jsx
+│   │   │   │   ├── label.jsx
+│   │   │   │   └── select.jsx
+│   │   │   └── ProtectedRoute.jsx  # Route guard component
+│   │   ├── contexts/            # React contexts
+│   │   │   └── AuthContext.jsx  # Authentication state management
+│   │   ├── lib/                 # Utility libraries
+│   │   │   ├── axios.js         # Axios instance + JWT interceptor
+│   │   │   └── utils.js         # cn() helper for class merging
+│   │   ├── pages/               # Page components
+│   │   │   ├── Login.jsx        # Login page
+│   │   │   ├── Register.jsx     # Registration page
+│   │   │   └── Dashboard.jsx    # Dashboard page
+│   │   ├── App.jsx              # Main app with router
+│   │   ├── main.jsx             # App entry point
+│   │   └── index.css            # Global styles with Tailwind
+│   ├── components.json          # shadcn/ui configuration
+│   ├── tailwind.config.js       # Tailwind CSS configuration
+│   ├── vite.config.js           # Vite configuration (with Tailwind v4 plugin)
+│   └── package.json             # Frontend dependencies
 ├── server/                      # Backend (Express + Sequelize)
 │   ├── config/                  # Database configuration
 │   ├── controllers/             # Route controllers
@@ -65,6 +91,13 @@ PTCF Project/
 **Middleware:** `{purpose}.middleware.js`  
 **Utilities:** `{purpose}.js` (in server/utils/)
 
+### Frontend Files
+**Pages:** `{PageName}.jsx` (PascalCase, in client/src/pages/)  
+**Components:** `{ComponentName}.jsx` (PascalCase, in client/src/components/)  
+**UI Components:** `{component}.jsx` (lowercase, in client/src/components/ui/)  
+**Contexts:** `{ContextName}Context.jsx` (PascalCase, in client/src/contexts/)  
+**Utilities:** `{purpose}.js` (lowercase, in client/src/lib/)
+
 ### Test Utilities
 **Location:** `milestone_tests/utils/`  
 **Purpose:** Shared helper functions for milestone tests  
@@ -83,6 +116,7 @@ The root `package.json` includes scripts to run milestone verification tests:
 npm run test:milestone-1    # Foundation & infrastructure
 npm run test:milestone-2    # Auth module verification
 npm run test:milestone-3    # Equipment & Room CRUD endpoints
+npm run test:milestone-4    # Frontend setup (React Router, Axios, Tailwind, Auth pages)
 
 # Run all milestone tests
 npm run test:all

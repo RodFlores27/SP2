@@ -7,7 +7,8 @@
     "test:milestone-1": "node milestone_tests/milestone-1-setup-verification.js",
     "test:milestone-2": "node milestone_tests/milestone-2-auth-verification.js",
     "test:milestone-3": "node milestone_tests/milestone-3-crud-endpoints.js",
-    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3"
+    "test:milestone-4": "node milestone_tests/milestone-4-frontend-setup.js",
+    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3 && npm run test:milestone-4"
   },
   "repository": {
     "type": "git",

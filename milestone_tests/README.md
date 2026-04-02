@@ -98,9 +98,39 @@ node milestone_tests/milestone-{number}-{description}.js
 
 **Note:** Image upload tests with actual files require manual testing using Postman or similar tools with multipart/form-data support.
 
+### Milestone 4: Frontend Setup
+**File:** `milestone-4-frontend-setup.js`  
+**Tests:**
+- Backend server health check
+- Frontend dev server availability check
+- Manual UI testing checklist (10 scenarios)
+
+**Manual Test Coverage:**
+1. Navigate to app and verify redirect to login
+2. Test registration flow with form validation
+3. Test login flow with existing credentials
+4. Test protected route access (dashboard)
+5. Test token persistence across page refresh
+6. Test logout functionality
+7. Test form validation errors
+8. Test error handling for invalid credentials
+9. Test UI/UX with Tailwind + shadcn/ui styling
+10. Test route guards (redirect logic)
+
+**Technologies Verified:**
+- React Router (client-side routing)
+- Axios with JWT interceptor (API communication)
+- Tailwind CSS + shadcn/ui (styling and components)
+- React Hook Form + Zod (form validation)
+- AuthContext (authentication state management)
+- Protected routes (route guarding)
+
+**Note:** Frontend tests are primarily manual/visual due to the nature of UI testing. The test script provides automated server checks and a comprehensive manual testing checklist.
+
 ## Notes
 
 - Tests use axios for HTTP requests
 - All tests should be self-contained and not modify production data
 - Tests should provide clear success/failure output with ✅/❌ indicators
 - **API Documentation:** When milestones add/modify API endpoints, `server/docs/swagger.json` must be updated to keep the interactive API docs at `/api-docs` current
+- **Frontend Tests:** UI/UX tests require manual verification in the browser. Automated E2E tests can be added in future milestones.

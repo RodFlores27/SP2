@@ -27,6 +27,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "morgan": "^1.10.1",
     "nodemon": "^3.1.14",
     "sequelize-cli": "^6.6.5"
   }
