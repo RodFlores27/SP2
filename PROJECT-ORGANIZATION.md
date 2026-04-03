@@ -8,22 +8,36 @@ PTCF Project/
 │   ├── src/
 │   │   ├── components/          # React components
 │   │   │   ├── ui/              # shadcn/ui components
+│   │   │   │   ├── alert-dialog.jsx
 │   │   │   │   ├── button.jsx
 │   │   │   │   ├── card.jsx
+│   │   │   │   ├── dialog.jsx
 │   │   │   │   ├── form.jsx
 │   │   │   │   ├── input.jsx
 │   │   │   │   ├── label.jsx
 │   │   │   │   └── select.jsx
-│   │   │   └── ProtectedRoute.jsx  # Route guard component
+│   │   │   ├── ConfirmDialog.jsx      # Delete confirmation dialog
+│   │   │   ├── EquipmentFormModal.jsx # Equipment create/edit form
+│   │   │   ├── ImageUpload.jsx        # Image upload with preview
+│   │   │   ├── LoadingSpinner.jsx     # Loading state component
+│   │   │   ├── Navigation.jsx         # Site navigation header
+│   │   │   ├── ProtectedRoute.jsx     # Route guard component
+│   │   │   ├── RoomFormModal.jsx      # Room create/edit form
+│   │   │   └── StatusBadge.jsx        # Status display badge
 │   │   ├── contexts/            # React contexts
 │   │   │   └── AuthContext.jsx  # Authentication state management
 │   │   ├── lib/                 # Utility libraries
 │   │   │   ├── axios.js         # Axios instance + JWT interceptor
+│   │   │   ├── imageUpload.js   # Multipart/form-data upload helper
 │   │   │   └── utils.js         # cn() helper for class merging
 │   │   ├── pages/               # Page components
+│   │   │   ├── Dashboard.jsx    # Dashboard page
+│   │   │   ├── EquipmentDetail.jsx  # Equipment detail (protected)
+│   │   │   ├── EquipmentList.jsx    # Equipment listing (public)
 │   │   │   ├── Login.jsx        # Login page
 │   │   │   ├── Register.jsx     # Registration page
-│   │   │   └── Dashboard.jsx    # Dashboard page
+│   │   │   ├── RoomDetail.jsx   # Room detail (protected)
+│   │   │   └── RoomList.jsx     # Room listing (public)
 │   │   ├── App.jsx              # Main app with router
 │   │   ├── main.jsx             # App entry point
 │   │   └── index.css            # Global styles with Tailwind
@@ -117,6 +131,7 @@ npm run test:milestone-1    # Foundation & infrastructure
 npm run test:milestone-2    # Auth module verification
 npm run test:milestone-3    # Equipment & Room CRUD endpoints
 npm run test:milestone-4    # Frontend setup (React Router, Axios, Tailwind, Auth pages)
+npm run test:milestone-5    # Equipment & Room listing pages with staff management
 
 # Run all milestone tests
 npm run test:all

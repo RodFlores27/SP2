@@ -27,7 +27,7 @@ const upload = multer({
   },
 });
 
-router.get('/', authenticateToken, getAllEquipment);
+router.get('/', getAllEquipment);
 router.get('/:id', authenticateToken, getEquipmentById);
 router.post(
   '/',

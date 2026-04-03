@@ -68,7 +68,7 @@ const createRoom = async (req, res) => {
 const updateRoom = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, location, capacity, status } = req.body;
+    const { name, description, location, capacity, status, removeImage } = req.body;
 
     const room = await Room.findByPk(id);
     if (!room) {
@@ -76,6 +76,11 @@ const updateRoom = async (req, res) => {
     }
 
     let imageUrl = room.imageUrl;
+    
+    if (removeImage === 'true' || removeImage === true) {
+      imageUrl = null;
+    }
+    
     if (req.file) {
       try {
         imageUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/rooms');

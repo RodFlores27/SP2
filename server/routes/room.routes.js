@@ -27,7 +27,7 @@ const upload = multer({
   },
 });
 
-router.get('/', authenticateToken, getAllRooms);
+router.get('/', getAllRooms);
 router.get('/:id', authenticateToken, getRoomById);
 router.post(
   '/',

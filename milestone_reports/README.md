@@ -80,3 +80,20 @@ These reports serve as:
 - AuthContext for centralized authentication state management
 - ProtectedRoute component for route guarding
 - Dashboard placeholder page for authenticated users
+
+### Milestone 5: Equipment & Room Listing Pages
+**File:** `MILESTONE-5-COMPLETION-REPORT.md`  
+**Status:** ✅ Complete  
+**Date:** April 2, 2026  
+**Deliverables:**
+- Navigation component with responsive mobile menu
+- Equipment listing page (public access, no auth required)
+- Equipment detail page (protected, requires authentication)
+- Room listing page (public access, no auth required)
+- Room detail page (protected, requires authentication)
+- Equipment form modal (create/edit with image upload)
+- Room form modal (create/edit with image upload)
+- Shared components (LoadingSpinner, StatusBadge, ConfirmDialog, ImageUpload)
+- Role-based UI rendering (staff management controls)
+- Multipart/form-data image upload utility
+- Backend route updates (public listing endpoints)

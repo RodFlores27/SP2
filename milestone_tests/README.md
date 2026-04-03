@@ -127,6 +127,34 @@ node milestone_tests/milestone-{number}-{description}.js
 
 **Note:** Frontend tests are primarily manual/visual due to the nature of UI testing. The test script provides automated server checks and a comprehensive manual testing checklist.
 
+### Milestone 5: Equipment & Room Listing Pages
+**File:** `milestone-5-listing-pages.js`  
+**Tests:**
+- User authentication (staff and regular user)
+- Public access to equipment listing (no auth required)
+- Public access to room listing (no auth required)
+- Protected access to detail pages (auth required)
+- Staff CRUD operations (create, update, delete)
+- Role-based access control (403 for unauthorized actions)
+- Equipment and room data persistence
+- 404 verification for deleted resources
+
+**Test Coverage:**
+- 20+ automated test scenarios
+- Public vs protected endpoint access
+- Staff vs regular user authorization
+- All HTTP methods (GET, POST, PUT, DELETE)
+- Success and failure cases
+- Hybrid access model verification
+
+**Technologies Verified:**
+- Public listing endpoints (no authentication)
+- Protected detail endpoints (JWT required)
+- Role-based UI rendering (staff management controls)
+- Multipart/form-data image uploads
+- React Router navigation
+- Integrated staff management UI
+
 ## Notes
 
 - Tests use axios for HTTP requests

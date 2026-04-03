@@ -67,7 +67,7 @@ const createEquipment = async (req, res) => {
 const updateEquipment = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, category, description, status } = req.body;
+    const { name, category, description, status, removeImage } = req.body;
 
     const equipment = await Equipment.findByPk(id);
     if (!equipment) {
@@ -75,6 +75,11 @@ const updateEquipment = async (req, res) => {
     }
 
     let imageUrl = equipment.imageUrl;
+    
+    if (removeImage === 'true') {
+      imageUrl = null;
+    }
+    
     if (req.file) {
       try {
         imageUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/equipment');
