@@ -38,6 +38,10 @@
     {
       "name": "Rooms",
       "description": "Room CRUD operations with optional image uploads"
+    },
+    {
+      "name": "Bookings",
+      "description": "Booking management with conflict detection and role-based access"
     }
   ],
   "paths": {
@@ -1089,6 +1093,239 @@
           }
         }
       }
+    },
+    "/bookings": {
+      "post": {
+        "tags": ["Bookings"],
+        "summary": "Create a new booking",
+        "description": "Creates a new booking for equipment or room. Supports pencil (tentative) and firm (confirmed) booking types. Automatically detects conflicts with existing bookings.",
+        "operationId": "createBooking",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateBookingRequest"
+              },
+              "examples": {
+                "pencilBooking": {
+                  "summary": "Pencil booking for equipment",
+                  "value": {
+                    "resourceType": "equipment",
+                    "resourceId": 1,
+                    "bookingType": "pencil",
+                    "startTime": "2026-04-10T09:00:00.000Z",
+                    "endTime": "2026-04-10T12:00:00.000Z",
+                    "purpose": "Research experiment for plant tissue culture"
+                  }
+                },
+                "firmBooking": {
+                  "summary": "Firm booking for room",
+                  "value": {
+                    "resourceType": "room",
+                    "resourceId": 1,
+                    "bookingType": "firm",
+                    "startTime": "2026-04-12T14:00:00.000Z",
+                    "endTime": "2026-04-12T18:00:00.000Z",
+                    "purpose": "Lab session for CMSC 190 students",
+                    "authorizationDocUrl": "https://res.cloudinary.com/demo/authorization.pdf"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Booking created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateBookingResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "missingFields": {
+                    "value": {
+                      "error": "Missing required fields: resourceType, resourceId, bookingType, startTime, and endTime are required"
+                    }
+                  },
+                  "invalidDateRange": {
+                    "value": {
+                      "error": "endTime must be after startTime"
+                    }
+                  },
+                  "pastBooking": {
+                    "value": {
+                      "error": "Cannot create booking in the past"
+                    }
+                  },
+                  "resourceUnavailable": {
+                    "value": {
+                      "error": "Cannot book equipment. Current status: maintenance"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "404": {
+            "description": "Resource not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "equipment not found"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Firm booking conflicts with existing bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingConflictResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "Get all bookings",
+        "description": "Returns bookings based on user role. Regular users see only their own bookings. Staff and admins see all bookings. Supports filtering by status and resourceType.",
+        "operationId": "getAllBookings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by booking status",
+            "schema": {
+              "type": "string",
+              "enum": ["penciled", "confirmed", "contested", "approved", "denied", "cancelled", "expired"]
+            }
+          },
+          {
+            "name": "resourceType",
+            "in": "query",
+            "description": "Filter by resource type",
+            "schema": {
+              "type": "string",
+              "enum": ["equipment", "room"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of bookings retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Booking"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          }
+        }
+      }
+    },
+    "/bookings/{id}": {
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "Get booking by ID",
+        "description": "Returns a single booking by ID. Users can only view their own bookings unless they are staff or admin.",
+        "operationId": "getBookingById",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Booking ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Booking"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "description": "Forbidden - Cannot view other users' bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Access denied. You can only view your own bookings."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Booking not found"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1354,6 +1591,230 @@
             "type": "string",
             "format": "date-time",
             "readOnly": true
+          }
+        }
+      },
+      "Booking": {
+        "type": "object",
+        "description": "Booking model schema",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "readOnly": true,
+            "description": "Auto-generated booking ID"
+          },
+          "userId": {
+            "type": "integer",
+            "description": "ID of the user who created the booking"
+          },
+          "resourceType": {
+            "type": "string",
+            "enum": ["equipment", "room"],
+            "description": "Type of resource being booked"
+          },
+          "resourceId": {
+            "type": "integer",
+            "description": "ID of the equipment or room being booked"
+          },
+          "bookingType": {
+            "type": "string",
+            "enum": ["pencil", "firm"],
+            "description": "Pencil = tentative (can overlap), Firm = confirmed (no overlaps allowed)"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["penciled", "confirmed", "contested", "approved", "denied", "cancelled", "expired"],
+            "description": "Current booking status"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Booking start date and time (ISO 8601)"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Booking end date and time (ISO 8601)"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "Reason for booking (optional)"
+          },
+          "authorizationDocUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Cloudinary URL for authorization letter (optional)"
+          },
+          "expiryAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Auto-expiry timestamp for pencil bookings (3 days from creation)"
+          },
+          "user": {
+            "type": "object",
+            "description": "User who created the booking (populated via association)",
+            "properties": {
+              "id": {
+                "type": "integer"
+              },
+              "email": {
+                "type": "string"
+              },
+              "accountType": {
+                "type": "string"
+              },
+              "userCategory": {
+                "type": "string"
+              }
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        }
+      },
+      "CreateBookingRequest": {
+        "type": "object",
+        "required": ["resourceType", "resourceId", "bookingType", "startTime", "endTime"],
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "enum": ["equipment", "room"],
+            "description": "Type of resource to book"
+          },
+          "resourceId": {
+            "type": "integer",
+            "description": "ID of the equipment or room"
+          },
+          "bookingType": {
+            "type": "string",
+            "enum": ["pencil", "firm"],
+            "description": "Booking type (pencil = tentative, firm = confirmed)"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Booking start time (ISO 8601 format)",
+            "example": "2026-04-10T09:00:00.000Z"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Booking end time (ISO 8601 format)",
+            "example": "2026-04-10T12:00:00.000Z"
+          },
+          "purpose": {
+            "type": "string",
+            "description": "Reason for booking (optional)",
+            "example": "Research experiment for plant tissue culture"
+          },
+          "authorizationDocUrl": {
+            "type": "string",
+            "format": "uri",
+            "description": "Cloudinary URL for authorization letter (optional)"
+          }
+        }
+      },
+      "CreateBookingResponse": {
+        "type": "object",
+        "properties": {
+          "booking": {
+            "$ref": "#/components/schemas/Booking"
+          },
+          "message": {
+            "type": "string",
+            "description": "Success message or conflict warning",
+            "example": "Booking created successfully"
+          },
+          "conflicts": {
+            "type": "array",
+            "description": "Array of conflicting bookings (only present if status is 'contested')",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "bookingType": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "startTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "email": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "BookingConflictResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "example": "Firm booking conflicts with existing bookings"
+          },
+          "conflicts": {
+            "type": "array",
+            "description": "List of conflicting bookings",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "bookingType": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "startTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "email": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }

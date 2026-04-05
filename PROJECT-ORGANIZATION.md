@@ -49,6 +49,7 @@ PTCF Project/
 │   ├── config/                  # Database configuration
 │   ├── controllers/             # Route controllers
 │   │   ├── auth.controller.js   # Auth endpoints (register, login)
+│   │   ├── booking.controller.js    # Booking CRUD + conflict detection
 │   │   ├── equipment.controller.js  # Equipment CRUD operations
 │   │   └── room.controller.js   # Room CRUD operations
 │   ├── docs/                    # Documentation & dev utilities
@@ -60,6 +61,7 @@ PTCF Project/
 │   ├── models/                  # Sequelize models
 │   ├── routes/                  # API routes
 │   │   ├── auth.routes.js       # Auth routes
+│   │   ├── booking.routes.js    # Booking routes
 │   │   ├── equipment.routes.js  # Equipment routes
 │   │   └── room.routes.js       # Room routes
 │   ├── seeders/                 # Database seed data
@@ -132,6 +134,7 @@ npm run test:milestone-2    # Auth module verification
 npm run test:milestone-3    # Equipment & Room CRUD endpoints
 npm run test:milestone-4    # Frontend setup (React Router, Axios, Tailwind, Auth pages)
 npm run test:milestone-5    # Equipment & Room listing pages with staff management
+npm run test:milestone-6    # Booking system backend (pencil/firm bookings, conflict detection)
 
 # Run all milestone tests
 npm run test:all
@@ -175,6 +178,15 @@ npm run test:all
 ### Seeded Rooms
 - Culture Room A (capacity: 8)
 - Preparation Room (capacity: 4)
+
+### Seeded Bookings
+- 6 demo bookings with various scenarios:
+  - Pencil booking for equipment (student)
+  - Firm booking for room (staff)
+  - Contested pencil bookings (overlapping on same equipment)
+  - Mix of users (student, staff, admin)
+  - Mix of resources (equipment and rooms)
+  - Future dates for all bookings
 
 ## Notes
 

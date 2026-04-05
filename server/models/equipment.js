@@ -10,7 +10,7 @@ module.exports = (sequelize, DataTypes) => {
      * The `models/index` file will call this method automatically.
      */
     static associate(models) {
-      // define association here
+      // Polymorphic relationship with Bookings (via resourceType='equipment' and resourceId)
     }
   }
   Equipment.init({

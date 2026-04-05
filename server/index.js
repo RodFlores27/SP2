@@ -19,10 +19,12 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 const authRoutes = require('./routes/auth.routes');
 const equipmentRoutes = require('./routes/equipment.routes');
 const roomRoutes = require('./routes/room.routes');
+const bookingRoutes = require('./routes/booking.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PTCF server is running' });

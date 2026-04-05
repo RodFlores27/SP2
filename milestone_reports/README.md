@@ -97,3 +97,23 @@ These reports serve as:
 - Role-based UI rendering (staff management controls)
 - Multipart/form-data image upload utility
 - Backend route updates (public listing endpoints)
+
+### Milestone 6: Booking System Backend
+**File:** `MILESTONE-6-COMPLETION-REPORT.md`  
+**Status:** ✅ Complete  
+**Date:** April 5, 2026  
+**Deliverables:**
+- Bookings table migration with schema (userId, resourceType, resourceId, bookingType, status, startTime, endTime, purpose, authorizationDocUrl, expiryAt)
+- Database indexes for efficient conflict detection queries
+- Booking Sequelize model with associations (User ↔ Booking)
+- Conflict detection algorithm for overlapping time slots
+- Booking controller (createBooking, getAllBookings, getBookingById)
+- Pencil vs Firm booking logic (pencil can overlap → contested, firm cannot overlap → 409)
+- Auto-expiry for pencil bookings (3 days from creation)
+- Role-based access control (users see own bookings, staff see all)
+- Query filtering by status and resourceType
+- Validation rules (required fields, date ranges, resource existence, past bookings)
+- Booking routes registered in server (/api/bookings)
+- Demo booking seed data (6 bookings including contested scenarios)
+- Swagger API documentation updated (3 endpoints, 4 schemas)
+- Verification test script (16 automated test scenarios)

@@ -155,6 +155,46 @@ node milestone_tests/milestone-{number}-{description}.js
 - React Router navigation
 - Integrated staff management UI
 
+### Milestone 6: Booking System Backend
+**File:** `milestone-6-booking-backend.js`  
+**Tests:**
+- User authentication (student, staff, admin)
+- Create pencil booking for equipment (with auto-expiry)
+- Create firm booking for room (without expiry)
+- Conflict detection for overlapping pencil bookings (contested status)
+- Conflict detection for overlapping firm bookings (409 rejection)
+- Validation: missing required fields (400 error)
+- Validation: invalid date range (endTime before startTime)
+- Validation: booking in the past (400 error)
+- Validation: non-existent resource (404 error)
+- Get all bookings (student sees own, staff sees all)
+- Get booking by ID (owner access)
+- Get booking by ID (unauthorized access blocked with 403)
+- Get booking by ID (staff can view any booking)
+- Filter bookings by status query parameter
+- Filter bookings by resourceType query parameter
+
+**Test Coverage:**
+- 16 automated test scenarios
+- All CRUD operations for bookings
+- Conflict detection algorithm verification
+- Pencil vs Firm booking logic
+- Role-based access control (users vs staff)
+- Query parameter filtering
+- Association loading (user details)
+- Validation rules enforcement
+
+**Technologies Verified:**
+- Sequelize model with associations
+- Polymorphic relationships (resourceType + resourceId)
+- Conflict detection with time range queries
+- Database indexes for performance
+- Role-based query filtering
+- Auto-expiry logic for pencil bookings
+- JWT authentication and authorization
+
+**Note:** Server must be running on `http://localhost:4000` before executing tests.
+
 ## Notes
 
 - Tests use axios for HTTP requests
