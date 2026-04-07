@@ -117,3 +117,29 @@ These reports serve as:
 - Demo booking seed data (6 bookings including contested scenarios)
 - Swagger API documentation updated (3 endpoints, 4 schemas)
 - Verification test script (16 automated test scenarios)
+
+### Milestone 7: Booking Lifecycle & Staff Approval Endpoints
+**File:** `MILESTONE-7-COMPLETION-REPORT.md`  
+**Status:** ✅ Complete  
+**Date:** April 6, 2026  
+**Deliverables:**
+- Database migration: Added staffRemark field and pending_approval status
+- Booking model updated with new fields
+- Cancel booking endpoint (PATCH /api/bookings/:id/cancel)
+  - Business rules: Cannot cancel approved bookings, within 24 hours of start
+  - Authorization: User owns booking OR staff/admin
+- Convert pencil to firm endpoint (PATCH /api/bookings/:id/convert-to-firm)
+  - Required authorization document upload via Cloudinary
+  - Conflict re-checking (Option A: prevents overlaps)
+  - Sets status to pending_approval
+  - Clears expiryAt for firm bookings
+- Staff approve booking endpoint (PATCH /api/bookings/:id/approve)
+  - Staff/admin only
+  - Optional staffRemark field
+- Staff deny booking endpoint (PATCH /api/bookings/:id/deny)
+  - Staff/admin only
+  - Optional staffRemark field
+- Multer middleware for document uploads (PDF, DOC, DOCX, JPG, PNG, 5MB limit)
+- Cloudinary integration for authorization documents (ptcf/authorization-docs folder)
+- Swagger documentation updated (4 new endpoints, updated schemas)
+- Verification test script (20 automated test scenarios)

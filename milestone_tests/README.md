@@ -195,6 +195,40 @@ node milestone_tests/milestone-{number}-{description}.js
 
 **Note:** Server must be running on `http://localhost:4000` before executing tests.
 
+### Milestone 7: Booking Lifecycle & Staff Approval Endpoints
+**File:** `milestone-7-booking-lifecycle.js`  
+**Tests:**
+- User booking cancellation (own bookings, staff can cancel any)
+- Cancel restrictions (cannot cancel approved, within 24 hours)
+- Convert pencil to firm with authorization document upload
+- Document upload requirement validation
+- Conflict re-checking during conversion (409 if overlaps exist)
+- Authorization checks (can only convert own bookings)
+- Staff approve booking with optional staffRemark
+- Staff deny booking with optional staffRemark
+- Role-based access control (403 for regular users on approve/deny)
+- Status validation (cannot approve already approved, etc.)
+- staffRemark persistence in database
+
+**Test Coverage:**
+- 20 automated test scenarios
+- All 4 new PATCH endpoints
+- Cloudinary document upload integration
+- Conflict detection algorithm verification
+- Business rule enforcement (24-hour rule, approved booking protection)
+- Role-based authorization (user vs staff)
+- Database field updates (staffRemark, status, bookingType, authorizationDocUrl, expiryAt)
+
+**Technologies Verified:**
+- Multer multipart/form-data file upload
+- Cloudinary secure document storage
+- JWT authentication and role-based authorization
+- Sequelize model updates and associations
+- Conflict detection with time range queries
+- Business logic enforcement
+
+**Note:** Test creates temporary files for document upload testing. Files are automatically cleaned up after tests complete.
+
 ## Notes
 
 - Tests use axios for HTTP requests

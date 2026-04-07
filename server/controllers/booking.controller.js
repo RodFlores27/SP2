@@ -1,5 +1,8 @@
 const { Booking, User, Equipment, Room } = require('../models');
 const { Op } = require('sequelize');
+const { uploadToCloudinary } = require('../utils/cloudinary');
+
+const getUserAccountType = (req) => req.user?.accountType || req.user?.role;
 
 const createBooking = async (req, res) => {
   try {
@@ -77,7 +80,12 @@ const createBooking = async (req, res) => {
       ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
       : null;
 
-    const status = conflicts.length > 0 ? 'contested' : 'penciled';
+    let status = 'penciled';
+    if (conflicts.length > 0) {
+      status = 'contested';
+    } else if (bookingType === 'firm') {
+      status = 'confirmed';
+    }
 
     const booking = await Booking.create({
       userId,
@@ -131,7 +139,7 @@ const createBooking = async (req, res) => {
 const getAllBookings = async (req, res) => {
   try {
     const userId = req.user.id;
-    const userAccountType = req.user.accountType;
+    const userAccountType = getUserAccountType(req);
     const { status, resourceType } = req.query;
 
     const whereClause = {};
@@ -172,7 +180,7 @@ const getBookingById = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-    const userAccountType = req.user.accountType;
+    const userAccountType = getUserAccountType(req);
 
     const booking = await Booking.findByPk(id, {
       include: [{
@@ -199,8 +207,246 @@ const getBookingById = async (req, res) => {
   }
 };
 
+const cancelBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+    const userAccountType = getUserAccountType(req);
+
+    const booking = await Booking.findByPk(id, {
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email', 'accountType', 'userCategory']
+      }]
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (booking.userId !== userId && 
+        userAccountType !== 'ptcf_staff' && 
+        userAccountType !== 'system_admin') {
+      return res.status(403).json({ error: 'Access denied. You can only cancel your own bookings.' });
+    }
+
+    if (['cancelled', 'denied', 'expired'].includes(booking.status)) {
+      return res.status(400).json({ error: `Booking is already ${booking.status}` });
+    }
+
+    const now = new Date();
+    const startTime = new Date(booking.startTime);
+    const hoursUntilStart = (startTime - now) / (1000 * 60 * 60);
+
+    if (hoursUntilStart < 24) {
+      return res.status(400).json({ 
+        error: 'Cannot cancel booking within 24 hours of start time',
+        hoursUntilStart: hoursUntilStart.toFixed(2)
+      });
+    }
+
+    booking.status = 'cancelled';
+    await booking.save();
+
+    res.json({
+      message: 'Booking cancelled successfully',
+      booking
+    });
+  } catch (error) {
+    console.error('Error cancelling booking:', error);
+    res.status(500).json({ error: 'Failed to cancel booking' });
+  }
+};
+
+const convertToFirm = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    if (!req.file) {
+      return res.status(400).json({ 
+        error: 'Authorization document is required when converting to firm booking' 
+      });
+    }
+
+    const booking = await Booking.findByPk(id, {
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email', 'accountType', 'userCategory']
+      }]
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (booking.userId !== userId) {
+      return res.status(403).json({ error: 'Access denied. You can only convert your own bookings.' });
+    }
+
+    if (booking.bookingType === 'firm') {
+      return res.status(400).json({ error: 'Booking is already a firm booking' });
+    }
+
+    if (['cancelled', 'denied', 'expired'].includes(booking.status)) {
+      return res.status(400).json({ 
+        error: `Cannot convert ${booking.status} booking to firm` 
+      });
+    }
+
+    const conflicts = await Booking.findConflicts(
+      booking.resourceType, 
+      booking.resourceId, 
+      booking.startTime, 
+      booking.endTime,
+      booking.id
+    );
+
+    if (conflicts.length > 0) {
+      return res.status(409).json({
+        error: 'Cannot convert to firm booking due to conflicts with existing bookings',
+        conflicts: conflicts.map(c => ({
+          id: c.id,
+          bookingType: c.bookingType,
+          status: c.status,
+          startTime: c.startTime,
+          endTime: c.endTime,
+          user: {
+            id: c.user.id,
+            email: c.user.email
+          }
+        }))
+      });
+    }
+
+    const authDocUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/authorization-docs');
+
+    booking.bookingType = 'firm';
+    booking.status = 'pending_approval';
+    booking.authorizationDocUrl = authDocUrl;
+    booking.expiryAt = null;
+    await booking.save();
+
+    const updatedBooking = await Booking.findByPk(booking.id, {
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email', 'accountType', 'userCategory']
+      }]
+    });
+
+    res.json({
+      message: 'Booking converted to firm successfully. Awaiting staff approval.',
+      booking: updatedBooking
+    });
+  } catch (error) {
+    console.error('Error converting booking to firm:', error);
+    res.status(500).json({ error: 'Failed to convert booking to firm' });
+  }
+};
+
+const approveBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { staffRemark } = req.body;
+
+    const booking = await Booking.findByPk(id, {
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email', 'accountType', 'userCategory']
+      }]
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (!['pending_approval', 'contested'].includes(booking.status)) {
+      return res.status(400).json({ 
+        error: `Cannot approve booking with status: ${booking.status}. Only pending_approval or contested bookings can be approved.` 
+      });
+    }
+
+    booking.status = 'approved';
+    if (staffRemark) {
+      booking.staffRemark = staffRemark;
+    }
+    await booking.save();
+
+    const updatedBooking = await Booking.findByPk(booking.id, {
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email', 'accountType', 'userCategory']
+      }]
+    });
+
+    res.json({
+      message: 'Booking approved successfully',
+      booking: updatedBooking
+    });
+  } catch (error) {
+    console.error('Error approving booking:', error);
+    res.status(500).json({ error: 'Failed to approve booking' });
+  }
+};
+
+const denyBooking = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { staffRemark } = req.body;
+
+    const booking = await Booking.findByPk(id, {
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email', 'accountType', 'userCategory']
+      }]
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    if (['denied', 'cancelled', 'expired'].includes(booking.status)) {
+      return res.status(400).json({ 
+        error: `Booking is already ${booking.status}` 
+      });
+    }
+
+    booking.status = 'denied';
+    if (staffRemark) {
+      booking.staffRemark = staffRemark;
+    }
+    await booking.save();
+
+    const updatedBooking = await Booking.findByPk(booking.id, {
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email', 'accountType', 'userCategory']
+      }]
+    });
+
+    res.json({
+      message: 'Booking denied',
+      booking: updatedBooking
+    });
+  } catch (error) {
+    console.error('Error denying booking:', error);
+    res.status(500).json({ error: 'Failed to deny booking' });
+  }
+};
+
 module.exports = {
   createBooking,
   getAllBookings,
-  getBookingById
+  getBookingById,
+  cancelBooking,
+  convertToFirm,
+  approveBooking,
+  denyBooking
 };

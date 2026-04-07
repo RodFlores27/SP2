@@ -2,6 +2,8 @@ const axios = require('axios');
 const { checkServerHealth } = require('./utils/test-helpers');
 
 const BASE_URL = 'http://localhost:4000/api';
+const RUN_ID = Date.now();
+const RUN_DAY_BASE = 120 + (Math.floor(RUN_ID / 1000) % 5000);
 
 let studentToken = '';
 let staffToken = '';
@@ -9,6 +11,48 @@ let adminToken = '';
 let studentUserId = null;
 let testBookingId = null;
 let conflictedBookingId = null;
+let equipmentIds = [];
+let roomIds = [];
+
+function equipmentId(index = 0) {
+  return equipmentIds[index % equipmentIds.length];
+}
+
+function roomId(index = 0) {
+  return roomIds[index % roomIds.length];
+}
+
+async function resolveResources() {
+  console.log('\n--- Setup: Resolving Equipment/Room IDs ---');
+
+  const [equipmentResponse, roomResponse] = await Promise.all([
+    axios.get(`${BASE_URL}/equipment`),
+    axios.get(`${BASE_URL}/rooms`),
+  ]);
+
+  equipmentIds = (equipmentResponse.data || []).map(item => item.id).filter(Boolean);
+  roomIds = (roomResponse.data || []).map(item => item.id).filter(Boolean);
+
+  if (equipmentIds.length === 0 || roomIds.length === 0) {
+    throw new Error(
+      `Missing seed resources. Equipment found: ${equipmentIds.length}, Rooms found: ${roomIds.length}.`
+    );
+  }
+
+  console.log(`✅ Equipment IDs: ${equipmentIds.join(', ')}`);
+  console.log(`✅ Room IDs: ${roomIds.join(', ')}`);
+}
+
+function windowAt(dayOffset, startHour, durationHours = 2) {
+  const start = new Date();
+  start.setDate(start.getDate() + RUN_DAY_BASE + dayOffset);
+  start.setHours(startHour, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setHours(end.getHours() + durationHours);
+
+  return { start, end };
+}
 
 async function testMilestone6() {
   console.log('=== MILESTONE 6 VERIFICATION TEST ===');
@@ -50,23 +94,25 @@ async function testMilestone6() {
     return;
   }
 
+  try {
+    await resolveResources();
+  } catch (error) {
+    console.log('❌ Failed to resolve resources:', error.message);
+    return;
+  }
+
   console.log('\n--- Test 2: Create Pencil Booking (Equipment) ---');
   try {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
-    
-    const endTime = new Date(tomorrow);
-    endTime.setHours(12, 0, 0, 0);
+    const { start, end } = windowAt(1, 10, 2);
 
     const response = await axios.post(
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
-        resourceId: 1,
+        resourceId: equipmentId(0),
         bookingType: 'pencil',
-        startTime: tomorrow.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
         purpose: 'Test pencil booking for equipment'
       },
       {
@@ -75,31 +121,34 @@ async function testMilestone6() {
     );
 
     testBookingId = response.data.booking.id;
+    if (response.data.booking.status !== 'penciled') {
+      throw new Error(`Expected status "penciled" for pencil booking, got "${response.data.booking.status}"`);
+    }
+    if (!response.data.booking.expiryAt) {
+      throw new Error('Expected expiryAt to be set for pencil booking');
+    }
+
     console.log('✅ Pencil booking created successfully');
     console.log(`   Booking ID: ${testBookingId}`);
     console.log(`   Status: ${response.data.booking.status}`);
     console.log(`   Expiry: ${response.data.booking.expiryAt ? 'Set (3 days)' : 'None'}`);
   } catch (error) {
     console.log('❌ Failed to create pencil booking:', error.response?.data || error.message);
+    throw error;
   }
 
   console.log('\n--- Test 3: Create Firm Booking (Room) ---');
   try {
-    const twoDaysLater = new Date();
-    twoDaysLater.setDate(twoDaysLater.getDate() + 2);
-    twoDaysLater.setHours(14, 0, 0, 0);
-    
-    const endTime = new Date(twoDaysLater);
-    endTime.setHours(17, 0, 0, 0);
+    const { start, end } = windowAt(2, 14, 3);
 
     const response = await axios.post(
       `${BASE_URL}/bookings`,
       {
         resourceType: 'room',
-        resourceId: 1,
+        resourceId: roomId(0),
         bookingType: 'firm',
-        startTime: twoDaysLater.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
         purpose: 'Test firm booking for room',
         authorizationDocUrl: 'https://res.cloudinary.com/demo/test.pdf'
       },
@@ -108,31 +157,34 @@ async function testMilestone6() {
       }
     );
 
+    if (response.data.booking.status !== 'confirmed') {
+      throw new Error(`Expected status "confirmed" for firm booking, got "${response.data.booking.status}"`);
+    }
+    if (response.data.booking.expiryAt) {
+      throw new Error('Expected expiryAt to be null for firm booking');
+    }
+
     console.log('✅ Firm booking created successfully');
     console.log(`   Booking ID: ${response.data.booking.id}`);
     console.log(`   Status: ${response.data.booking.status}`);
     console.log(`   Expiry: ${response.data.booking.expiryAt ? 'Set' : 'None (firm booking)'}`);
   } catch (error) {
     console.log('❌ Failed to create firm booking:', error.response?.data || error.message);
+    throw error;
   }
 
   console.log('\n--- Test 4: Conflict Detection - Overlapping Pencil Booking (Contested) ---');
   try {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(11, 0, 0, 0);
-    
-    const endTime = new Date(tomorrow);
-    endTime.setHours(13, 0, 0, 0);
+    const { start, end } = windowAt(1, 11, 2);
 
     const response = await axios.post(
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
-        resourceId: 1,
+        resourceId: equipmentId(0),
         bookingType: 'pencil',
-        startTime: tomorrow.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
         purpose: 'Overlapping pencil booking to test conflict detection'
       },
       {
@@ -150,29 +202,27 @@ async function testMilestone6() {
         console.log(`   Conflicting with booking ID: ${response.data.conflicts[0].id}`);
       }
     } else {
-      console.log('⚠️  Warning: Expected status "contested" but got:', response.data.booking.status);
+      throw new Error(`Expected status "contested" for overlapping pencil booking, got "${response.data.booking.status}"`);
     }
   } catch (error) {
     console.log('❌ Failed to create overlapping pencil booking:', error.response?.data || error.message);
+    throw error;
   }
 
   console.log('\n--- Test 5: Conflict Detection - Overlapping Firm Booking (Rejected) ---');
   try {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(11, 30, 0, 0);
-    
-    const endTime = new Date(tomorrow);
-    endTime.setHours(12, 30, 0, 0);
+    const { start, end } = windowAt(1, 11, 1);
+    start.setMinutes(30);
+    end.setMinutes(30);
 
     await axios.post(
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
-        resourceId: 1,
+        resourceId: equipmentId(0),
         bookingType: 'firm',
-        startTime: tomorrow.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
         purpose: 'This firm booking should be rejected due to conflicts'
       },
       {
@@ -187,6 +237,7 @@ async function testMilestone6() {
       console.log(`   Conflicts detected: ${error.response.data.conflicts?.length || 0}`);
     } else {
       console.log('❌ Unexpected error:', error.response?.data || error.message);
+      throw error;
     }
   }
 
@@ -213,21 +264,17 @@ async function testMilestone6() {
 
   console.log('\n--- Test 7: Validation - Invalid Date Range ---');
   try {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(14, 0, 0, 0);
-    
-    const endTime = new Date(tomorrow);
-    endTime.setHours(10, 0, 0, 0);
+    const { start, end } = windowAt(10, 14, 2);
+    end.setHours(10, 0, 0, 0);
 
     await axios.post(
       `${BASE_URL}/bookings`,
       {
         resourceType: 'room',
-        resourceId: 1,
+        resourceId: roomId(0),
         bookingType: 'pencil',
-        startTime: tomorrow.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
         purpose: 'Invalid date range test'
       },
       {
@@ -277,12 +324,7 @@ async function testMilestone6() {
 
   console.log('\n--- Test 9: Validation - Non-existent Resource ---');
   try {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
-    
-    const endTime = new Date(tomorrow);
-    endTime.setHours(12, 0, 0, 0);
+    const { start, end } = windowAt(12, 10, 2);
 
     await axios.post(
       `${BASE_URL}/bookings`,
@@ -290,8 +332,8 @@ async function testMilestone6() {
         resourceType: 'equipment',
         resourceId: 9999,
         bookingType: 'pencil',
-        startTime: tomorrow.toISOString(),
-        endTime: endTime.toISOString(),
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
         purpose: 'Non-existent resource test'
       },
       {
@@ -408,9 +450,12 @@ async function testMilestone6() {
     const allContested = response.data.every(b => b.status === 'contested');
     if (allContested) {
       console.log('✅ All returned bookings have status "contested"');
+    } else {
+      throw new Error('Status filter returned non-contested bookings');
     }
   } catch (error) {
     console.log('❌ Failed to filter bookings:', error.response?.data || error.message);
+    throw error;
   }
 
   console.log('\n--- Test 16: Filter Bookings by Resource Type ---');
@@ -425,9 +470,12 @@ async function testMilestone6() {
     const allEquipment = response.data.every(b => b.resourceType === 'equipment');
     if (allEquipment) {
       console.log('✅ All returned bookings are for equipment');
+    } else {
+      throw new Error('Resource type filter returned non-equipment bookings');
     }
   } catch (error) {
     console.log('❌ Failed to filter bookings:', error.response?.data || error.message);
+    throw error;
   }
 
   console.log('\n=== TEST SUMMARY ===');

@@ -10,7 +10,8 @@
     "test:milestone-4": "node milestone_tests/milestone-4-frontend-setup.js",
     "test:milestone-5": "node milestone_tests/milestone-5-listing-pages.js",
     "test:milestone-6": "node milestone_tests/milestone-6-booking-backend.js",
-    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3 && npm run test:milestone-4 && npm run test:milestone-5 && npm run test:milestone-6"
+    "test:milestone-7": "node milestone_tests/milestone-7-booking-lifecycle.js",
+    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3 && npm run test:milestone-4 && npm run test:milestone-5 && npm run test:milestone-6 && npm run test:milestone-7"
   },
   "repository": {
     "type": "git",

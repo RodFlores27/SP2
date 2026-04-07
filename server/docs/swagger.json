@@ -1228,7 +1228,7 @@
             "description": "Filter by booking status",
             "schema": {
               "type": "string",
-              "enum": ["penciled", "confirmed", "contested", "approved", "denied", "cancelled", "expired"]
+              "enum": ["penciled", "confirmed", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"]
             }
           },
           {
@@ -1310,6 +1310,440 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Booking not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bookings/{id}/cancel": {
+      "patch": {
+        "tags": ["Bookings"],
+        "summary": "Cancel a booking",
+        "description": "Cancels a booking. Users can cancel their own bookings (including approved bookings), staff can cancel any booking. Cannot cancel bookings within 24 hours of start time.",
+        "operationId": "cancelBooking",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Booking ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Booking cancelled successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Booking cancelled successfully"
+                    },
+                    "booking": {
+                      "$ref": "#/components/schemas/Booking"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Cannot cancel booking",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "alreadyCancelled": {
+                    "value": {
+                      "error": "Booking is already cancelled"
+                    }
+                  },
+                  "tooLate": {
+                    "value": {
+                      "error": "Cannot cancel booking within 24 hours of start time",
+                      "hoursUntilStart": "12.50"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "description": "Forbidden - Cannot cancel other users' bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Access denied. You can only cancel your own bookings."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Booking not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bookings/{id}/convert-to-firm": {
+      "patch": {
+        "tags": ["Bookings"],
+        "summary": "Convert pencil booking to firm",
+        "description": "Converts a pencil booking to firm with required authorization document upload. Re-checks for conflicts before conversion. Sets status to 'pending_approval' awaiting staff review.",
+        "operationId": "convertToFirm",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Booking ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["authorizationDoc"],
+                "properties": {
+                  "authorizationDoc": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Authorization document (PDF, DOC, DOCX, JPG, or PNG, max 5MB)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking converted to firm successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Booking converted to firm successfully. Awaiting staff approval."
+                    },
+                    "booking": {
+                      "$ref": "#/components/schemas/Booking"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "missingDoc": {
+                    "value": {
+                      "error": "Authorization document is required when converting to firm booking"
+                    }
+                  },
+                  "alreadyFirm": {
+                    "value": {
+                      "error": "Booking is already a firm booking"
+                    }
+                  },
+                  "invalidStatus": {
+                    "value": {
+                      "error": "Cannot convert cancelled booking to firm"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "description": "Forbidden - Cannot convert other users' bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Access denied. You can only convert your own bookings."
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Booking not found"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict - Cannot convert due to overlapping bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingConflictResponse"
+                },
+                "example": {
+                  "error": "Cannot convert to firm booking due to conflicts with existing bookings",
+                  "conflicts": [
+                    {
+                      "id": 5,
+                      "bookingType": "pencil",
+                      "status": "penciled",
+                      "startTime": "2026-04-10T10:00:00.000Z",
+                      "endTime": "2026-04-10T13:00:00.000Z",
+                      "user": {
+                        "id": 2,
+                        "email": "staff@uplb.edu.ph"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bookings/{id}/approve": {
+      "patch": {
+        "tags": ["Bookings"],
+        "summary": "Approve a booking (Staff only)",
+        "description": "Approves a booking that is pending approval or contested. Only staff and admin can approve bookings. Optional staff remark can be included.",
+        "operationId": "approveBooking",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Booking ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "staffRemark": {
+                    "type": "string",
+                    "description": "Optional comment from staff",
+                    "example": "Approved for research purposes. Please ensure proper safety protocols."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking approved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Booking approved successfully"
+                    },
+                    "booking": {
+                      "$ref": "#/components/schemas/Booking"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Cannot approve booking",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Cannot approve booking with status: approved. Only pending_approval or contested bookings can be approved."
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Booking not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/bookings/{id}/deny": {
+      "patch": {
+        "tags": ["Bookings"],
+        "summary": "Deny a booking (Staff only)",
+        "description": "Denies a booking. Only staff and admin can deny bookings. Optional staff remark can be included to explain the denial reason.",
+        "operationId": "denyBooking",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Booking ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "staffRemark": {
+                    "type": "string",
+                    "description": "Optional comment from staff explaining denial reason",
+                    "example": "Equipment is scheduled for maintenance during this period."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Booking denied",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "type": "string",
+                      "example": "Booking denied"
+                    },
+                    "booking": {
+                      "$ref": "#/components/schemas/Booking"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Booking already denied/cancelled/expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Booking is already denied"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
           },
           "404": {
             "description": "Booking not found",
@@ -1623,7 +2057,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["penciled", "confirmed", "contested", "approved", "denied", "cancelled", "expired"],
+            "enum": ["penciled", "confirmed", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"],
             "description": "Current booking status"
           },
           "startTime": {
@@ -1644,6 +2078,10 @@
             "type": "string",
             "format": "uri",
             "description": "Cloudinary URL for authorization letter (optional)"
+          },
+          "staffRemark": {
+            "type": "string",
+            "description": "Staff comment when approving or denying a booking (optional)"
           },
           "expiryAt": {
             "type": "string",

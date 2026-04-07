@@ -73,7 +73,7 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'pencil'
     },
     status: {
-      type: DataTypes.ENUM('penciled', 'confirmed', 'contested', 'approved', 'denied', 'cancelled', 'expired'),
+      type: DataTypes.ENUM('penciled', 'confirmed', 'contested', 'pending_approval', 'approved', 'denied', 'cancelled', 'expired'),
       allowNull: false,
       defaultValue: 'penciled'
     },
@@ -91,6 +91,10 @@ module.exports = (sequelize, DataTypes) => {
     },
     authorizationDocUrl: {
       type: DataTypes.STRING,
+      allowNull: true
+    },
+    staffRemark: {
+      type: DataTypes.TEXT,
       allowNull: true
     },
     expiryAt: {
