@@ -9,6 +9,8 @@ import EquipmentList from '@/pages/EquipmentList';
 import EquipmentDetail from '@/pages/EquipmentDetail';
 import RoomList from '@/pages/RoomList';
 import RoomDetail from '@/pages/RoomDetail';
+import Calendar from '@/pages/Calendar';
+import BookingForm from '@/pages/BookingForm';
 
 function App() {
   return (
@@ -35,6 +37,15 @@ function App() {
               element={
                 <ProtectedRoute>
                   <RoomDetail />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/calendar" element={<Calendar />} />
+            <Route
+              path="/bookings/new"
+              element={
+                <ProtectedRoute>
+                  <BookingForm />
                 </ProtectedRoute>
               }
             />

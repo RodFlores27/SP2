@@ -8,7 +8,8 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { RoomFormModal } from '@/components/RoomFormModal';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Edit, Trash2, Image as ImageIcon, MapPin, Users } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, Image as ImageIcon, MapPin, Users, Calendar as CalendarIcon, BookOpen } from 'lucide-react';
+import { BookingCalendar } from '@/components/BookingCalendar';
 
 export default function RoomDetail() {
   const { id } = useParams();
@@ -157,6 +158,17 @@ export default function RoomDetail() {
             </div>
           </div>
 
+          {user && room.status === 'available' && (
+            <div className="pt-4 border-t">
+              <Link to={`/bookings/new?resourceType=room&resourceId=${id}`}>
+                <Button className="w-full">
+                  <BookOpen className="h-4 w-4 mr-2" />
+                  Book this Room
+                </Button>
+              </Link>
+            </div>
+          )}
+
           {isStaff && (
             <div className="flex gap-3 pt-6 border-t">
               <Button onClick={handleEdit} className="flex-1">
@@ -169,6 +181,29 @@ export default function RoomDetail() {
               </Button>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle className="flex items-center gap-2">
+              <CalendarIcon className="h-5 w-5" />
+              Availability Calendar
+            </CardTitle>
+            <Link to="/calendar">
+              <Button variant="outline" size="sm">
+                View Full Calendar
+              </Button>
+            </Link>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <BookingCalendar
+            resourceType="room"
+            resourceId={parseInt(id, 10)}
+            height={400}
+          />
         </CardContent>
       </Card>
 

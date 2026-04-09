@@ -38,6 +38,20 @@ export function Navigation() {
               >
                 Rooms
               </Link>
+              <Link
+                to="/calendar"
+                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+              >
+                Calendar
+              </Link>
+              {isAuthenticated && (
+                <Link
+                  to="/bookings/new"
+                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+                >
+                  Book Now
+                </Link>
+              )}
               {isAuthenticated && (
                 <Link
                   to="/dashboard"
@@ -103,6 +117,22 @@ export function Navigation() {
             >
               Rooms
             </Link>
+            <Link
+              to="/calendar"
+              className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Calendar
+            </Link>
+            {isAuthenticated && (
+              <Link
+                to="/bookings/new"
+                className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Book Now
+              </Link>
+            )}
             {isAuthenticated && (
               <Link
                 to="/dashboard"

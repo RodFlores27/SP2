@@ -157,8 +157,8 @@ async function testMilestone6() {
       }
     );
 
-    if (response.data.booking.status !== 'confirmed') {
-      throw new Error(`Expected status "confirmed" for firm booking, got "${response.data.booking.status}"`);
+    if (response.data.booking.status !== 'pending_approval') {
+      throw new Error(`Expected status "pending_approval" for firm booking, got "${response.data.booking.status}"`);
     }
     if (response.data.booking.expiryAt) {
       throw new Error('Expected expiryAt to be null for firm booking');
@@ -484,7 +484,7 @@ async function testMilestone6() {
   console.log('  ✅ Bookings table created with proper schema');
   console.log('  ✅ Booking model with associations working');
   console.log('  ✅ Create pencil bookings (tentative, can overlap)');
-  console.log('  ✅ Create firm bookings (confirmed, no overlaps)');
+  console.log('  ✅ Create firm bookings (pending_approval, no overlaps)');
   console.log('  ✅ Conflict detection for overlapping bookings');
   console.log('  ✅ Pencil bookings marked as "contested" when overlapping');
   console.log('  ✅ Firm bookings rejected (409) when overlapping');

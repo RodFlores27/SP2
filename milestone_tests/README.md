@@ -229,6 +229,68 @@ node milestone_tests/milestone-{number}-{description}.js
 
 **Note:** Test creates temporary files for document upload testing. Files are automatically cleaned up after tests complete.
 
+### Milestone 8: Calendar View & Availability API
+**File:** `milestone-8-calendar-view.js`  
+**Tests:**
+- Availability API endpoint (public, no authentication required)
+- Filter by resourceType (equipment/room)
+- Filter by specific resourceId
+- Filter by date range (startDate/endDate)
+- Verify response excludes sensitive data (userId, purpose, authorizationDocUrl)
+- Verify excluded statuses (cancelled, denied, expired)
+- Firm bookings get pending_approval status (not confirmed)
+- Invalid parameters return 400 error
+
+**Test Coverage:**
+- 11 automated test scenarios
+- Public availability endpoint verification
+- Query parameter filtering
+- Data privacy verification
+- Status model validation (confirmed status removed)
+
+**Technologies Verified:**
+- React Big Calendar integration
+- Public API endpoint (no JWT required)
+- Date range filtering with Sequelize Op
+- Calendar event styling by booking status
+
+**Note:** UI tests require manual verification in browser. The test script provides a checklist for visual testing.
+
+### Milestone 9: Booking Creation Form
+**File:** `milestone-9-booking-form.js`  
+**Tests:**
+- User authentication (student and staff login)
+- Get available equipment and rooms (for resource IDs)
+- Create pencil booking via JSON
+- Create firm booking via JSON (pending_approval status)
+- Create booking via multipart/form-data (no file)
+- Create booking with authorization document upload (Cloudinary)
+- Validation: missing required fields (400 error)
+- Validation: booking in the past (400 error)
+- Validation: non-existent resource (404 error)
+- Unauthenticated booking attempt (401 error)
+- Public equipment endpoint accessible (for form dropdown)
+- Public rooms endpoint accessible (for form dropdown)
+
+**Test Coverage:**
+- 14 automated test scenarios
+- JSON and multipart/form-data submission paths
+- File upload with Cloudinary integration
+- Client validation mirroring (type, size)
+- All HTTP status codes (201, 400, 401, 404)
+- 27-point manual UI testing checklist
+
+**Technologies Verified:**
+- React Hook Form + Zod validation
+- shadcn/ui form components (Select, Input, Button, Card)
+- URL search param prefilling (from calendar and detail pages)
+- Multer middleware on POST /bookings
+- Cloudinary document upload
+- React Router navigation (useNavigate, useSearchParams)
+- Protected routes (ProtectedRoute component)
+
+**Note:** UI tests require manual verification in browser. The test script provides a comprehensive 27-point checklist covering navigation, form fields, calendar integration, detail page buttons, and submission feedback.
+
 ## Notes
 
 - Tests use axios for HTTP requests

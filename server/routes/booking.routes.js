@@ -5,6 +5,7 @@ const {
   createBooking,
   getAllBookings,
   getBookingById,
+  getAvailability,
   cancelBooking,
   convertToFirm,
   approveBooking,
@@ -35,7 +36,9 @@ const upload = multer({
   },
 });
 
-router.post('/', authenticateToken, createBooking);
+router.get('/availability', getAvailability);
+
+router.post('/', authenticateToken, upload.single('authorizationDoc'), createBooking);
 router.get('/', authenticateToken, getAllBookings);
 router.get('/:id', authenticateToken, getBookingById);
 

@@ -6,8 +6,14 @@ const getUserAccountType = (req) => req.user?.accountType || req.user?.role;
 
 const createBooking = async (req, res) => {
   try {
-    const { resourceType, resourceId, bookingType, startTime, endTime, purpose, authorizationDocUrl } = req.body;
+    const { resourceType, resourceId, bookingType, startTime, endTime, purpose } = req.body;
     const userId = req.user.id;
+
+    // Handle optional file upload for authorization document
+    let authorizationDocUrl = req.body.authorizationDocUrl || null;
+    if (req.file) {
+      authorizationDocUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/authorization-docs');
+    }
 
     if (!resourceType || !resourceId || !bookingType || !startTime || !endTime) {
       return res.status(400).json({
@@ -84,7 +90,7 @@ const createBooking = async (req, res) => {
     if (conflicts.length > 0) {
       status = 'contested';
     } else if (bookingType === 'firm') {
-      status = 'confirmed';
+      status = 'pending_approval';
     }
 
     const booking = await Booking.create({
@@ -441,10 +447,64 @@ const denyBooking = async (req, res) => {
   }
 };
 
+const getAvailability = async (req, res) => {
+  try {
+    const { resourceType, resourceId, startDate, endDate } = req.query;
+
+    const whereClause = {
+      status: {
+        [Op.notIn]: ['cancelled', 'denied', 'expired']
+      }
+    };
+
+    if (resourceType) {
+      if (!['equipment', 'room'].includes(resourceType)) {
+        return res.status(400).json({ error: 'Invalid resourceType. Must be "equipment" or "room"' });
+      }
+      whereClause.resourceType = resourceType;
+    }
+
+    if (resourceId) {
+      whereClause.resourceId = parseInt(resourceId, 10);
+    }
+
+    if (startDate) {
+      const start = new Date(startDate);
+      if (isNaN(start.getTime())) {
+        return res.status(400).json({ error: 'Invalid startDate format' });
+      }
+      whereClause.endTime = { [Op.gte]: start };
+    }
+
+    if (endDate) {
+      const end = new Date(endDate);
+      if (isNaN(end.getTime())) {
+        return res.status(400).json({ error: 'Invalid endDate format' });
+      }
+      whereClause.startTime = { 
+        ...(whereClause.startTime || {}),
+        [Op.lte]: end 
+      };
+    }
+
+    const bookings = await Booking.findAll({
+      where: whereClause,
+      attributes: ['id', 'resourceType', 'resourceId', 'bookingType', 'status', 'startTime', 'endTime'],
+      order: [['startTime', 'ASC']]
+    });
+
+    res.json(bookings);
+  } catch (error) {
+    console.error('Error fetching availability:', error);
+    res.status(500).json({ error: 'Failed to fetch availability' });
+  }
+};
+
 module.exports = {
   createBooking,
   getAllBookings,
   getBookingById,
+  getAvailability,
   cancelBooking,
   convertToFirm,
   approveBooking,

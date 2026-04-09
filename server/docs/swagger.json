@@ -1094,6 +1094,79 @@
         }
       }
     },
+    "/bookings/availability": {
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "Get booking availability",
+        "description": "Returns bookings for calendar display. Public endpoint (no authentication required). Excludes cancelled, denied, and expired bookings. Does not include sensitive user information.",
+        "operationId": "getAvailability",
+        "parameters": [
+          {
+            "name": "resourceType",
+            "in": "query",
+            "description": "Filter by resource type",
+            "schema": {
+              "type": "string",
+              "enum": ["equipment", "room"]
+            }
+          },
+          {
+            "name": "resourceId",
+            "in": "query",
+            "description": "Filter by specific resource ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "description": "Filter bookings ending after this date (ISO 8601 format)",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2026-04-01T00:00:00.000Z"
+            }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "description": "Filter bookings starting before this date (ISO 8601 format)",
+            "schema": {
+              "type": "string",
+              "format": "date-time",
+              "example": "2026-04-30T23:59:59.000Z"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of bookings for calendar display",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AvailabilityBooking"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - Invalid parameters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bookings": {
       "post": {
         "tags": ["Bookings"],
@@ -1134,6 +1207,47 @@
                     "endTime": "2026-04-12T18:00:00.000Z",
                     "purpose": "Lab session for CMSC 190 students",
                     "authorizationDocUrl": "https://res.cloudinary.com/demo/authorization.pdf"
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["resourceType", "resourceId", "bookingType", "startTime", "endTime"],
+                "properties": {
+                  "resourceType": {
+                    "type": "string",
+                    "enum": ["equipment", "room"],
+                    "description": "Type of resource to book"
+                  },
+                  "resourceId": {
+                    "type": "integer",
+                    "description": "ID of the equipment or room"
+                  },
+                  "bookingType": {
+                    "type": "string",
+                    "enum": ["pencil", "firm"],
+                    "description": "Booking type (pencil = tentative, firm = confirmed)"
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Booking start time (ISO 8601 format)"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time",
+                    "description": "Booking end time (ISO 8601 format)"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "description": "Reason for booking (optional)"
+                  },
+                  "authorizationDoc": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Authorization document file (optional, PDF/DOC/DOCX/JPG/PNG, max 5MB). Uploaded to Cloudinary."
                   }
                 }
               }
@@ -1228,7 +1342,7 @@
             "description": "Filter by booking status",
             "schema": {
               "type": "string",
-              "enum": ["penciled", "confirmed", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"]
+              "enum": ["penciled", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"]
             }
           },
           {
@@ -2057,7 +2171,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["penciled", "confirmed", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"],
+            "enum": ["penciled", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"],
             "description": "Current booking status"
           },
           "startTime": {
@@ -2115,6 +2229,45 @@
             "type": "string",
             "format": "date-time",
             "readOnly": true
+          }
+        }
+      },
+      "AvailabilityBooking": {
+        "type": "object",
+        "description": "Simplified booking schema for calendar availability display (no sensitive data)",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Booking ID"
+          },
+          "resourceType": {
+            "type": "string",
+            "enum": ["equipment", "room"],
+            "description": "Type of resource"
+          },
+          "resourceId": {
+            "type": "integer",
+            "description": "ID of the resource"
+          },
+          "bookingType": {
+            "type": "string",
+            "enum": ["pencil", "firm"],
+            "description": "Booking type"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["penciled", "contested", "pending_approval", "approved"],
+            "description": "Booking status (excludes cancelled, denied, expired)"
+          },
+          "startTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Booking start time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Booking end time"
           }
         }
       },

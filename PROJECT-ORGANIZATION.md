@@ -16,6 +16,7 @@ PTCF Project/
 │   │   │   │   ├── input.jsx
 │   │   │   │   ├── label.jsx
 │   │   │   │   └── select.jsx
+│   │   │   ├── BookingCalendar.jsx    # React Big Calendar integration
 │   │   │   ├── ConfirmDialog.jsx      # Delete confirmation dialog
 │   │   │   ├── EquipmentFormModal.jsx # Equipment create/edit form
 │   │   │   ├── ImageUpload.jsx        # Image upload with preview
@@ -31,6 +32,8 @@ PTCF Project/
 │   │   │   ├── imageUpload.js   # Multipart/form-data upload helper
 │   │   │   └── utils.js         # cn() helper for class merging
 │   │   ├── pages/               # Page components
+│   │   │   ├── BookingForm.jsx  # Booking creation form (protected)
+│   │   │   ├── Calendar.jsx     # Calendar view with availability
 │   │   │   ├── Dashboard.jsx    # Dashboard page
 │   │   │   ├── EquipmentDetail.jsx  # Equipment detail (protected)
 │   │   │   ├── EquipmentList.jsx    # Equipment listing (public)
@@ -135,6 +138,9 @@ npm run test:milestone-3    # Equipment & Room CRUD endpoints
 npm run test:milestone-4    # Frontend setup (React Router, Axios, Tailwind, Auth pages)
 npm run test:milestone-5    # Equipment & Room listing pages with staff management
 npm run test:milestone-6    # Booking system backend (pencil/firm bookings, conflict detection)
+npm run test:milestone-7    # Booking lifecycle & staff approval endpoints
+npm run test:milestone-8    # Calendar view & availability API
+npm run test:milestone-9    # Booking creation form
 
 # Run all milestone tests
 npm run test:all

@@ -143,3 +143,39 @@ These reports serve as:
 - Cloudinary integration for authorization documents (ptcf/authorization-docs folder)
 - Swagger documentation updated (4 new endpoints, updated schemas)
 - Verification test script (20 automated test scenarios)
+
+### Milestone 8: Calendar View & Availability API
+**File:** `MILESTONE-8-COMPLETION-REPORT.md`  
+**Status:** ✅ Complete  
+**Date:** April 8, 2026  
+**Deliverables:**
+- Backend fix: Removed redundant 'confirmed' status from booking ENUM
+- All firm bookings now require staff approval (pending_approval → approved)
+- Public availability API endpoint (GET /api/bookings/availability)
+- React Big Calendar integration with date-fns localizer
+- Main calendar page (/calendar) with resource type and ID filters
+- Per-resource calendars on Equipment and Room detail pages
+- Event styling by status (approved=green, pending=yellow, penciled=gray, contested=orange)
+- Calendar link added to navigation
+- Enhanced UI/UX: today marker, current time indicator, resource names, minimized font
+- Working view switching (month, week, day, agenda) and navigation controls
+- Swagger documentation updated
+- Verification test script (16 automated scenarios + UI checklist)
+
+### Milestone 9: Booking Creation Form
+**File:** `MILESTONE-9-COMPLETION-REPORT.md`  
+**Status:** ✅ Complete  
+**Date:** April 8, 2026  
+**Deliverables:**
+- Booking creation form page at /bookings/new (React Hook Form + Zod)
+- Time slot picker (datetime-local inputs with calendar prefill)
+- Resource selector (dynamic equipment/room dropdown, available-only)
+- Booking type toggle (pencil/firm with descriptive UI cards)
+- Authorization document upload field (Cloudinary integration)
+- Backend POST /bookings enhanced to accept optional file upload via multer
+- Calendar slot-click → navigate to prefilled booking form
+- "Book this Equipment/Room" buttons on resource detail pages
+- "Book Now" navigation link (authenticated users only)
+- Success/conflict/error feedback UI
+- Swagger documentation updated (multipart/form-data support)
+- Verification test script (14 automated scenarios + 27-point UI checklist)

@@ -4,17 +4,59 @@
 module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date();
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    const twoDaysLater = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-    const threeDaysLater = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-    const fourDaysLater = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
-    const fiveDaysLater = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000);
+    
+    // Helper function to create date at specific time
+    const createDateAtTime = (daysFromNow, hours, minutes = 0) => {
+      const date = new Date(now);
+      date.setDate(date.getDate() + daysFromNow);
+      date.setHours(hours, minutes, 0, 0);
+      return date;
+    };
+    
+    const tomorrow = createDateAtTime(1, 9, 0); // 9:00 AM tomorrow
+    const twoDaysLater = createDateAtTime(2, 9, 0); // 9:00 AM
+    const threeDaysLater = createDateAtTime(3, 9, 0); // 9:00 AM
+    const fourDaysLater = createDateAtTime(4, 9, 0); // 9:00 AM
+    const fiveDaysLater = createDateAtTime(5, 9, 0); // 9:00 AM
+
+    // Get actual user IDs from database
+    const users = await queryInterface.sequelize.query(
+      'SELECT id, email FROM "Users" ORDER BY id ASC;',
+      { type: queryInterface.sequelize.QueryTypes.SELECT }
+    );
+    
+    const studentId = users.find(u => u.email === 'student@uplb.edu.ph')?.id;
+    const staffId = users.find(u => u.email === 'staff@uplb.edu.ph')?.id;
+    const adminId = users.find(u => u.email === 'admin@uplb.edu.ph')?.id;
+
+    if (!studentId || !staffId || !adminId) {
+      throw new Error('Required users not found. Please run initial data seeder first.');
+    }
+
+    const equipment = await queryInterface.sequelize.query(
+      'SELECT id, name FROM "Equipment" ORDER BY id ASC;',
+      { type: queryInterface.sequelize.QueryTypes.SELECT }
+    );
+
+    const rooms = await queryInterface.sequelize.query(
+      'SELECT id, name FROM "Rooms" ORDER BY id ASC;',
+      { type: queryInterface.sequelize.QueryTypes.SELECT }
+    );
+
+    const laminarFlowHoodId = equipment.find(e => e.name === 'Laminar Flow Hood')?.id;
+    const autoclaveId = equipment.find(e => e.name === 'Autoclave')?.id;
+    const cultureRoomAId = rooms.find(r => r.name === 'Culture Room A')?.id;
+    const preparationRoomId = rooms.find(r => r.name === 'Preparation Room')?.id;
+
+    if (!laminarFlowHoodId || !autoclaveId || !cultureRoomAId || !preparationRoomId) {
+      throw new Error('Required equipment/rooms not found. Please run initial data seeder first.');
+    }
 
     await queryInterface.bulkInsert('Bookings', [
       {
-        userId: 1,
+        userId: studentId,
         resourceType: 'equipment',
-        resourceId: 1,
+        resourceId: laminarFlowHoodId,
         bookingType: 'pencil',
         status: 'penciled',
         startTime: tomorrow,
@@ -26,11 +68,11 @@ module.exports = {
         updatedAt: now
       },
       {
-        userId: 2,
+        userId: staffId,
         resourceType: 'room',
-        resourceId: 1,
+        resourceId: cultureRoomAId,
         bookingType: 'firm',
-        status: 'confirmed',
+        status: 'approved',
         startTime: twoDaysLater,
         endTime: new Date(twoDaysLater.getTime() + 4 * 60 * 60 * 1000),
         purpose: 'Lab session for CMSC 190 students',
@@ -40,9 +82,9 @@ module.exports = {
         updatedAt: now
       },
       {
-        userId: 1,
+        userId: studentId,
         resourceType: 'equipment',
-        resourceId: 2,
+        resourceId: autoclaveId,
         bookingType: 'pencil',
         status: 'contested',
         startTime: threeDaysLater,
@@ -54,9 +96,9 @@ module.exports = {
         updatedAt: now
       },
       {
-        userId: 3,
+        userId: adminId,
         resourceType: 'equipment',
-        resourceId: 2,
+        resourceId: autoclaveId,
         bookingType: 'pencil',
         status: 'contested',
         startTime: new Date(threeDaysLater.getTime() + 1 * 60 * 60 * 1000),
@@ -68,11 +110,11 @@ module.exports = {
         updatedAt: now
       },
       {
-        userId: 2,
+        userId: staffId,
         resourceType: 'room',
-        resourceId: 2,
+        resourceId: preparationRoomId,
         bookingType: 'firm',
-        status: 'confirmed',
+        status: 'approved',
         startTime: fourDaysLater,
         endTime: new Date(fourDaysLater.getTime() + 6 * 60 * 60 * 1000),
         purpose: 'Workshop on tissue culture techniques',
@@ -82,9 +124,9 @@ module.exports = {
         updatedAt: now
       },
       {
-        userId: 1,
+        userId: studentId,
         resourceType: 'room',
-        resourceId: 1,
+        resourceId: cultureRoomAId,
         bookingType: 'pencil',
         status: 'penciled',
         startTime: fiveDaysLater,
