@@ -7,6 +7,7 @@ const getUserAccountType = (req) => req.user?.accountType || req.user?.role;
 const createBooking = async (req, res) => {
   try {
     const { resourceType, resourceId, bookingType, startTime, endTime, purpose } = req.body;
+    const confirmOverlapOwn = req.body.confirmOverlapOwn === true || req.body.confirmOverlapOwn === 'true';
     const userId = req.user.id;
 
     // Handle optional file upload for authorization document
@@ -55,7 +56,7 @@ const createBooking = async (req, res) => {
       return res.status(404).json({ error: `${resourceType} not found` });
     }
 
-    if (resource.status !== 'available') {
+    if (!['available', 'in-use'].includes(resource.status)) {
       return res.status(400).json({ 
         error: `Cannot book ${resourceType}. Current status: ${resource.status}` 
       });
@@ -63,22 +64,61 @@ const createBooking = async (req, res) => {
 
     const conflicts = await Booking.findConflicts(resourceType, resourceId, start, end);
 
+    // Split conflicts: user's own pencil bookings vs other bookings
+    const ownPencilConflicts = conflicts.filter(c => c.userId === userId && c.bookingType === 'pencil');
+    const otherConflicts = conflicts.filter(c => !(c.userId === userId && c.bookingType === 'pencil'));
+
+    const formatConflicts = (list) => list.map(c => ({
+      id: c.id,
+      bookingType: c.bookingType,
+      status: c.status,
+      startTime: c.startTime,
+      endTime: c.endTime,
+      user: {
+        id: c.user.id,
+        email: c.user.email
+      }
+    }));
+
     if (conflicts.length > 0) {
       if (bookingType === 'firm') {
-        return res.status(409).json({
-          error: 'Firm booking conflicts with existing bookings',
-          conflicts: conflicts.map(c => ({
-            id: c.id,
-            bookingType: c.bookingType,
-            status: c.status,
-            startTime: c.startTime,
-            endTime: c.endTime,
-            user: {
-              id: c.user.id,
-              email: c.user.email
-            }
-          }))
-        });
+        // Firm bookings cannot overlap with other users' bookings or other firm bookings
+        if (otherConflicts.length > 0) {
+          return res.status(409).json({
+            error: 'Firm booking conflicts with existing bookings',
+            conflicts: formatConflicts(otherConflicts)
+          });
+        }
+
+        // Firm booking overlaps only user's own pencil bookings — require confirmation
+        if (ownPencilConflicts.length > 0 && !confirmOverlapOwn) {
+          return res.status(409).json({
+            error: 'Firm booking overlaps your existing pencil booking(s). Confirm to proceed — overlapping pencil bookings will be cancelled.',
+            requiresConfirmation: true,
+            ownPencilConflicts: formatConflicts(ownPencilConflicts)
+          });
+        }
+      }
+
+      if (bookingType === 'pencil') {
+        // Pencil bookings from the same user cannot overlap their own pencil bookings
+        if (ownPencilConflicts.length > 0) {
+          return res.status(409).json({
+            error: 'You already have a pencil booking for this time slot',
+            conflicts: formatConflicts(ownPencilConflicts)
+          });
+        }
+      }
+    }
+
+    // If firm booking confirmed over own pencil bookings, auto-cancel them
+    let cancelledPencilBookings = [];
+    if (bookingType === 'firm' && ownPencilConflicts.length > 0 && confirmOverlapOwn) {
+      for (const pencilBooking of ownPencilConflicts) {
+        pencilBooking.status = 'cancelled';
+        pencilBooking.staffRemark = 'Auto-cancelled: superseded by firm booking';
+        await pencilBooking.save();
+        cancelledPencilBookings.push(pencilBooking.id);
       }
     }
 
@@ -86,8 +126,10 @@ const createBooking = async (req, res) => {
       ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
       : null;
 
+    // Determine status (re-check conflicts excluding cancelled own pencil bookings)
+    const remainingConflicts = otherConflicts;
     let status = 'penciled';
-    if (conflicts.length > 0) {
+    if (remainingConflicts.length > 0) {
       status = 'contested';
     } else if (bookingType === 'firm') {
       status = 'pending_approval';
@@ -106,6 +148,19 @@ const createBooking = async (req, res) => {
       expiryAt
     });
 
+    // Also mark existing penciled bookings as contested (both sides of overlap)
+    if (status === 'contested') {
+      const pencilConflictIds = otherConflicts
+        .filter(c => c.status === 'penciled')
+        .map(c => c.id);
+      if (pencilConflictIds.length > 0) {
+        await Booking.update(
+          { status: 'contested' },
+          { where: { id: { [Op.in]: pencilConflictIds } } }
+        );
+      }
+    }
+
     const createdBooking = await Booking.findByPk(booking.id, {
       include: [{
         model: User,
@@ -116,23 +171,19 @@ const createBooking = async (req, res) => {
 
     const response = {
       booking: createdBooking,
-      message: conflicts.length > 0 
-        ? 'Booking created but conflicts with existing bookings. Status set to "contested".'
-        : 'Booking created successfully'
+      message: cancelledPencilBookings.length > 0
+        ? `Booking created successfully. ${cancelledPencilBookings.length} overlapping pencil booking(s) were cancelled.`
+        : remainingConflicts.length > 0 
+          ? 'Booking created but conflicts with existing bookings. Status set to "contested".'
+          : 'Booking created successfully'
     };
 
-    if (conflicts.length > 0) {
-      response.conflicts = conflicts.map(c => ({
-        id: c.id,
-        bookingType: c.bookingType,
-        status: c.status,
-        startTime: c.startTime,
-        endTime: c.endTime,
-        user: {
-          id: c.user.id,
-          email: c.user.email
-        }
-      }));
+    if (cancelledPencilBookings.length > 0) {
+      response.cancelledPencilBookings = cancelledPencilBookings;
+    }
+
+    if (remainingConflicts.length > 0) {
+      response.conflicts = formatConflicts(remainingConflicts);
     }
 
     res.status(201).json(response);

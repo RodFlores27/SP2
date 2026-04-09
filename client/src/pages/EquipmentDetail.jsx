@@ -148,7 +148,7 @@ export default function EquipmentDetail() {
             </div>
           </div>
 
-          {user && equipment.status === 'available' && (
+          {user && ['available', 'in-use'].includes(equipment.status) && (
             <div className="pt-4 border-t">
               <Link to={`/bookings/new?resourceType=equipment&resourceId=${id}`}>
                 <Button className="w-full">

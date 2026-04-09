@@ -158,7 +158,7 @@ export default function RoomDetail() {
             </div>
           </div>
 
-          {user && room.status === 'available' && (
+          {user && ['available', 'in-use'].includes(room.status) && (
             <div className="pt-4 border-t">
               <Link to={`/bookings/new?resourceType=room&resourceId=${id}`}>
                 <Button className="w-full">
