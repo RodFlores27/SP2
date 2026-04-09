@@ -1,0 +1,48 @@
+---
+description: Tailwind CSS v4 standards to prevent outdated v3 assumptions
+alwaysApply: true
+---
+
+# Tailwind CSS v4 Agent Rule
+
+Use Tailwind CSS v4 conventions by default. Do not apply v3-era setup or syntax unless the repository clearly still uses v3.
+
+## Core v4 assumptions
+
+- Tailwind is imported with `@import "tailwindcss";` in CSS.
+- Prefer CSS-first customization using `@theme`, custom utilities, and custom variants directly in CSS.
+- Design tokens should be treated as CSS variables exposed by Tailwind (for example `--color-*`, `--spacing`, `--font-*`).
+- Content scanning is automatic in v4; do not add a `content` array unless the project explicitly requires exceptions.
+- Use `@source` in CSS when adding sources excluded by default heuristics.
+
+## Setup and tooling guardrails
+
+- Prefer `@tailwindcss/postcss` for PostCSS setups.
+- If using Vite, prefer `@tailwindcss/vite`.
+- Do not add legacy `@tailwind base;`, `@tailwind components;`, `@tailwind utilities;` directives to new v4 files.
+- Do not reintroduce deprecated plugin patterns when v4 has built-in features.
+
+## Feature usage guidance
+
+- Use container queries from core (`@container`, `@min-*`, `@max-*`) instead of old plugin-based approaches.
+- Prefer modern gradient utilities (`bg-linear-*`, `bg-radial-*`, `bg-conic-*`) and interpolation modifiers when useful.
+- Use v4-capable dynamic utilities and variants (including broad numeric utility values and data attribute variants) before arbitrary fallback syntax.
+- Use modern variants when appropriate: `starting:*`, `not-*`, `open`, `inert`, and related v4 additions.
+
+## Migration safety checks (v3 -> v4)
+
+Before suggesting changes, verify whether the repo is already on v4 by checking package names, CSS entry files, and existing conventions.
+
+If upgrading or editing migrated code:
+
+- Preserve behavior while converting to v4 patterns.
+- Remove obsolete configuration only when equivalent v4 behavior is confirmed.
+- Flag ambiguous cases instead of guessing (especially mixed v3/v4 codebases).
+
+## Output expectations for agents
+
+When making Tailwind recommendations or edits, always:
+
+1. Explain v4-specific reasoning briefly.
+2. Avoid v3-only instructions unless explicitly justified by existing project state.
+3. Keep examples aligned with v4 syntax and tooling.

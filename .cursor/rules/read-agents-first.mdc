@@ -1,0 +1,17 @@
+---
+description: Forces agents to load project index before substantive work.
+alwaysApply: true
+---
+
+# Start Here
+
+Before making substantive changes in this repository:
+
+1. Read **`AGENTS.md`** at the project root (stack, paths, naming, doc index).
+2. For the **current milestone goal**, read **`C:\BSCS\SP\SP2\AI briefing document.txt`** (especially **TODAY'S GOAL**).
+
+## Sync & Seal (milestone wrap-up)
+
+**Do run** Sync & Seal after **milestone implementation is done**: verification test script, completion report, README updates (+ `package.json` / `swagger.json` / `PROJECT-ORGANIZATION.md` when required). Follow **`docs/workflows/milestone-sync-seal.md`**. Typical trigger: user asked for a milestone plan, you implemented it, then deliver the artifacts in the same milestone thread unless they asked to defer.
+
+**During follow-up tweaks** (small fixes, polish, same milestone already wrapped): **do not** pull in large context from **historical** milestone reports, old test scripts, or README indexes unless debugging something specific. Prefer **minimal edits** to the **current** milestone’s test + report only; avoid rereading or resummarizing the whole `milestone_reports/` tree on every turn.

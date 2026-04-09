@@ -1,0 +1,56 @@
+---
+description: PTCF project context — stack constraints, path map, and key conventions. Apply this whenever working on any task in this repo.
+---
+
+# PTCF Project Memory
+
+## Before Starting Any Milestone Work
+
+Read these files in this order:
+1. `C:\BSCS\SP\SP2\AI briefing document.txt` — current project status and **TODAY'S GOAL**
+2. `AGENTS.md` — full stack/path reference and authoritative doc index
+3. `PROJECT-ORGANIZATION.md` — directory structure and naming conventions
+4. `milestone_reports/README.md` — which milestones are already complete
+5. `docs/workflows/milestone-sync-seal.md` — what to produce at the end of a milestone
+
+## Stack Constraints (Non-Negotiable)
+
+- **Tailwind v4 CSS-first**: Import with `@import "tailwindcss"`, use `@theme` for tokens, `@tailwindcss/vite` plugin. No `tailwind.config.js` for theme overrides.
+- **React Router v7**: Use v7 patterns. Do not use v6-era `<Switch>` or `useHistory`.
+- **Sequelize ORM**: All DB access through Sequelize models and migrations. No raw SQL queries unless absolutely necessary.
+- **React Hook Form + Zod**: All frontend forms use this combination for validation.
+- **Cloudinary**: All file uploads (images, authorization docs) go through `server/utils/cloudinary.js`. No local disk storage.
+- **SendGrid**: All emails via SendGrid. Not nodemailer, not mailgun.
+
+## Key Paths
+
+- Backend entry: `server/index.js` (port 4000)
+- Frontend entry: `client/src/main.jsx` (port 5173)
+- API prefix: all routes start with `/api/`
+- Auth middleware: `server/middleware/auth.middleware.js`
+- Swagger docs: `server/docs/swagger.json` → `localhost:4000/api-docs`
+
+## Booking Status Model
+
+The valid booking statuses are: `penciled`, `contested`, `pending_approval`, `approved`, `denied`, `cancelled`, `expired`.
+There is **no** `confirmed` status — it was removed. All firm bookings go through `pending_approval` → `approved`.
+
+## Milestone Numbering
+
+- One milestone = one day of work.
+- Milestones are numbered sequentially across all weeks.
+- Never reference milestones by day/date alone — always use the milestone number.
+- Completed milestones: 1–9 (as of Week 2 start). Check `milestone_reports/README.md` for the latest.
+
+## Deployment
+
+- **Canonical doc:** `RENDER-SUPABASE-DEPLOYMENT.md` (Vercel + Render + Supabase + UptimeRobot).
+- `DEPLOYMENT-GUIDE.md` is a stub redirect only; do not duplicate deploy instructions there.
+
+## Do Not Do These
+
+- Do not create a `tailwind.config.js` for theme customization.
+- Do not use `localStorage` for auth state beyond what `AuthContext` already does.
+- Do not push secrets — `.env` files are in `.gitignore`.
+- Do not rename or delete existing milestone test/report files.
+- Do not forget to update `server/docs/swagger.json` when API endpoints change.

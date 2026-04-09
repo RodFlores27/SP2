@@ -1,4 +1,6 @@
-# PTCF Deployment Guide - Render + Supabase + Vercel
+# PTCF Deployment Guide — Render + Supabase + Vercel
+
+**Canonical deploy doc for this project.** Full stack: Vercel (frontend), Render (backend), Supabase (PostgreSQL), UptimeRobot (keep Render awake). Older copies of `DEPLOYMENT-GUIDE.md` redirect here.
 
 ## Architecture Overview
 
@@ -53,15 +55,18 @@
 
 You have two options:
 
-#### Option A: Use Supabase SQL Editor (Recommended)
+#### Option A: Use Supabase SQL Editor
 
 1. **Go to:** SQL Editor in Supabase dashboard
-2. **Copy your migration files** from `server/migrations/` folder
-3. **Run them in order:**
-   - First: `20260330000000-create-users.js` (copy the SQL part)
-   - Then: `20260330000001-create-equipment.js`
-   - Then: `20260330000002-create-rooms.js`
-   - Finally: `20260330000003-create-reservations.js`
+2. **Translate** your Sequelize migrations under `server/migrations/` into SQL, or run equivalent DDL. Run **in chronological order** (filenames are timestamps):
+   - `20260330042358-create-user.js`
+   - `20260330042415-create-equipment.js`
+   - `20260330042424-create-room.js`
+   - `20260401064609-add-imageUrl-to-rooms.js`
+   - `20260405022809-create-booking.js`
+   - `20260408120000-remove-confirmed-status.js`
+
+   Prefer **Option B** if you want the schema to match local dev exactly.
 
 #### Option B: Use Sequelize CLI locally
 
@@ -324,9 +329,44 @@ Redeploy Render after making this change.
 ### Issue: Frontend Can't Reach Backend
 
 **Check:**
-1. `VITE_API_URL` in Vercel matches your Render URL
-2. Redeploy Vercel after changing env vars
+1. `VITE_API_URL` in Vercel matches your Render URL (must include `/api` suffix, e.g. `https://your-service.onrender.com/api`)
+2. Redeploy Vercel after changing env vars — only variables prefixed with `VITE_` are exposed to the client
 3. Check browser console for CORS errors
+
+---
+
+## Alternatives (not the main path)
+
+### Frontend-only on Vercel (API still local)
+
+You can deploy the client and temporarily set `VITE_API_URL` to `http://localhost:4000/api` for experiments, but **production users’ browsers cannot reach your laptop**. Use this only for learning or paired with a tunneled backend (below).
+
+### Temporary demo: ngrok + Vercel
+
+1. Run the backend locally on port 4000.
+2. Expose it with [ngrok](https://ngrok.com): `ngrok http 4000`
+3. Set Vercel `VITE_API_URL` to `https://YOUR-NGROK-URL/api` and redeploy.
+4. Update CORS on the backend to allow your Vercel origin.
+
+Ngrok URLs change when restarted; use only for short demos.
+
+### Why not host the Express app on Vercel?
+
+Serverless functions on Vercel expect a different shape than a long-running Express server. This repo uses **Render** for the backend so file uploads, sessions, and PostgreSQL via Sequelize stay straightforward.
+
+---
+
+## Repository files (deployment-related)
+
+| File | Role |
+|------|------|
+| `client/vercel.json` | Vercel routing / SPA fallback |
+| `client/.env.example` | Template for `VITE_API_URL` locally |
+| `client/src/lib/axios.js` | API base URL from env |
+| `client/src/lib/imageUpload.js` | Upload URL from env |
+| `render.yaml` | Optional Render Blueprint |
+
+Local dev remains backward compatible: point `VITE_API_URL` at `http://localhost:4000/api`.
 
 ---
 
@@ -426,4 +466,4 @@ curl https://ptcf-backend.onrender.com/api/health
 **Total cost:** $0/month
 **Uptime:** ~99.9% (with UptimeRobot)
 
-Perfect for student projects and PTCF demos! 🚀
+Well suited for student projects and PTCF demos.
