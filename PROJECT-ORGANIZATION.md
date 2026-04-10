@@ -17,6 +17,7 @@ PTCF Project/
 │   │   │   │   ├── label.jsx
 │   │   │   │   └── select.jsx
 │   │   │   ├── BookingCalendar.jsx    # React Big Calendar integration
+│   │   │   ├── BookingStatusBadge.jsx # Booking lifecycle status badge
 │   │   │   ├── ConfirmDialog.jsx      # Delete confirmation dialog
 │   │   │   ├── EquipmentFormModal.jsx # Equipment create/edit form
 │   │   │   ├── ImageUpload.jsx        # Image upload with preview
@@ -24,7 +25,7 @@ PTCF Project/
 │   │   │   ├── Navigation.jsx         # Site navigation header
 │   │   │   ├── ProtectedRoute.jsx     # Route guard component
 │   │   │   ├── RoomFormModal.jsx      # Room create/edit form
-│   │   │   └── StatusBadge.jsx        # Status display badge
+│   │   │   └── StatusBadge.jsx        # Resource availability status badge
 │   │   ├── contexts/            # React contexts
 │   │   │   └── AuthContext.jsx  # Authentication state management
 │   │   ├── lib/                 # Utility libraries
@@ -69,7 +70,9 @@ PTCF Project/
 │   │   └── room.routes.js       # Room routes
 │   ├── seeders/                 # Database seed data
 │   └── utils/                   # Utility functions
-│       └── cloudinary.js        # Cloudinary image upload utility
+│       ├── cloudinary.js        # Cloudinary image upload utility
+│       ├── email.js             # Resend email transport wrapper
+│       └── booking-notifications.js  # Transactional email templates for booking events
 ├── milestone_tests/             # Verification test scripts
 │   ├── utils/                   # Reusable test utilities
 │   │   └── test-helpers.js      # Common test helper functions
@@ -141,6 +144,7 @@ npm run test:milestone-6    # Booking system backend (pencil/firm bookings, conf
 npm run test:milestone-7    # Booking lifecycle & staff approval endpoints
 npm run test:milestone-8    # Calendar view & availability API
 npm run test:milestone-9    # Booking creation form
+npm run test:milestone-10   # User booking dashboard + Resend transactional emails
 
 # Run all milestone tests
 npm run test:all

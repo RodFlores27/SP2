@@ -134,9 +134,9 @@ CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 
-# SendGrid (your existing credentials)
-SENDGRID_API_KEY=your-sendgrid-api-key
-SENDGRID_FROM_EMAIL=your-email@example.com
+# Resend (transactional email)
+RESEND_API_KEY=your-resend-api-key
+RESEND_FROM_EMAIL=your-verified-sender@example.com
 
 # Node Environment
 NODE_ENV=production

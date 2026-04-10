@@ -20,7 +20,7 @@ Read these files in this order:
 - **Sequelize ORM**: All DB access through Sequelize models and migrations. No raw SQL queries unless absolutely necessary.
 - **React Hook Form + Zod**: All frontend forms use this combination for validation.
 - **Cloudinary**: All file uploads (images, authorization docs) go through `server/utils/cloudinary.js`. No local disk storage.
-- **SendGrid**: All emails via SendGrid. Not nodemailer, not mailgun.
+- **Resend**: All emails via Resend (`server/utils/email.js`). Not nodemailer, not mailgun, not SendGrid.
 
 ## Key Paths
 

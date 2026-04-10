@@ -180,3 +180,21 @@ These reports serve as:
 - Calendar month view: “+N more” popup, themed overlay, no stray booking navigation on dismiss, same-button toggle to close
 - Swagger documentation updated (multipart/form-data support)
 - Verification test script (14 automated scenarios + 27-point UI checklist)
+
+### Milestone 10: User Booking Dashboard + Resend Emails
+**File:** \MILESTONE-10-COMPLETION-REPORT.md**Status:** Complete
+**Date:** April 10, 2026
+**Deliverables:**
+- User booking dashboard at /dashboard (My Bookings list with active/past sections)
+- BookingStatusBadge component (penciled, contested, pending_approval, approved, denied, cancelled, expired)
+- Cancel booking action with ConfirmDialog and 24h rule messaging
+- Convert-to-firm inline panel with file upload, validation, and conflict display
+- Inline contested booking alert on booking cards
+- Resend email transport (server/utils/email.js) with non-blocking send
+- Booking notifications helper (server/utils/booking-notifications.js) with 4 event templates
+- booking.created hook wired in createBooking controller
+- booking.cancelled hook wired in cancelBooking controller
+- booking.approved hook wired in approveBooking controller
+- booking.denied hook wired in denyBooking controller
+- Verification test script (13 automated scenarios + 18-point UI checklist)
+

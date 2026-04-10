@@ -22,7 +22,7 @@ This is the repeatable procedure for every single day/milestone. Follow it in or
 - [ ] Update `server/docs/swagger.json` as you add/modify API endpoints (don't leave it until the end)
 - [ ] Keep Tailwind v4 CSS-first — use `@theme` and utility classes, no `tailwind.config.js` overrides
 - [ ] All file uploads through `server/utils/cloudinary.js`
-- [ ] All emails through SendGrid
+- [ ] All emails through Resend (`RESEND_API_KEY`, verified `RESEND_FROM_EMAIL` / domain)
 
 ---
 

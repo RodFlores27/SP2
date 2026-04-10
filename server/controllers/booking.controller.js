@@ -1,8 +1,30 @@
 const { Booking, User, Equipment, Room } = require('../models');
 const { Op } = require('sequelize');
 const { uploadToCloudinary } = require('../utils/cloudinary');
+const {
+  notifyBookingCreated,
+  notifyBookingApproved,
+  notifyBookingDenied,
+  notifyBookingCancelled,
+} = require('../utils/booking-notifications');
 
 const getUserAccountType = (req) => req.user?.accountType || req.user?.role;
+
+async function resolveResourceName(resourceType, resourceId) {
+  try {
+    if (resourceType === 'equipment') {
+      const eq = await Equipment.findByPk(resourceId, { attributes: ['name'] });
+      return eq?.name ?? `Equipment #${resourceId}`;
+    }
+    if (resourceType === 'room') {
+      const rm = await Room.findByPk(resourceId, { attributes: ['name'] });
+      return rm?.name ?? `Room #${resourceId}`;
+    }
+  } catch {
+    // non-fatal
+  }
+  return `Resource #${resourceId}`;
+}
 
 const createBooking = async (req, res) => {
   try {
@@ -187,6 +209,11 @@ const createBooking = async (req, res) => {
     }
 
     res.status(201).json(response);
+
+    // Non-blocking email notification
+    resolveResourceName(resourceType, resourceId).then((resourceName) => {
+      notifyBookingCreated(createdBooking, resourceName).catch(() => {});
+    });
   } catch (error) {
     console.error('Error creating booking:', error);
     res.status(500).json({ error: 'Failed to create booking' });
@@ -309,6 +336,12 @@ const cancelBooking = async (req, res) => {
     res.json({
       message: 'Booking cancelled successfully',
       booking
+    });
+
+    // Non-blocking email notification
+    const cancelledById = req.user.id;
+    resolveResourceName(booking.resourceType, booking.resourceId).then((resourceName) => {
+      notifyBookingCancelled(booking, resourceName, cancelledById).catch(() => {});
     });
   } catch (error) {
     console.error('Error cancelling booking:', error);
@@ -445,6 +478,11 @@ const approveBooking = async (req, res) => {
       message: 'Booking approved successfully',
       booking: updatedBooking
     });
+
+    // Non-blocking email notification
+    resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId).then((resourceName) => {
+      notifyBookingApproved(updatedBooking, resourceName).catch(() => {});
+    });
   } catch (error) {
     console.error('Error approving booking:', error);
     res.status(500).json({ error: 'Failed to approve booking' });
@@ -491,6 +529,11 @@ const denyBooking = async (req, res) => {
     res.json({
       message: 'Booking denied',
       booking: updatedBooking
+    });
+
+    // Non-blocking email notification
+    resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId).then((resourceName) => {
+      notifyBookingDenied(updatedBooking, resourceName).catch(() => {});
     });
   } catch (error) {
     console.error('Error denying booking:', error);

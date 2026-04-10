@@ -293,6 +293,31 @@ node milestone_tests/milestone-{number}-{description}.js
 
 **Milestone 9 wrap-up (manual):** Verify on `/calendar` that dense days show “+N more,” popup themed correctly, outside click / second click on same “+N more” behave as expected, and slot booking does not fire on the dismiss gesture. On `/bookings/new`, trigger a firm vs firm409 and confirm conflict lines show resource name and labels like `Firm (Pending Approval)`.
 
+
+### Milestone 10: User Booking Dashboard + Resend Emails
+**File:** \milestone-10-booking-dashboard-and-emails.js**Tests:**
+- Student login and list own bookings (scoped to user)
+- Staff login and list all bookings
+- Create pencil booking (triggers \ooking.created\ email hook)
+- Cancel booking success (>24h ahead, triggers \ooking.cancelled\ email hook)
+- Cancel booking within 24h rejected with 400
+- Convert pencil to firm with authorization doc upload
+- Convert to firm without file rejected with 400
+- Staff approve firm booking (triggers \ooking.approved\ email hook)
+- Staff deny pending booking (triggers \ooking.denied\ email hook)
+- Email notification module smoke test (all 4 functions exported)
+- 18-point manual UI checklist for dashboard page
+
+**Technologies Verified:**
+- \GET /bookings\ role-scoped list (student vs staff)
+- \PATCH /bookings/:id/cancel\ with 24h rule enforcement
+- \PATCH /bookings/:id/convert-to-firm\ multipart upload
+- \PATCH /bookings/:id/approve\ and \/deny\ staff endpoints
+- Resend email transport (\server/utils/email.js\)
+- Booking notifications helper (\server/utils/booking-notifications.js\)
+- \BookingStatusBadge\ component (booking lifecycle statuses)
+- Dashboard page with active/past sections, inline convert panel, conflict alerts
+
 ## Notes
 
 - Tests use axios for HTTP requests

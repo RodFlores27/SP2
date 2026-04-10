@@ -46,7 +46,7 @@ using Event-Driven Architecture with Apache Kafka.
 | Database | PostgreSQL via Supabase |
 | Auth | JWT + bcrypt |
 | Storage | Cloudinary (images + authorization docs) |
-| Email | SendGrid |
+| Email | Resend |
 | Events | KafkaJS (planned for Week 3) |
 | Hosting | Vercel (frontend), Render (backend), UptimeRobot (keep-awake), Supabase (DB) |
 
@@ -86,6 +86,7 @@ npm run test:all
 | React components | `client/src/components/` |
 | Global styles | `client/src/index.css` |
 | Cloudinary util | `server/utils/cloudinary.js` |
+| Email transport | `server/utils/email.js` |
 
 ---
 
@@ -123,7 +124,7 @@ npm run test:all
 
 - Tailwind v4 CSS-first: never use `tailwind.config.js` for theme tokens; use `@theme` in CSS instead.
 - All file uploads go through Cloudinary (`server/utils/cloudinary.js`). Never use local disk storage.
-- All emails go through SendGrid. Not nodemailer, not mailgun.
+- All emails go through Resend (`server/utils/email.js`). Not nodemailer, not mailgun, not SendGrid.
 - Firm bookings always require staff approval (`pending_approval` → `approved`). There is no `confirmed` status.
 - `server/docs/swagger.json` must be updated whenever API endpoints are added or modified.
 - Documentation files may occasionally lag behind the actual codebase by a small margin.

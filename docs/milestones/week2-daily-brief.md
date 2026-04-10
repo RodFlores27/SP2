@@ -29,7 +29,7 @@
 
 ---
 
-### Milestone 10 — User Booking Dashboard + SendGrid (Wed Apr 8, Day 10)
+### Milestone 10 — User Booking Dashboard + Resend (Wed Apr 8, Day 10)
 
 **Tags:** Frontend, Backend
 
@@ -40,7 +40,7 @@
 
 **Backend:**
 
-- SendGrid integration: transactional emails for `booking.created`, `booking.approved`, `booking.denied`, `booking.cancelled`
+- Resend integration: transactional emails for `booking.created`, `booking.approved`, `booking.denied`, `booking.cancelled`
 
 ---
 
@@ -101,7 +101,7 @@
 | --------- | --- | ------ | ----------------------------------------------------- | ----------------- | -------------------- |
 | 8         | 8   | Apr 6  | Calendar view (React Big Calendar + availability API) | Frontend          | ✅ Complete          |
 | 9         | 9   | Apr 7  | Booking creation form                                 | Frontend          | ✅ Complete          |
-| 10        | 10  | Apr 8  | User booking dashboard + SendGrid emails              | Frontend, Backend | —                    |
+| 10        | 10  | Apr 8  | User booking dashboard + Resend emails                | Frontend, Backend | ✅ Complete          |
 | 11        | 11  | Apr 9  | Staff dashboard + conflict resolution view            | Frontend          | —                    |
 | 12        | 12  | Apr 10 | node-cron expiry job + admin panel                    | Backend, Frontend | —                    |
 | 13        | 13  | Apr 11 | Full deploy push + smoke test + UI polish             | Deploy, Frontend  | —                    |
