@@ -1,5 +1,5 @@
 # Milestone 9 Completion Report
-**Date:** April 8, 2026  
+**Date:** April 8, 2026 (wrap-up UX: April 10, 2026)  
 **Project:** PTCF Room & Equipment Reservation System  
 **Status:** ✅ **COMPLETE - READY FOR MILESTONE 10**
 
@@ -125,11 +125,23 @@ z.object({
 
 **Conflict Error (409):**
 - Red error banner with `AlertTriangle` icon
-- Lists conflicting bookings with ID, type, status, and time range
+- Lists conflicting bookings with **resource name** (selected equipment/room), human-readable booking type (`Firm` / `Pencil`), human-readable status (e.g. `Pending Approval`), and time range
 
 **Validation Errors:**
 - Field-level errors from Zod via React Hook Form
 - Server-side 400 errors displayed in error banner
+
+### 7. Wrap-up UX (April 10, 2026) ✅
+
+**Calendar (`client/src/components/BookingCalendar.jsx`):**
+- Month cells no longer clip overflowing events: `popup` works with CSS that keeps event text single-line with ellipsis so “+N more” appears reliably.
+- Styled “+N more” link and `.rbc-overlay` popup to match app tokens (`--primary`, `--background`, `--border`, `--foreground`).
+- Dismissing the event popup with a click on another calendar day no longer triggers `onSelectSlot` / booking navigation on the same gesture (document capture + one-shot suppress flag).
+- Clicking the same “+N more” control while its popup is open closes the popup only (does not immediately reopen): anchor tracking + capture-phase click `stopPropagation` on the calendar host.
+
+**Booking form conflict copy (`client/src/pages/BookingForm.jsx`):**
+- Module helpers `formatBookingTypeLabel` and `formatStatusLabel` for display strings.
+- `selectedResourceName` from form watch + equipment/rooms lists; conflict lines use:  `{resourceName} — {Type} ({Status}) — {start} to {end}`.
 
 ---
 
@@ -214,6 +226,8 @@ The endpoint remains backward compatible — JSON requests without file uploads 
 | **Modify** | `client/src/pages/Calendar.jsx` | Added slot-click → form navigation |
 | **Modify** | `client/src/pages/EquipmentDetail.jsx` | Added "Book this Equipment" button |
 | **Modify** | `client/src/pages/RoomDetail.jsx` | Added "Book this Room" button |
+| **Modify** | `client/src/components/BookingCalendar.jsx` | Month popup UX, overlay styling, dismiss/toggle + slot-suppress behavior |
+| **Modify** | `client/src/pages/BookingForm.jsx` | Human-readable firm/pencil conflict lines with resource name |
 
 ---
 

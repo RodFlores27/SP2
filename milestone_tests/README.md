@@ -291,6 +291,8 @@ node milestone_tests/milestone-{number}-{description}.js
 
 **Note:** UI tests require manual verification in browser. The test script provides a comprehensive 27-point checklist covering navigation, form fields, calendar integration, detail page buttons, and submission feedback.
 
+**Milestone 9 wrap-up (manual):** Verify on `/calendar` that dense days show “+N more,” popup themed correctly, outside click / second click on same “+N more” behave as expected, and slot booking does not fire on the dismiss gesture. On `/bookings/new`, trigger a firm vs firm409 and confirm conflict lines show resource name and labels like `Firm (Pending Approval)`.
+
 ## Notes
 
 - Tests use axios for HTTP requests

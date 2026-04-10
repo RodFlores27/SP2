@@ -165,7 +165,7 @@ These reports serve as:
 ### Milestone 9: Booking Creation Form
 **File:** `MILESTONE-9-COMPLETION-REPORT.md`  
 **Status:** ✅ Complete  
-**Date:** April 8, 2026  
+**Date:** April 8, 2026 (wrap-up April 10, 2026)  
 **Deliverables:**
 - Booking creation form page at /bookings/new (React Hook Form + Zod)
 - Time slot picker (datetime-local inputs with calendar prefill)
@@ -176,6 +176,7 @@ These reports serve as:
 - Calendar slot-click → navigate to prefilled booking form
 - "Book this Equipment/Room" buttons on resource detail pages
 - "Book Now" navigation link (authenticated users only)
-- Success/conflict/error feedback UI
+- Success/conflict/error feedback UI (409 conflicts: resource name + readable type/status)
+- Calendar month view: “+N more” popup, themed overlay, no stray booking navigation on dismiss, same-button toggle to close
 - Swagger documentation updated (multipart/form-data support)
 - Verification test script (14 automated scenarios + 27-point UI checklist)

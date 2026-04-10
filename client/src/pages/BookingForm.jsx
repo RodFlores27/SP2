@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -51,6 +51,21 @@ const bookingSchema = z.object({
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
+function formatBookingTypeLabel(bookingType) {
+  if (!bookingType || typeof bookingType !== 'string') return String(bookingType ?? '');
+  const map = { firm: 'Firm', pencil: 'Pencil' };
+  if (map[bookingType]) return map[bookingType];
+  return bookingType.charAt(0).toUpperCase() + bookingType.slice(1).toLowerCase();
+}
+
+function formatStatusLabel(status) {
+  if (!status || typeof status !== 'string') return String(status ?? '');
+  return status
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
 export default function BookingForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -92,7 +107,21 @@ export default function BookingForm() {
   });
 
   const watchedResourceType = form.watch('resourceType');
+  const watchedResourceId = form.watch('resourceId');
   const watchedBookingType = form.watch('bookingType');
+
+  const selectedResourceName = useMemo(() => {
+    if (!watchedResourceId) return 'Resource';
+    if (watchedResourceType === 'room') {
+      const r = rooms.find((x) => String(x.id) === String(watchedResourceId));
+      return r?.name ?? `Resource #${watchedResourceId}`;
+    }
+    if (watchedResourceType === 'equipment') {
+      const e = equipment.find((x) => String(x.id) === String(watchedResourceId));
+      return e?.name ?? `Resource #${watchedResourceId}`;
+    }
+    return `Resource #${watchedResourceId}`;
+  }, [watchedResourceType, watchedResourceId, equipment, rooms]);
 
   // Fetch resources on mount
   useEffect(() => {
@@ -439,7 +468,7 @@ export default function BookingForm() {
                             <p className="font-medium">Conflicting bookings:</p>
                             {conflicts.map((c) => (
                               <p key={c.id} className="text-xs">
-                                #{c.id} — {c.bookingType} ({c.status}) — {format(new Date(c.startTime), 'MMM d, yyyy h:mm a')} to {format(new Date(c.endTime), 'h:mm a')}
+                                {selectedResourceName} — {formatBookingTypeLabel(c.bookingType)} ({formatStatusLabel(c.status)}) — {format(new Date(c.startTime), 'MMM d, yyyy h:mm a')} to {format(new Date(c.endTime), 'h:mm a')}
                               </p>
                             ))}
                           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, isToday } from 'date-fns';
 import { enUS } from 'date-fns/locale';
@@ -52,6 +52,13 @@ export function BookingCalendar({
   const [error, setError] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState('month');
+  const suppressNextSlotSelectRef = useRef(false);
+  const suppressSlotSelectResetTimeoutRef = useRef(null);
+  const pendingShowMoreAnchorRef = useRef(null);
+  const openShowMoreAnchorRef = useRef(null);
+  const suppressShowMoreReopenRef = useRef(false);
+  const suppressShowMoreReopenResetTimeoutRef = useRef(null);
+  const calendarHostRef = useRef(null);
 
   const fetchBookings = useCallback(async (date) => {
     setLoading(true);
@@ -148,6 +155,105 @@ export function BookingCalendar({
     fetchBookings(currentDate);
   }, [fetchBookings, currentDate]);
 
+  // Popup / "+N more" UX fixes:
+  // 1) Slot selection: when dismissing the event popup, swallow the stray onSelectSlot (see prior fix).
+  // 2) Same "+N more" toggle: Popup closes on mousedown (outside the popper), then the click reopens.
+  //    Track the opening button and swallow that reopen click when it's the same node.
+  useLayoutEffect(() => {
+    const clearSlotSuppressReset = () => {
+      if (suppressSlotSelectResetTimeoutRef.current != null) {
+        clearTimeout(suppressSlotSelectResetTimeoutRef.current);
+        suppressSlotSelectResetTimeoutRef.current = null;
+      }
+    };
+
+    const clearShowMoreSuppressReset = () => {
+      if (suppressShowMoreReopenResetTimeoutRef.current != null) {
+        clearTimeout(suppressShowMoreReopenResetTimeoutRef.current);
+        suppressShowMoreReopenResetTimeoutRef.current = null;
+      }
+    };
+
+    const armSuppressIfClosingPopup = (target) => {
+      if (!onSelectSlot) return;
+      if (!(target instanceof Element)) return;
+      const overlay = document.querySelector('.rbc-overlay');
+      if (!overlay) return;
+      if (overlay.contains(target)) return;
+      suppressNextSlotSelectRef.current = true;
+      clearSlotSuppressReset();
+      suppressSlotSelectResetTimeoutRef.current = window.setTimeout(() => {
+        suppressNextSlotSelectRef.current = false;
+        suppressSlotSelectResetTimeoutRef.current = null;
+      }, 400);
+    };
+
+    const onPointerDownCapture = (e) => {
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+
+      const showMoreBtn = target.closest?.('.rbc-show-more');
+      const overlay = document.querySelector('.rbc-overlay');
+
+      if (showMoreBtn && !overlay) {
+        pendingShowMoreAnchorRef.current = showMoreBtn;
+      }
+
+      if (showMoreBtn && overlay && openShowMoreAnchorRef.current === showMoreBtn) {
+        suppressShowMoreReopenRef.current = true;
+        clearShowMoreSuppressReset();
+        suppressShowMoreReopenResetTimeoutRef.current = window.setTimeout(() => {
+          suppressShowMoreReopenRef.current = false;
+          suppressShowMoreReopenResetTimeoutRef.current = null;
+        }, 400);
+      }
+
+      armSuppressIfClosingPopup(target);
+    };
+
+    const onClickCapture = (e) => {
+      if (!suppressShowMoreReopenRef.current) return;
+      const target = e.target;
+      if (!(target instanceof Element)) return;
+      const showMoreBtn = target.closest?.('.rbc-show-more');
+      if (!showMoreBtn || showMoreBtn !== openShowMoreAnchorRef.current) return;
+
+      // stopPropagation on an ancestor capture listener prevents the event from reaching the
+      // "+N more" button (document-level stopImmediatePropagation does not).
+      e.preventDefault();
+      e.stopPropagation();
+
+      suppressShowMoreReopenRef.current = false;
+      clearShowMoreSuppressReset();
+      openShowMoreAnchorRef.current = null;
+    };
+
+    document.addEventListener('mousedown', onPointerDownCapture, true);
+    document.addEventListener('touchstart', onPointerDownCapture, { capture: true, passive: true });
+
+    const host = calendarHostRef.current;
+    if (host) {
+      host.addEventListener('click', onClickCapture, true);
+    }
+
+    return () => {
+      clearSlotSuppressReset();
+      clearShowMoreSuppressReset();
+      document.removeEventListener('mousedown', onPointerDownCapture, true);
+      document.removeEventListener('touchstart', onPointerDownCapture, { capture: true });
+      if (host) {
+        host.removeEventListener('click', onClickCapture, true);
+      }
+    };
+  }, [onSelectSlot]);
+
+  const handleShowMore = useCallback(() => {
+    if (pendingShowMoreAnchorRef.current) {
+      openShowMoreAnchorRef.current = pendingShowMoreAnchorRef.current;
+      pendingShowMoreAnchorRef.current = null;
+    }
+  }, []);
+
   const handleNavigate = (date) => {
     setCurrentDate(date);
   };
@@ -194,9 +300,16 @@ export function BookingCalendar({
   };
 
   const handleSelectSlot = (slotInfo) => {
-    if (onSelectSlot) {
-      onSelectSlot(slotInfo);
+    if (!onSelectSlot) return;
+    if (suppressNextSlotSelectRef.current) {
+      suppressNextSlotSelectRef.current = false;
+      if (suppressSlotSelectResetTimeoutRef.current != null) {
+        clearTimeout(suppressSlotSelectResetTimeoutRef.current);
+        suppressSlotSelectResetTimeoutRef.current = null;
+      }
+      return;
     }
+    onSelectSlot(slotInfo);
   };
 
   if (error) {
@@ -220,8 +333,44 @@ export function BookingCalendar({
         }
         .rbc-event-content {
           font-size: 10px !important;
-          white-space: normal !important;
-          overflow: visible !important;
+          white-space: nowrap !important;
+          overflow: hidden !important;
+          text-overflow: ellipsis !important;
+        }
+
+        /* "+N more" show-more link */
+        .rbc-show-more {
+          font-size: 10px !important;
+          font-weight: 600;
+          color: hsl(var(--primary)) !important;
+          background: transparent !important;
+          padding: 0 4px;
+          cursor: pointer;
+        }
+        .rbc-show-more:hover {
+          text-decoration: underline;
+        }
+
+        /* Popup overlay */
+        .rbc-overlay {
+          border-radius: 8px !important;
+          border: 1px solid hsl(var(--border)) !important;
+          box-shadow: 0 4px 16px rgba(0,0,0,0.12) !important;
+          background: hsl(var(--background)) !important;
+          padding: 8px !important;
+          z-index: 50 !important;
+          min-width: 200px !important;
+        }
+        .rbc-overlay-header {
+          font-size: 11px !important;
+          font-weight: 600;
+          color: hsl(var(--foreground)) !important;
+          border-bottom: 1px solid hsl(var(--border)) !important;
+          padding-bottom: 4px !important;
+          margin-bottom: 6px !important;
+        }
+        .rbc-overlay .rbc-event {
+          margin-bottom: 3px !important;
         }
         
         /* Enhanced current time indicator */
@@ -282,33 +431,36 @@ export function BookingCalendar({
         </div>
       </div>
 
-      <Calendar
-        localizer={localizer}
-        events={events}
-        date={currentDate}
-        view={currentView}
-        startAccessor="start"
-        endAccessor="end"
-        style={{ height }}
-        eventPropGetter={eventStyleGetter}
-        onNavigate={handleNavigate}
-        onView={handleViewChange}
-        onSelectEvent={handleSelectEvent}
-        onSelectSlot={handleSelectSlot}
-        selectable={!!onSelectSlot}
-        views={['month', 'week', 'day', 'agenda']}
-        components={{
-          month: {
-            dateHeader: MonthDateHeader,
-          },
-        }}
-        defaultView="month"
-        popup
-        tooltipAccessor={(event) => {
-          const r = event.resource;
-          return `${r.resourceName} - ${r.status} (${r.bookingType})`;
-        }}
-      />
+      <div ref={calendarHostRef}>
+        <Calendar
+          localizer={localizer}
+          events={events}
+          date={currentDate}
+          view={currentView}
+          startAccessor="start"
+          endAccessor="end"
+          style={{ height }}
+          eventPropGetter={eventStyleGetter}
+          onNavigate={handleNavigate}
+          onView={handleViewChange}
+          onSelectEvent={handleSelectEvent}
+          onSelectSlot={handleSelectSlot}
+          onShowMore={handleShowMore}
+          selectable={!!onSelectSlot}
+          views={['month', 'week', 'day', 'agenda']}
+          components={{
+            month: {
+              dateHeader: MonthDateHeader,
+            },
+          }}
+          defaultView="month"
+          popup
+          tooltipAccessor={(event) => {
+            const r = event.resource;
+            return `${r.resourceName} - ${r.status} (${r.bookingType})`;
+          }}
+        />
+      </div>
     </div>
   );
 }
