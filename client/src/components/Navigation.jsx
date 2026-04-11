@@ -60,6 +60,16 @@ export function Navigation() {
                   Dashboard
                 </Link>
               )}
+              {isAuthenticated &&
+                (user?.accountType === 'ptcf_staff' ||
+                  user?.accountType === 'system_admin') && (
+                  <Link
+                    to="/staff"
+                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+                  >
+                    Staff Dashboard
+                  </Link>
+                )}
             </div>
           </div>
           <div className="hidden sm:ml-6 sm:flex sm:items-center sm:space-x-4">
@@ -142,6 +152,17 @@ export function Navigation() {
                 Dashboard
               </Link>
             )}
+            {isAuthenticated &&
+              (user?.accountType === 'ptcf_staff' ||
+                user?.accountType === 'system_admin') && (
+                <Link
+                  to="/staff"
+                  className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Staff Dashboard
+                </Link>
+              )}
           </div>
           <div className="pt-4 pb-3 border-t border-border">
             {isAuthenticated ? (

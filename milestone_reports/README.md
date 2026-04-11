@@ -198,3 +198,18 @@ These reports serve as:
 - booking.denied hook wired in denyBooking controller
 - Verification test script (13 automated scenarios + 18-point UI checklist)
 
+### Milestone 11: Staff Dashboard
+**File:** `MILESTONE-11-COMPLETION-REPORT.md`  
+**Status:** ✅ Complete  
+**Date:** April 11, 2026  
+**Deliverables:**
+- Staff dashboard page at /staff (role-guarded: ptcf_staff + system_admin only)
+- Pending approvals queue: lists all pending_approval bookings with requester details
+- Approve/deny UI with inline staffRemark textarea per booking card
+- Conflict resolution view: contested bookings grouped and displayed side-by-side
+- Client-side conflict grouping by resource + overlapping time window
+- GET /api/bookings/:id/conflicts backend endpoint (staff/admin only)
+- StaffProtectedRoute component in App.jsx (redirects non-staff to /dashboard)
+- Staff Dashboard nav link (hidden from regular users, visible in desktop + mobile nav)
+- Swagger documentation updated
+- Verification test script (11 automated scenarios + 18-point UI checklist)

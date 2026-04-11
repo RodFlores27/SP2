@@ -35,7 +35,8 @@ PTCF Project/
 │   │   ├── pages/               # Page components
 │   │   │   ├── BookingForm.jsx  # Booking creation form (protected)
 │   │   │   ├── Calendar.jsx     # Calendar view with availability
-│   │   │   ├── Dashboard.jsx    # Dashboard page
+│   │   │   ├── Dashboard.jsx    # User booking dashboard (protected)
+│   │   │   ├── StaffDashboard.jsx  # Staff approvals + conflict resolution (staff/admin only)
 │   │   │   ├── EquipmentDetail.jsx  # Equipment detail (protected)
 │   │   │   ├── EquipmentList.jsx    # Equipment listing (public)
 │   │   │   ├── Login.jsx        # Login page

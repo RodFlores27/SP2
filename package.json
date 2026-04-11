@@ -14,7 +14,8 @@
     "test:milestone-8": "node milestone_tests/milestone-8-calendar-view.js",
     "test:milestone-9": "node milestone_tests/milestone-9-booking-form.js",
     "test:milestone-10": "node milestone_tests/milestone-10-booking-dashboard-and-emails.js",
-    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3 && npm run test:milestone-4 && npm run test:milestone-5 && npm run test:milestone-6 && npm run test:milestone-7 && npm run test:milestone-8 && npm run test:milestone-9 && npm run test:milestone-10"
+    "test:milestone-11": "node milestone_tests/milestone-11-staff-dashboard.js",
+    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3 && npm run test:milestone-4 && npm run test:milestone-5 && npm run test:milestone-6 && npm run test:milestone-7 && npm run test:milestone-8 && npm run test:milestone-9 && npm run test:milestone-10 && npm run test:milestone-11"
   },
   "repository": {
     "type": "git",
