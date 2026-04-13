@@ -37,6 +37,7 @@ PTCF Project/
 │   │   │   ├── Calendar.jsx     # Calendar view with availability
 │   │   │   ├── Dashboard.jsx    # User booking dashboard (protected)
 │   │   │   ├── StaffDashboard.jsx  # Staff approvals + conflict resolution (staff/admin only)
+│   │   │   ├── AdminPanel.jsx      # User management + role promotion (system_admin only)
 │   │   │   ├── EquipmentDetail.jsx  # Equipment detail (protected)
 │   │   │   ├── EquipmentList.jsx    # Equipment listing (public)
 │   │   │   ├── Login.jsx        # Login page
@@ -54,6 +55,7 @@ PTCF Project/
 │   ├── config/                  # Database configuration
 │   ├── controllers/             # Route controllers
 │   │   ├── auth.controller.js   # Auth endpoints (register, login)
+│   │   ├── admin.controller.js  # Admin user management (list, role, delete)
 │   │   ├── booking.controller.js    # Booking CRUD + conflict detection
 │   │   ├── equipment.controller.js  # Equipment CRUD operations
 │   │   └── room.controller.js   # Room CRUD operations
@@ -64,8 +66,11 @@ PTCF Project/
 │   │   └── auth.middleware.js   # JWT auth & role-based authorization
 │   ├── migrations/              # Database migrations
 │   ├── models/                  # Sequelize models
+│   ├── jobs/                    # Scheduled background jobs
+│   │   └── booking-expiry.js   # node-cron: auto-expire pencil bookings + 48hr/24hr warnings
 │   ├── routes/                  # API routes
 │   │   ├── auth.routes.js       # Auth routes
+│   │   ├── admin.routes.js      # Admin routes (system_admin only)
 │   │   ├── booking.routes.js    # Booking routes
 │   │   ├── equipment.routes.js  # Equipment routes
 │   │   └── room.routes.js       # Room routes
@@ -73,7 +78,7 @@ PTCF Project/
 │   └── utils/                   # Utility functions
 │       ├── cloudinary.js        # Cloudinary image upload utility
 │       ├── email.js             # Resend email transport wrapper
-│       └── booking-notifications.js  # Transactional email templates for booking events
+│       └── booking-notifications.js  # Transactional email templates (created/approved/denied/cancelled/expired/expiringSoon)
 ├── milestone_tests/             # Verification test scripts
 │   ├── utils/                   # Reusable test utilities
 │   │   └── test-helpers.js      # Common test helper functions

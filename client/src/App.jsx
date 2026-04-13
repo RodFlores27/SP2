@@ -6,6 +6,7 @@ import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
 import StaffDashboard from '@/pages/StaffDashboard';
+import AdminPanel from '@/pages/AdminPanel';
 import EquipmentList from '@/pages/EquipmentList';
 import EquipmentDetail from '@/pages/EquipmentDetail';
 import RoomList from '@/pages/RoomList';
@@ -13,6 +14,28 @@ import RoomDetail from '@/pages/RoomDetail';
 import Calendar from '@/pages/Calendar';
 import BookingForm from '@/pages/BookingForm';
 import { useAuth } from '@/contexts/AuthContext';
+
+function AdminProtectedRoute({ children }) {
+  const { user, isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user?.accountType !== 'system_admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
 
 function StaffProtectedRoute({ children }) {
   const { user, isAuthenticated, loading } = useAuth();
@@ -90,6 +113,14 @@ function App() {
                 <StaffProtectedRoute>
                   <StaffDashboard />
                 </StaffProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <AdminProtectedRoute>
+                  <AdminPanel />
+                </AdminProtectedRoute>
               }
             />
           </Routes>

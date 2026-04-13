@@ -20,11 +20,13 @@ const authRoutes = require('./routes/auth.routes');
 const equipmentRoutes = require('./routes/equipment.routes');
 const roomRoutes = require('./routes/room.routes');
 const bookingRoutes = require('./routes/booking.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/equipment', equipmentRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/bookings', bookingRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PTCF server is running' });
@@ -39,5 +41,8 @@ app.listen(PORT, () => {
 const { sequelize } = require('./models');
 
 sequelize.authenticate()
-  .then(() => console.log('DB connection OK'))
+  .then(() => {
+    console.log('DB connection OK');
+    require('./jobs/booking-expiry');
+  })
   .catch(err => console.error('DB connection error:', err));

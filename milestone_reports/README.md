@@ -213,3 +213,19 @@ These reports serve as:
 - Staff Dashboard nav link (hidden from regular users, visible in desktop + mobile nav)
 - Swagger documentation updated
 - Verification test script (11 automated scenarios + 18-point UI checklist)
+
+### Milestone 12: Scheduled Jobs + Admin Panel
+**File:** `MILESTONE-12-COMPLETION-REPORT.md`  
+**Status:** ✅ Complete  
+**Date:** April 11, 2026  
+**Deliverables:**
+- node-cron installed; server/jobs/booking-expiry.js with 15-min expire job and daily 48hr/24hr warning job
+- notifyBookingExpired and notifyBookingExpiringSoon email functions
+- Admin panel at /admin (system_admin only)
+- GET /api/admin/users — list all users with role + category
+- PATCH /api/admin/users/:id/role — role promotion/demotion with self-change guard
+- DELETE /api/admin/users/:id — hard delete with self-delete guard
+- AdminProtectedRoute in App.jsx; /admin route registered
+- Admin Panel nav link (system_admin only, desktop + mobile)
+- Swagger documentation updated with Admin tag and 3 endpoints
+- Verification test script (14 automated scenarios + 17-point UI checklist)
