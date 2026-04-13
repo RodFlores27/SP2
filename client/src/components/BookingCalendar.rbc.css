@@ -1,0 +1,261 @@
+/* react-big-calendar overrides for PTCF (scoped by importing only from BookingCalendar) */
+
+.rbc-event {
+  font-size: 10px !important;
+  padding: 2px 4px !important;
+  line-height: 1.2 !important;
+}
+.rbc-event-label {
+  font-size: 9px !important;
+}
+.rbc-event-content {
+  font-size: 10px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* "+N more" show-more link */
+.rbc-show-more {
+  font-size: 10px !important;
+  font-weight: 600;
+  color: hsl(var(--primary)) !important;
+  background: transparent !important;
+  padding: 0 4px;
+  cursor: pointer;
+}
+.rbc-show-more:hover {
+  text-decoration: underline;
+}
+
+/* Popup overlay */
+.rbc-overlay {
+  border-radius: 8px !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12) !important;
+  background: hsl(var(--background)) !important;
+  padding: 8px !important;
+  z-index: 50 !important;
+  min-width: 200px !important;
+}
+.rbc-overlay-header {
+  font-size: 11px !important;
+  font-weight: 600;
+  color: hsl(var(--foreground)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  padding-bottom: 4px !important;
+  margin-bottom: 6px !important;
+}
+.rbc-overlay .rbc-event {
+  margin-bottom: 3px !important;
+}
+
+/* Current time indicator */
+.rbc-current-time-indicator {
+  background-color: #ef4444 !important;
+  height: 2px !important;
+  z-index: 10;
+}
+.rbc-current-time-indicator::before {
+  content: 'NOW';
+  position: absolute;
+  left: -45px;
+  top: -8px;
+  background-color: #ef4444;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.rbc-current-time-indicator::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  background-color: #ef4444;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+/*
+ * Month: .rbc-date-cell defaults to flex: 1 1 0 while .rbc-day-bg is flex: 1 0 0% — columns
+ * shrink differently. .rbc-row-bg also sets right: 1px, so the bg row is narrower than the
+ * full-width header row; vertical rules drift. Match flex and flush the bg strip to the row.
+ */
+.rbc-month-view .rbc-row-bg {
+  right: 0 !important;
+}
+.rbc-month-view .rbc-row-content > .rbc-row:first-child .rbc-date-cell {
+  flex: 1 0 0% !important;
+  min-width: 0 !important;
+}
+
+/*
+ * Time grid: match .rbc-header (flex: 1 0 0%). Default RBC sets .rbc-day-slot { width: 100% }
+ * which lays out columns differently and misaligns vertical rules with the header/all-day row.
+ */
+.rbc-time-content > .rbc-day-slot {
+  flex: 1 0 0% !important;
+  min-width: 0 !important;
+  width: auto !important;
+}
+
+/*
+ * Month slot selection: row-content stacks above .rbc-day-bg. Event segments use pointer-events:none
+ * so hits reach day cells. Row-content must not steal hover; re-enable hits on header row and "+N more".
+ * Only active when [data-selectable="true"] (set when onSelectSlot is provided).
+ */
+[data-selectable='true'] .rbc-month-view .rbc-month-row .rbc-row-content {
+  pointer-events: none;
+}
+[data-selectable='true'] .rbc-month-view .rbc-month-row .rbc-row-content > .rbc-row:first-child,
+[data-selectable='true'] .rbc-month-view .rbc-month-row .rbc-row-content > .rbc-row:first-child * {
+  pointer-events: auto;
+}
+[data-selectable='true'] .rbc-month-view .rbc-month-row .rbc-row-content .rbc-show-more {
+  pointer-events: auto;
+}
+[data-selectable='true'] .rbc-month-view .rbc-day-bg {
+  cursor: pointer;
+}
+[data-selectable='true'] .rbc-month-view .rbc-day-bg:not(.rbc-off-range-bg):hover {
+  background-color: hsl(var(--muted));
+}
+[data-selectable='true'] .rbc-month-view .rbc-day-bg.rbc-off-range-bg:hover {
+  background-color: #d4d4d4;
+}
+[data-selectable='true'] .rbc-month-view .rbc-date-cell {
+  cursor: pointer;
+}
+
+/* Hovering the day number highlights the full column (.rbc-day-bg) via :has() —7 weekday columns */
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(1):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(1):not(.rbc-off-range-bg) {
+  background-color: hsl(var(--muted));
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(1):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(1).rbc-off-range-bg {
+  background-color: #d4d4d4;
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(2):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(2):not(.rbc-off-range-bg) {
+  background-color: hsl(var(--muted));
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(2):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(2).rbc-off-range-bg {
+  background-color: #d4d4d4;
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(3):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(3):not(.rbc-off-range-bg) {
+  background-color: hsl(var(--muted));
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(3):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(3).rbc-off-range-bg {
+  background-color: #d4d4d4;
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(4):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(4):not(.rbc-off-range-bg) {
+  background-color: hsl(var(--muted));
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(4):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(4).rbc-off-range-bg {
+  background-color: #d4d4d4;
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(5):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(5):not(.rbc-off-range-bg) {
+  background-color: hsl(var(--muted));
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(5):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(5).rbc-off-range-bg {
+  background-color: #d4d4d4;
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(6):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(6):not(.rbc-off-range-bg) {
+  background-color: hsl(var(--muted));
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(6):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(6).rbc-off-range-bg {
+  background-color: #d4d4d4;
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(7):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(7):not(.rbc-off-range-bg) {
+  background-color: hsl(var(--muted));
+}
+[data-selectable='true']
+  .rbc-month-view
+  .rbc-month-row:has(
+    > .rbc-row-content > .rbc-row:first-child .rbc-date-cell:nth-child(7):hover
+  )
+  > .rbc-row-bg
+  > .rbc-day-bg:nth-child(7).rbc-off-range-bg {
+  background-color: #d4d4d4;
+}
