@@ -8,6 +8,7 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
   AlertTriangle,
+  Lightbulb,
   RefreshCw,
   Search,
   Shield,
@@ -27,6 +28,45 @@ const ROLE_OPTIONS = [
   { value: 'ptcf_staff', label: 'PTCF Staff' },
   { value: 'system_admin', label: 'System Admin' },
 ];
+
+const EMPTY_ROLE_DIALOG = {
+  open: false,
+  userId: null,
+  email: '',
+  fromRole: '',
+  toRole: '',
+};
+
+function roleChangeConsequence(fromRole, toRole) {
+  if (fromRole === toRole) return '';
+  if (fromRole === 'ptcf_staff' && toRole === 'system_admin') {
+    return 'This will grant them full system administration access, in addition to their existing staff capabilities.';
+  }
+  if (fromRole === 'system_admin' && toRole === 'ptcf_staff') {
+    return 'This will remove their administrator access; they will keep PTCF Staff approval permissions.';
+  }
+  if (toRole === 'ptcf_staff') {
+    return 'This will grant them approval permissions.';
+  }
+  if (toRole === 'system_admin') {
+    return 'This will grant them full system administration access, including user management.';
+  }
+  if (toRole === 'regular_user' && fromRole === 'ptcf_staff') {
+    return 'This will remove their approval permissions.';
+  }
+  if (toRole === 'regular_user' && fromRole === 'system_admin') {
+    return 'This will remove their administrator and staff permissions.';
+  }
+  return '';
+}
+
+function buildRoleChangeDescription(email, fromRole, toRole) {
+  const fromLabel = ROLE_LABELS[fromRole] ?? fromRole;
+  const toLabel = ROLE_LABELS[toRole] ?? toRole;
+  const consequence = roleChangeConsequence(fromRole, toRole);
+  const main = `Change role for ${email} from ${fromLabel} to ${toLabel}?`;
+  return consequence ? `${main} ${consequence}` : main;
+}
 
 function RoleBadge({ accountType }) {
   const colors = {
@@ -68,6 +108,8 @@ export default function AdminPanel() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
+  const [roleDialog, setRoleDialog] = useState(EMPTY_ROLE_DIALOG);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -98,6 +140,13 @@ export default function AdminPanel() {
     } finally {
       setRoleLoading(null);
     }
+  };
+
+  const handleRoleDialogConfirm = async () => {
+    const { userId, toRole } = roleDialog;
+    if (!userId || !toRole) return;
+    await handleRoleChange(userId, toRole);
+    setRoleDialog(EMPTY_ROLE_DIALOG);
   };
 
   const handleDeleteConfirm = async () => {
@@ -141,6 +190,14 @@ export default function AdminPanel() {
           <p className="text-sm text-muted-foreground mt-1">
             {user?.email} &mdash; System Admin
           </p>
+          <div className="mt-3 flex gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            <Lightbulb className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+            <p>
+              <span className="font-medium text-foreground">Coming soon:</span>{' '}
+              audit logs for administrative actions, plus reporting and analytics for facility
+              utilization.
+            </p>
+          </div>
         </div>
         <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading}>
           <RefreshCw className="h-4 w-4 mr-2" />
@@ -246,7 +303,18 @@ export default function AdminPanel() {
                       <select
                         value={u.accountType}
                         disabled={isSelf || roleLoading === u.id}
-                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                        onChange={(e) => {
+                          const newRole = e.target.value;
+                          if (newRole === u.accountType) return;
+                          e.target.value = u.accountType;
+                          setRoleDialog({
+                            open: true,
+                            userId: u.id,
+                            email: u.email,
+                            fromRole: u.accountType,
+                            toRole: newRole,
+                          });
+                        }}
                         className="text-xs rounded-md border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {ROLE_OPTIONS.map((opt) => (
@@ -277,6 +345,25 @@ export default function AdminPanel() {
           )}
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={roleDialog.open}
+        onOpenChange={(open) => {
+          if (!open) setRoleDialog(EMPTY_ROLE_DIALOG);
+        }}
+        onConfirm={handleRoleDialogConfirm}
+        title="Change user role"
+        description={
+          roleDialog.open
+            ? buildRoleChangeDescription(
+                roleDialog.email,
+                roleDialog.fromRole,
+                roleDialog.toRole
+              )
+            : ''
+        }
+        confirmLabel="Change role"
+      />
 
       {/* Delete confirmation dialog */}
       <ConfirmDialog

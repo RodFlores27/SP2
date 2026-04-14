@@ -9,7 +9,14 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-export function ConfirmDialog({ open, onOpenChange, onConfirm, title, description }) {
+export function ConfirmDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  title,
+  description,
+  confirmLabel = 'Continue',
+}) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
@@ -19,7 +26,7 @@ export function ConfirmDialog({ open, onOpenChange, onConfirm, title, descriptio
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>Continue</AlertDialogAction>
+          <AlertDialogAction onClick={onConfirm}>{confirmLabel}</AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
