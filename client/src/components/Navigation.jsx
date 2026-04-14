@@ -57,7 +57,7 @@ export function Navigation() {
                   to="/dashboard"
                   className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
                 >
-                  Dashboard
+                  My Bookings
                 </Link>
               )}
               {isAuthenticated &&
@@ -157,7 +157,7 @@ export function Navigation() {
                 className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Dashboard
+                My Bookings
               </Link>
             )}
             {isAuthenticated &&

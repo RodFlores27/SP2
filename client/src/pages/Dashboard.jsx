@@ -1,25 +1,32 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import axiosInstance from '@/lib/axios';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { BookingStatusBadge } from '@/components/BookingStatusBadge';
+import { AlertTriangle, CalendarDays, RefreshCw, PlusCircle, X } from 'lucide-react';
+import { ActiveBookingCard } from '@/components/my-bookings/ActiveBookingCard';
+import { PastBookingRow } from '@/components/my-bookings/PastBookingRow';
+import { BookingToolbar } from '@/components/my-bookings/BookingToolbar';
 import {
-  AlertTriangle,
-  CalendarDays,
-  Upload,
-  FileText,
-  X,
-  ChevronDown,
-  ChevronUp,
-  RefreshCw,
-  PlusCircle,
-  ExternalLink,
-} from 'lucide-react';
+  getResourceName,
+  groupByStatus,
+  filterBookings,
+  formatStatusLabel,
+  ACTIVE_STATUS_ORDER,
+  PAST_STATUS_ORDER,
+} from '@/components/my-bookings/bookingDashboardUtils';
+import {
+  loadAccordionMap,
+  saveAccordionMap,
+  isAccordionGroupOpen,
+  loadFilters,
+  saveFilters,
+  loadDashboardTab,
+  saveDashboardTab,
+} from '@/components/my-bookings/myBookingsDashboardSession';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
@@ -32,55 +39,26 @@ const ACCEPTED_FILE_TYPES = [
 ];
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
-function formatBookingTypeLabel(bookingType) {
-  if (!bookingType) return '';
-  const map = { firm: 'Firm', pencil: 'Pencil' };
-  return map[bookingType] ?? bookingType.charAt(0).toUpperCase() + bookingType.slice(1);
-}
-
-function formatStatusLabel(status) {
-  if (!status) return '';
-  return status
-    .split('_')
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
-
-function getResourceName(booking, equipment, rooms) {
-  if (!booking) return `Resource #${booking?.resourceId}`;
-  if (booking.resourceType === 'equipment') {
-    const e = equipment.find((x) => x.id === booking.resourceId);
-    return e?.name ?? `Equipment #${booking.resourceId}`;
-  }
-  if (booking.resourceType === 'room') {
-    const r = rooms.find((x) => x.id === booking.resourceId);
-    return r?.name ?? `Room #${booking.resourceId}`;
-  }
-  return `Resource #${booking.resourceId}`;
-}
-
-function isCancellable(booking) {
-  if (['cancelled', 'denied', 'expired'].includes(booking.status)) return false;
-  const hoursUntilStart = (new Date(booking.startTime) - new Date()) / (1000 * 60 * 60);
-  return hoursUntilStart >= 24;
-}
-
-function isConvertible(booking) {
-  return (
-    booking.bookingType === 'pencil' &&
-    !['cancelled', 'denied', 'expired'].includes(booking.status)
-  );
+function sortBookings(bookings, sort) {
+  const list = [...bookings];
+  if (sort === 'soonest') return list.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+  if (sort === 'latest') return list.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+  if (sort === 'newest') return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  return list;
 }
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const navigate = useNavigate();
 
   const [bookings, setBookings] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [activeTab, setActiveTab] = useState(() => loadDashboardTab());
+  const [activeFilters, setActiveFilters] = useState(() => loadFilters('active'));
+  const [pastFilters, setPastFilters] = useState(() => loadFilters('past'));
 
   const [cancelDialog, setCancelDialog] = useState({ open: false, bookingId: null });
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -93,7 +71,28 @@ export default function Dashboard() {
   const [convertError, setConvertError] = useState(null);
   const [convertConflicts, setConvertConflicts] = useState(null);
 
+  const [accordionActiveMap, setAccordionActiveMap] = useState(() => loadAccordionMap('active'));
+  const [accordionPastMap, setAccordionPastMap] = useState(() => loadAccordionMap('past'));
+
   const fileInputRef = useRef(null);
+
+  const toggleAccordion = (tab, status) => {
+    if (tab === 'active') {
+      setAccordionActiveMap((prev) => {
+        const currentlyOpen = isAccordionGroupOpen('active', status, prev);
+        const next = { ...prev, [status]: !currentlyOpen };
+        saveAccordionMap('active', next);
+        return next;
+      });
+    } else {
+      setAccordionPastMap((prev) => {
+        const currentlyOpen = isAccordionGroupOpen('past', status, prev);
+        const next = { ...prev, [status]: !currentlyOpen };
+        saveAccordionMap('past', next);
+        return next;
+      });
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -107,14 +106,8 @@ export default function Dashboard() {
 
       setBookings(bookingsRes.data);
 
-      if (equipmentRes.ok) {
-        const data = await equipmentRes.json();
-        setEquipment(data);
-      }
-      if (roomsRes.ok) {
-        const data = await roomsRes.json();
-        setRooms(data);
-      }
+      if (equipmentRes.ok) setEquipment(await equipmentRes.json());
+      if (roomsRes.ok) setRooms(await roomsRes.json());
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
       setError('Failed to load your bookings. Please try again.');
@@ -125,7 +118,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    saveDashboardTab(activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    saveFilters('active', activeFilters);
+  }, [activeFilters]);
+
+  useEffect(() => {
+    saveFilters('past', pastFilters);
+  }, [pastFilters]);
 
   const handleCancelConfirm = async () => {
     if (!cancelDialog.bookingId) return;
@@ -166,10 +172,7 @@ export default function Dashboard() {
     setConvertError(null);
     setConvertConflicts(null);
 
-    if (!file) {
-      setConvertFile(null);
-      return;
-    }
+    if (!file) { setConvertFile(null); return; }
 
     if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
       setConvertFileError('Invalid file type. Only PDF, DOC, DOCX, JPG, and PNG are allowed.');
@@ -203,9 +206,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       const res = await fetch(`${BASE_URL}/bookings/${bookingId}/convert-to-firm`, {
         method: 'PATCH',
-        headers: {
-          ...(token && { Authorization: `Bearer ${token}` }),
-        },
+        headers: { ...(token && { Authorization: `Bearer ${token}` }) },
         body: formData,
       });
 
@@ -231,12 +232,30 @@ export default function Dashboard() {
     }
   };
 
+  // Partition
   const activeBookings = bookings.filter(
     (b) => !['cancelled', 'denied', 'expired'].includes(b.status)
   );
-  const inactiveBookings = bookings.filter((b) =>
+  const pastBookings = bookings.filter((b) =>
     ['cancelled', 'denied', 'expired'].includes(b.status)
   );
+
+  // Helper bound to current resource lists
+  const getName = (b) => getResourceName(b, equipment, rooms);
+
+  // Apply filters + sort
+  const filteredActive = sortBookings(
+    filterBookings(activeBookings, activeFilters, getName),
+    activeFilters.sort
+  );
+  const filteredPast = sortBookings(
+    filterBookings(pastBookings, pastFilters, getName),
+    pastFilters.sort
+  );
+
+  // Group by status
+  const activeGroups = groupByStatus(filteredActive, ACTIVE_STATUS_ORDER);
+  const pastGroups = groupByStatus(filteredPast, PAST_STATUS_ORDER);
 
   if (loading) {
     return (
@@ -247,7 +266,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-5">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
@@ -278,7 +297,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Cancel error toast */}
+      {/* Cancel error */}
       {cancelError && (
         <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
@@ -291,85 +310,90 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Active bookings */}
-      <section>
-        <h2 className="text-lg font-semibold mb-3">Active Bookings</h2>
-        {activeBookings.length === 0 ? (
-          <Card>
-            <CardContent className="py-10 text-center text-muted-foreground">
-              <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-40" />
-              <p className="font-medium">No active bookings</p>
-              <p className="text-sm mt-1">
-                <Link to="/bookings/new" className="text-primary underline underline-offset-2">
-                  Create a new booking
-                </Link>{' '}
-                to get started.
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {activeBookings.map((booking) => (
-              <BookingCard
-                key={booking.id}
-                booking={booking}
-                resourceName={getResourceName(booking, equipment, rooms)}
-                equipment={equipment}
-                rooms={rooms}
-                onCancel={(id) => setCancelDialog({ open: true, bookingId: id })}
-                convertOpenId={convertOpenId}
-                onOpenConvert={openConvert}
-                onCloseConvert={closeConvert}
-                convertFile={convertFile}
-                convertFileError={convertFileError}
-                convertLoading={convertLoading}
-                convertError={convertError}
-                convertConflicts={convertConflicts}
-                onConvertFileChange={handleConvertFileChange}
-                onConvertSubmit={handleConvertSubmit}
-                onRemoveConvertFile={() => {
-                  setConvertFile(null);
-                  setConvertFileError(null);
-                }}
-                fileInputRef={fileInputRef}
-              />
-            ))}
-          </div>
-        )}
-      </section>
+      {/* Tabs */}
+      <div className="border-b border-border">
+        <div className="flex gap-0">
+          {[
+            { id: 'active', label: 'Active', count: activeBookings.length },
+            { id: 'past', label: 'Past', count: pastBookings.length },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab.id
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+              }`}
+            >
+              {tab.label}
+              <span
+                className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
+                  activeTab === tab.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {tab.count}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {/* Past / inactive bookings */}
-      {inactiveBookings.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold mb-3 text-muted-foreground">Past Bookings</h2>
-          <div className="space-y-3">
-            {inactiveBookings.map((booking) => (
-              <BookingCard
-                key={booking.id}
-                booking={booking}
-                resourceName={getResourceName(booking, equipment, rooms)}
-                equipment={equipment}
-                rooms={rooms}
-                onCancel={null}
-                convertOpenId={null}
-                onOpenConvert={null}
-                onCloseConvert={null}
-                convertFile={null}
-                convertFileError={null}
-                convertLoading={false}
-                convertError={null}
-                convertConflicts={null}
-                onConvertFileChange={null}
-                onConvertSubmit={null}
-                onRemoveConvertFile={null}
-                fileInputRef={null}
-              />
-            ))}
-          </div>
-        </section>
+      {/* Toolbar */}
+      {activeTab === 'active' ? (
+        <BookingToolbar
+          tab="active"
+          filters={activeFilters}
+          onFiltersChange={setActiveFilters}
+        />
+      ) : (
+        <BookingToolbar
+          tab="past"
+          filters={pastFilters}
+          onFiltersChange={setPastFilters}
+        />
       )}
 
-      {/* Cancel confirmation dialog */}
+      {/* Active tab */}
+      {activeTab === 'active' && (
+        <ActiveTabContent
+          groups={activeGroups}
+          filteredCount={filteredActive.length}
+          totalCount={activeBookings.length}
+          accordionMap={accordionActiveMap}
+          onAccordionToggle={(status) => toggleAccordion('active', status)}
+          convertOpenId={convertOpenId}
+          onCancel={(id) => setCancelDialog({ open: true, bookingId: id })}
+          onOpenConvert={openConvert}
+          onCloseConvert={closeConvert}
+          convertFile={convertFile}
+          convertFileError={convertFileError}
+          convertLoading={convertLoading}
+          convertError={convertError}
+          convertConflicts={convertConflicts}
+          onConvertFileChange={handleConvertFileChange}
+          onConvertSubmit={handleConvertSubmit}
+          onRemoveConvertFile={() => { setConvertFile(null); setConvertFileError(null); }}
+          fileInputRef={fileInputRef}
+          getName={getName}
+        />
+      )}
+
+      {/* Past tab */}
+      {activeTab === 'past' && (
+        <PastTabContent
+          groups={pastGroups}
+          filteredCount={filteredPast.length}
+          totalCount={pastBookings.length}
+          accordionMap={accordionPastMap}
+          onAccordionToggle={(status) => toggleAccordion('past', status)}
+          getName={getName}
+        />
+      )}
+
       <ConfirmDialog
         open={cancelDialog.open}
         onOpenChange={(open) => {
@@ -383,13 +407,14 @@ export default function Dashboard() {
   );
 }
 
-function BookingCard({
-  booking,
-  resourceName,
-  equipment,
-  rooms,
-  onCancel,
+function ActiveTabContent({
+  groups,
+  filteredCount,
+  totalCount,
+  accordionMap,
+  onAccordionToggle,
   convertOpenId,
+  onCancel,
   onOpenConvert,
   onCloseConvert,
   convertFile,
@@ -401,201 +426,157 @@ function BookingCard({
   onConvertSubmit,
   onRemoveConvertFile,
   fileInputRef,
+  getName,
 }) {
-  const isConvertOpen = convertOpenId === booking.id;
-  const canCancel = onCancel && isCancellable(booking);
-  const canConvert = onOpenConvert && isConvertible(booking);
-  const isInactive = ['cancelled', 'denied', 'expired'].includes(booking.status);
+  if (totalCount === 0) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center text-muted-foreground">
+          <CalendarDays className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p className="font-medium">No active bookings</p>
+          <p className="text-sm mt-1">
+            <Link to="/bookings/new" className="text-primary underline underline-offset-2">
+              Create a new booking
+            </Link>{' '}
+            to get started.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (filteredCount === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-6 text-center">
+        No active bookings match the current filters.
+      </p>
+    );
+  }
 
   return (
-    <Card className={isInactive ? 'opacity-60' : ''}>
-      <CardContent className="pt-4 pb-4">
-        {/* Contested inline alert */}
-        {booking.status === 'contested' && (
-          <div className="mb-3 flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2 rounded-md text-sm">
-            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600" />
-            <span>
-              This booking is <strong>contested</strong> — it overlaps with another booking for the
-              same resource. A staff member will review and resolve the conflict.
-            </span>
+    <div className="space-y-5">
+      {groups.map(({ status, items }) => (
+        <StatusGroup
+          key={status}
+          status={status}
+          count={items.length}
+          open={isAccordionGroupOpen('active', status, accordionMap)}
+          onToggle={() => onAccordionToggle(status)}
+        >
+          <div className="space-y-3">
+            {items.map((booking) => (
+              <ActiveBookingCard
+                key={booking.id}
+                booking={booking}
+                resourceName={getName(booking)}
+                convertOpenId={convertOpenId}
+                onCancel={onCancel}
+                onOpenConvert={onOpenConvert}
+                onCloseConvert={onCloseConvert}
+                convertFile={convertFile}
+                convertFileError={convertFileError}
+                convertLoading={convertLoading}
+                convertError={convertError}
+                convertConflicts={convertConflicts}
+                onConvertFileChange={onConvertFileChange}
+                onConvertSubmit={onConvertSubmit}
+                onRemoveConvertFile={onRemoveConvertFile}
+                fileInputRef={fileInputRef}
+              />
+            ))}
           </div>
-        )}
+        </StatusGroup>
+      ))}
+    </div>
+  );
+}
 
-        {/* Main booking info */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-          <div className="space-y-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm">#{booking.id}</span>
-              <span className="font-medium truncate">{resourceName}</span>
-              <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
-            </div>
+function PastTabContent({ groups, filteredCount, totalCount, accordionMap, onAccordionToggle, getName }) {
+  if (totalCount === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-6 text-center">
+        No past bookings yet.
+      </p>
+    );
+  }
 
-            <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
+  if (filteredCount === 0) {
+    return (
+      <p className="text-sm text-muted-foreground py-6 text-center">
+        No past bookings match the current filters.
+      </p>
+    );
+  }
 
-            <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-              <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>
-                {format(new Date(booking.startTime), 'MMM d, yyyy h:mm a')} &mdash;{' '}
-                {format(new Date(booking.endTime), 'MMM d, yyyy h:mm a')}
-              </span>
-            </div>
-
-            {booking.purpose && (
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Purpose:</span> {booking.purpose}
-              </p>
-            )}
-
-            {booking.staffRemark && (
-              <p className="text-sm">
-                <span className="font-medium">Staff remark:</span>{' '}
-                <span className="text-muted-foreground">{booking.staffRemark}</span>
-              </p>
-            )}
-
-            {booking.expiryAt && booking.status === 'penciled' && (
-              <p className="text-xs text-muted-foreground">
-                Expires: {format(new Date(booking.expiryAt), 'MMM d, yyyy h:mm a')}
-              </p>
-            )}
-
-            {booking.authorizationDocUrl && (
-              <a
-                href={booking.authorizationDocUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2 mt-1"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                View Authorization Doc
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
+  return (
+    <div className="space-y-5">
+      {groups.map(({ status, items }) => (
+        <StatusGroup
+          key={status}
+          status={status}
+          count={items.length}
+          open={isAccordionGroupOpen('past', status, accordionMap)}
+          onToggle={() => onAccordionToggle(status)}
+        >
+          <div className="space-y-2">
+            {items.map((booking) => (
+              <PastBookingRow
+                key={booking.id}
+                booking={booking}
+                resourceName={getName(booking)}
+              />
+            ))}
           </div>
+        </StatusGroup>
+      ))}
+    </div>
+  );
+}
 
-          {/* Action buttons */}
-          {!isInactive && (
-            <div className="flex flex-row sm:flex-col gap-2 flex-shrink-0">
-              {canConvert && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => (isConvertOpen ? onCloseConvert() : onOpenConvert(booking.id))}
-                >
-                  {isConvertOpen ? (
-                    <>
-                      <ChevronUp className="h-4 w-4 mr-1" />
-                      Close
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="h-4 w-4 mr-1" />
-                      Convert to Firm
-                    </>
-                  )}
-                </Button>
-              )}
-              {canCancel && (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => onCancel(booking.id)}
-                >
-                  Cancel
-                </Button>
-              )}
-            </div>
-          )}
-        </div>
+/** Collapsible section heading with a status label + count badge. */
+function StatusGroup({ status, count, children, open, onToggle }) {
+  const labelMap = {
+    contested: 'Contested',
+    pending_approval: 'Pending Approval',
+    penciled: 'Penciled',
+    approved: 'Approved',
+    cancelled: 'Cancelled',
+    denied: 'Denied',
+    expired: 'Expired',
+    other: 'Other',
+  };
 
-        {/* Convert-to-firm inline panel */}
-        {isConvertOpen && (
-          <div className="mt-4 border-t pt-4 space-y-3">
-            <p className="text-sm font-medium">Convert to Firm Booking</p>
-            <p className="text-xs text-muted-foreground">
-              An authorization document is required. Once converted, the booking will be submitted
-              for staff approval.
-            </p>
+  const accentMap = {
+    contested: 'text-orange-700 border-orange-200 bg-orange-50',
+    pending_approval: 'text-yellow-700 border-yellow-200 bg-yellow-50',
+    penciled: 'text-blue-700 border-blue-200 bg-blue-50',
+    approved: 'text-green-700 border-green-200 bg-green-50',
+    cancelled: 'text-gray-500 border-gray-200 bg-gray-50',
+    denied: 'text-red-700 border-red-200 bg-red-50',
+    expired: 'text-gray-400 border-gray-200 bg-gray-50',
+    other: 'text-gray-600 border-gray-200 bg-gray-50',
+  };
 
-            {/* Conflict errors */}
-            {convertError && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded-md text-sm">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p>{convertError}</p>
-                    {convertConflicts && convertConflicts.length > 0 && (
-                      <div className="mt-2 space-y-1">
-                        <p className="font-medium text-xs">Conflicting bookings:</p>
-                        {convertConflicts.map((c) => (
-                          <p key={c.id} className="text-xs">
-                            {resourceName} &mdash; {formatBookingTypeLabel(c.bookingType)} (
-                            {formatStatusLabel(c.status)}) &mdash;{' '}
-                            {format(new Date(c.startTime), 'MMM d, yyyy h:mm a')} to{' '}
-                            {format(new Date(c.endTime), 'h:mm a')}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* File upload */}
-            {convertFile ? (
-              <div className="flex items-center gap-2 p-2 bg-secondary rounded-md text-sm">
-                <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                <span className="truncate flex-1">{convertFile.name}</span>
-                <button
-                  type="button"
-                  onClick={onRemoveConvertFile}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ) : (
-              <div>
-                <label
-                  htmlFor={`convert-file-${booking.id}`}
-                  className="flex flex-col items-center justify-center w-full border-2 border-dashed border-border rounded-md p-4 cursor-pointer hover:bg-accent transition-colors"
-                >
-                  <Upload className="h-5 w-5 text-muted-foreground mb-1" />
-                  <span className="text-xs text-muted-foreground text-center">
-                    Click to upload authorization document
-                    <br />
-                    PDF, DOC, DOCX, JPG, PNG — max 5 MB
-                  </span>
-                  <input
-                    id={`convert-file-${booking.id}`}
-                    type="file"
-                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                    className="hidden"
-                    onChange={onConvertFileChange}
-                  />
-                </label>
-                {convertFileError && (
-                  <p className="text-xs text-red-600 mt-1">{convertFileError}</p>
-                )}
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                onClick={() => onConvertSubmit(booking.id)}
-                disabled={convertLoading || !convertFile}
-              >
-                {convertLoading ? 'Converting...' : 'Submit for Approval'}
-              </Button>
-              <Button size="sm" variant="outline" onClick={onCloseConvert} disabled={convertLoading}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex items-center gap-2 mb-2 group w-full text-left"
+      >
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground group-hover:text-foreground transition-colors">
+          {labelMap[status] ?? formatStatusLabel(status)}
+        </span>
+        <span
+          className={`text-xs px-1.5 py-0.5 rounded-full border font-medium ${accentMap[status] ?? accentMap.other}`}
+        >
+          {count}
+        </span>
+        <span className="ml-auto text-muted-foreground text-xs">
+          {open ? '▲' : '▼'}
+        </span>
+      </button>
+      {open && children}
+    </div>
   );
 }

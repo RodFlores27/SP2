@@ -4,7 +4,7 @@ import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths
 import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/components/BookingCalendar.rbc.css';
-import { formatBookingHoverDetail } from '@/components/bookingCalendarUtils';
+import { suppressNativeEventTooltip } from '@/components/bookingCalendarUtils';
 import { useBookingCalendarSideEffects } from '@/components/useBookingCalendarSideEffects';
 
 const locales = { 'en-US': enUS };
@@ -50,15 +50,15 @@ function recordsById(list) {
   }, {});
 }
 
-/** Wraps month-grid events so we can find them via elementsFromPoint while pointer-events are none. */
-function MonthEventShellWrapper({ children, type, event }) {
-  if (type !== 'date' || event == null) {
+/** Wraps events so we can resolve booking id via elementsFromPoint (month uses pointer-events: none on pills). */
+function BookingEventShellWrapper({ children, event }) {
+  if (event == null) {
     return children;
   }
   const id = event.id;
   return (
     <div
-      className="rbc-ptcf-month-event-shell"
+      className="rbc-ptcf-event-shell"
       {...(id != null ? { 'data-booking-id': String(id) } : {})}
     >
       {children}
@@ -279,7 +279,7 @@ export function BookingCalendar({
         data-selectable={onSelectSlot ? 'true' : undefined}
         aria-describedby={ariaDescribedBy || undefined}
       >
-        {monthBookingTooltip && currentView === 'month' && (
+        {monthBookingTooltip && (
           <div
             role="tooltip"
             className="pointer-events-none fixed z-[100] max-w-sm rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md whitespace-pre-line"
@@ -311,14 +311,14 @@ export function BookingCalendar({
           selectable={!!onSelectSlot}
           views={['month', 'week', 'day', 'agenda']}
           components={{
-            eventWrapper: MonthEventShellWrapper,
+            eventWrapper: BookingEventShellWrapper,
             month: {
               dateHeader: MonthDateHeader,
             },
           }}
           defaultView="month"
           popup
-          tooltipAccessor={formatBookingHoverDetail}
+          tooltipAccessor={suppressNativeEventTooltip}
         />
       </div>
     </div>

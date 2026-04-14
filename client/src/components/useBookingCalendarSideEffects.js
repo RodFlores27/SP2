@@ -145,11 +145,11 @@ export function useBookingCalendarSideEffects({
       let shell = null;
       for (const node of stack) {
         if (!(node instanceof Element) || !host.contains(node)) continue;
-        if (node.classList.contains('rbc-ptcf-month-event-shell')) {
+        if (node.classList.contains('rbc-ptcf-event-shell')) {
           shell = node;
           break;
         }
-        const found = node.closest('.rbc-ptcf-month-event-shell');
+        const found = node.closest('.rbc-ptcf-event-shell');
         if (found && host.contains(found)) {
           shell = found;
           break;
@@ -195,7 +195,7 @@ export function useBookingCalendarSideEffects({
       setMonthBookingTooltip(null);
     };
 
-    const findMonthEventUnderPoint = (clientX, clientY) => {
+    const findEventUnderPoint = (clientX, clientY) => {
       const stack = document.elementsFromPoint(clientX, clientY);
       for (const node of stack) {
         if (!(node instanceof Element) || !host.contains(node)) continue;
@@ -208,9 +208,7 @@ export function useBookingCalendarSideEffects({
       const topEl = document.elementFromPoint(clientX, clientY);
       if (topEl instanceof Element && topEl.closest?.('.rbc-overlay')) return null;
 
-      const month = host.querySelector('.rbc-month-view');
-      if (!month) return null;
-      const candidates = month.querySelectorAll('.rbc-event');
+      const candidates = host.querySelectorAll('.rbc-event');
       for (const ev of candidates) {
         if (!(ev instanceof Element)) continue;
         const r = ev.getBoundingClientRect();
@@ -227,14 +225,14 @@ export function useBookingCalendarSideEffects({
     };
 
     const updateFromPoint = (clientX, clientY) => {
-      const hit = findMonthEventUnderPoint(clientX, clientY);
+      const hit = findEventUnderPoint(clientX, clientY);
 
       if (!hit) {
         clearTooltip();
         return;
       }
 
-      const shell = hit.closest?.('.rbc-ptcf-month-event-shell');
+      const shell = hit.closest?.('.rbc-ptcf-event-shell');
       const rawId = shell?.getAttribute('data-booking-id');
       const calEvent = rawId != null ? events.find((ev) => String(ev.id) === rawId) : null;
       const text = formatBookingHoverDetail(calEvent);
@@ -266,7 +264,7 @@ export function useBookingCalendarSideEffects({
     };
 
     const scheduleUpdate = (e) => {
-      if (currentView !== 'month') {
+      if (currentView === 'agenda') {
         clearTooltip();
         return;
       }
