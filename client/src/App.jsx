@@ -5,12 +5,39 @@ import { Navigation } from '@/components/Navigation';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
 import Dashboard from '@/pages/Dashboard';
+import StaffDashboard from '@/pages/StaffDashboard';
 import EquipmentList from '@/pages/EquipmentList';
 import EquipmentDetail from '@/pages/EquipmentDetail';
 import RoomList from '@/pages/RoomList';
 import RoomDetail from '@/pages/RoomDetail';
 import Calendar from '@/pages/Calendar';
 import BookingForm from '@/pages/BookingForm';
+import { useAuth } from '@/contexts/AuthContext';
+
+function StaffProtectedRoute({ children }) {
+  const { user, isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const isStaff =
+    user?.accountType === 'ptcf_staff' || user?.accountType === 'system_admin';
+
+  if (!isStaff) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
 
 function App() {
   return (
@@ -55,6 +82,14 @@ function App() {
                 <ProtectedRoute>
                   <Dashboard />
                 </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/staff"
+              element={
+                <StaffProtectedRoute>
+                  <StaffDashboard />
+                </StaffProtectedRoute>
               }
             />
           </Routes>

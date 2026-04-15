@@ -318,6 +318,30 @@ node milestone_tests/milestone-{number}-{description}.js
 - \BookingStatusBadge\ component (booking lifecycle statuses)
 - Dashboard page with active/past sections, inline convert panel, conflict alerts
 
+### Milestone 11: Staff Dashboard
+**File:** `milestone-11-staff-dashboard.js`  
+**Tests:**
+- Staff and student login
+- Staff fetches pending_approval bookings (array response)
+- Staff fetches contested bookings (array response)
+- `GET /bookings/:id/conflicts` returns array for staff
+- Regular user blocked from conflicts endpoint (403)
+- Unauthenticated request blocked from conflicts endpoint (401)
+- Non-existent booking returns 404 from conflicts endpoint
+- Regular user blocked from approve endpoint (403)
+- Regular user blocked from deny endpoint (403)
+- Staff approves a pending_approval booking with staffRemark
+- Staff denies a contested booking with staffRemark
+- 18-point manual UI checklist (nav visibility, route guard, tabs, cards, approve/deny flow, conflict grouping, side-by-side layout, empty states)
+
+**Technologies Verified:**
+- `GET /bookings?status=pending_approval` and `?status=contested` (staff-scoped)
+- `GET /bookings/:id/conflicts` new endpoint
+- `PATCH /bookings/:id/approve` and `/deny` with staffRemark
+- `StaffProtectedRoute` (role-based redirect)
+- `StaffDashboard.jsx` two-tab page with `ApprovalCard` and `ConflictGroup` components
+- Client-side conflict grouping algorithm
+
 ## Notes
 
 - Tests use axios for HTTP requests

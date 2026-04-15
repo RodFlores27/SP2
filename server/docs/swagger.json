@@ -1780,6 +1780,65 @@
         }
       }
     },
+    "/bookings/{id}/conflicts": {
+      "get": {
+        "tags": ["Bookings"],
+        "summary": "Get conflicts for a booking (Staff only)",
+        "description": "Returns all active bookings that overlap with the given booking's resource and time window. Used by staff to view contested bookings side-by-side.",
+        "operationId": "getBookingConflicts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Booking ID",
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of conflicting bookings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Booking"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
+          "404": {
+            "description": "Booking not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "Booking not found"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/bookings/{id}/deny": {
       "patch": {
         "tags": ["Bookings"],

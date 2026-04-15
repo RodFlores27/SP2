@@ -9,7 +9,8 @@ const {
   cancelBooking,
   convertToFirm,
   approveBooking,
-  denyBooking
+  denyBooking,
+  getBookingConflicts
 } = require('../controllers/booking.controller');
 
 const router = express.Router();
@@ -47,5 +48,6 @@ router.patch('/:id/convert-to-firm', authenticateToken, upload.single('authoriza
 
 router.patch('/:id/approve', authenticateToken, authorizeRoles(['ptcf_staff', 'system_admin']), approveBooking);
 router.patch('/:id/deny', authenticateToken, authorizeRoles(['ptcf_staff', 'system_admin']), denyBooking);
+router.get('/:id/conflicts', authenticateToken, authorizeRoles(['ptcf_staff', 'system_admin']), getBookingConflicts);
 
 module.exports = router;

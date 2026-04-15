@@ -594,6 +594,30 @@ const getAvailability = async (req, res) => {
   }
 };
 
+const getBookingConflicts = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const booking = await Booking.findByPk(id);
+    if (!booking) {
+      return res.status(404).json({ error: 'Booking not found' });
+    }
+
+    const conflicts = await Booking.findConflicts(
+      booking.resourceType,
+      booking.resourceId,
+      booking.startTime,
+      booking.endTime,
+      booking.id
+    );
+
+    res.json(conflicts);
+  } catch (error) {
+    console.error('Error fetching booking conflicts:', error);
+    res.status(500).json({ error: 'Failed to fetch booking conflicts' });
+  }
+};
+
 module.exports = {
   createBooking,
   getAllBookings,
@@ -602,5 +626,6 @@ module.exports = {
   cancelBooking,
   convertToFirm,
   approveBooking,
-  denyBooking
+  denyBooking,
+  getBookingConflicts
 };
