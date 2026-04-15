@@ -4,7 +4,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
-import { useAuth } from '@/contexts/AuthContext';
 import axiosInstance from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -69,7 +68,6 @@ function formatStatusLabel(status) {
 export default function BookingForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user } = useAuth();
 
   const [equipment, setEquipment] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -468,7 +466,7 @@ export default function BookingForm() {
                             <p className="font-medium">Conflicting bookings:</p>
                             {conflicts.map((c) => (
                               <p key={c.id} className="text-xs">
-                                {selectedResourceName} — {formatBookingTypeLabel(c.bookingType)} ({formatStatusLabel(c.status)}) — {format(new Date(c.startTime), 'MMM d, yyyy h:mm a')} to {format(new Date(c.endTime), 'h:mm a')}
+                                #{c.id} {selectedResourceName} — {formatBookingTypeLabel(c.bookingType)} ({formatStatusLabel(c.status)}) — {format(new Date(c.startTime), 'MMM d, yyyy h:mm a')} to {format(new Date(c.endTime), 'h:mm a')}
                               </p>
                             ))}
                           </div>

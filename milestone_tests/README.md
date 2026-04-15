@@ -342,6 +342,32 @@ node milestone_tests/milestone-{number}-{description}.js
 - `StaffDashboard.jsx` two-tab page with `ApprovalCard` and `ConflictGroup` components
 - Client-side conflict grouping algorithm
 
+### Milestone 12: Scheduled Jobs + Admin Panel
+**File:** `milestone-12-cron-and-admin.js`  
+**Tests:**
+- Admin, staff, and student login
+- Admin lists all users (array + field validation)
+- Staff blocked from /admin/users (403)
+- Student blocked from /admin/users (403)
+- Unauthenticated request blocked (401)
+- Admin promotes regular_user to ptcf_staff and restores
+- Admin blocked from changing own role (400)
+- Invalid accountType rejected (400)
+- Non-existent user returns 404 on role update
+- Admin blocked from deleting own account (400)
+- Non-existent user returns 404 on delete
+- Staff blocked from DELETE /admin/users/:id (403)
+- Booking notifications module exports all 6 functions
+- Cron job file exists with node-cron and expiry logic
+- 17-point manual UI checklist (nav visibility, route guard, stats, search, role dropdown, self-protection, delete flow, cron log)
+
+**Technologies Verified:**
+- `node-cron` scheduled tasks (expire + warning jobs)
+- `notifyBookingExpired` and `notifyBookingExpiringSoon` email helpers
+- `GET /api/admin/users`, `PATCH /api/admin/users/:id/role`, `DELETE /api/admin/users/:id`
+- `AdminProtectedRoute` (system_admin only redirect)
+- `AdminPanel.jsx` with stats, search, role select, delete
+
 ## Notes
 
 - Tests use axios for HTTP requests

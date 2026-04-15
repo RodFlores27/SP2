@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axiosInstance from '@/lib/axios';
+import { clearMyBookingsDashboardSession } from '@/components/my-bookings/myBookingsDashboardSession';
 
 const AuthContext = createContext(null);
 
@@ -72,6 +73,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    clearMyBookingsDashboardSession();
     setToken(null);
     setUser(null);
   };

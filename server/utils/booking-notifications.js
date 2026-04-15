@@ -164,9 +164,65 @@ async function notifyBookingCancelled(booking, resourceName, cancelledBy) {
   });
 }
 
+/**
+ * booking.expired — sent to the booking owner when a pencil booking auto-expires.
+ */
+async function notifyBookingExpired(booking, resourceName) {
+  const recipientEmail = booking.user?.email;
+  if (!recipientEmail) return;
+
+  const html = baseEmailWrapper(
+    'Pencil Booking Expired',
+    `<p>Your pencil booking has <strong style="color:#dc2626;">expired</strong> because it was not converted to a firm booking in time.</p>
+    ${bookingDetailsBlock(booking, resourceName)}
+    <p style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-size:14px;color:#991b1b;">
+      Pencil bookings must be converted to firm bookings within 3 days of creation. This booking has been automatically expired.
+    </p>
+    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">Create a new booking →</a></p>`
+  );
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: `[PTCF] Booking #${booking.id} Expired`,
+    html,
+  });
+}
+
+/**
+ * booking.expiring_soon — sent as a warning before a pencil booking expires.
+ * @param {number} hoursLeft - 48 or 24
+ */
+async function notifyBookingExpiringSoon(booking, resourceName, hoursLeft) {
+  const recipientEmail = booking.user?.email;
+  if (!recipientEmail) return;
+
+  const urgency = hoursLeft <= 24 ? 'high' : 'medium';
+  const bannerStyle = urgency === 'high'
+    ? 'background:#fef2f2;border:1px solid #fecaca;color:#991b1b;'
+    : 'background:#fff7ed;border:1px solid #fed7aa;color:#92400e;';
+
+  const html = baseEmailWrapper(
+    `Pencil Booking Expiring in ${hoursLeft} Hours`,
+    `<p>Your pencil booking is expiring in <strong>${hoursLeft} hours</strong>. Convert it to a firm booking to keep your reservation.</p>
+    ${bookingDetailsBlock(booking, resourceName)}
+    <p style="${bannerStyle}border-radius:6px;padding:12px;font-size:14px;">
+      To secure this booking, upload your authorization document and convert it to a firm booking before it expires.
+    </p>
+    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;font-weight:600;">Convert to Firm Booking →</a></p>`
+  );
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: `[PTCF] Booking #${booking.id} Expires in ${hoursLeft}h — Action Required`,
+    html,
+  });
+}
+
 module.exports = {
   notifyBookingCreated,
   notifyBookingApproved,
   notifyBookingDenied,
   notifyBookingCancelled,
+  notifyBookingExpired,
+  notifyBookingExpiringSoon,
 };

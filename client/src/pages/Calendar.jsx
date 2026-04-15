@@ -102,6 +102,11 @@ export default function Calendar() {
           <p className="text-muted-foreground">
             View booking availability for equipment and rooms
           </p>
+          <p id="calendar-book-hint" className="text-sm text-muted-foreground mt-2 max-w-4xl">
+            Click any day (month view) or drag a time range (week/day) to open the booking form. Resource
+            filters below apply when set.
+            {!isAuthenticated && <> You will be asked to sign in first.</>}
+          </p>
         </CardHeader>
         <CardContent>
           <div className="mb-6 flex flex-wrap gap-4">
@@ -148,6 +153,7 @@ export default function Calendar() {
             resourceId={resourceId ? parseInt(resourceId, 10) : null}
             height={600}
             onSelectSlot={handleSelectSlot}
+            ariaDescribedBy="calendar-book-hint"
           />
         </CardContent>
       </Card>
