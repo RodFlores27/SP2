@@ -35,7 +35,7 @@ const createBooking = async (req, res) => {
     // Handle optional file upload for authorization document
     let authorizationDocUrl = req.body.authorizationDocUrl || null;
     if (req.file) {
-      authorizationDocUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/authorization-docs');
+      authorizationDocUrl = await uploadToCloudinary(req.file.buffer, 'authorization-docs');
     }
 
     if (!resourceType || !resourceId || !bookingType || !startTime || !endTime) {
@@ -411,7 +411,7 @@ const convertToFirm = async (req, res) => {
       });
     }
 
-    const authDocUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/authorization-docs');
+    const authDocUrl = await uploadToCloudinary(req.file.buffer, 'authorization-docs');
 
     booking.bookingType = 'firm';
     booking.status = 'pending_approval';

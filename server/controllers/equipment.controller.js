@@ -42,7 +42,7 @@ const createEquipment = async (req, res) => {
     let imageUrl = null;
     if (req.file) {
       try {
-        imageUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/equipment');
+        imageUrl = await uploadToCloudinary(req.file.buffer, 'equipment');
       } catch (uploadError) {
         console.error('Cloudinary upload error:', uploadError);
         return res.status(500).json({ error: 'Failed to upload image' });
@@ -82,7 +82,7 @@ const updateEquipment = async (req, res) => {
     
     if (req.file) {
       try {
-        imageUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/equipment');
+        imageUrl = await uploadToCloudinary(req.file.buffer, 'equipment');
       } catch (uploadError) {
         console.error('Cloudinary upload error:', uploadError);
         return res.status(500).json({ error: 'Failed to upload image' });

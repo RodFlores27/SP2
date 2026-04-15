@@ -42,7 +42,7 @@ const createRoom = async (req, res) => {
     let imageUrl = null;
     if (req.file) {
       try {
-        imageUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/rooms');
+        imageUrl = await uploadToCloudinary(req.file.buffer, 'rooms');
       } catch (uploadError) {
         console.error('Cloudinary upload error:', uploadError);
         return res.status(500).json({ error: 'Failed to upload image' });
@@ -83,7 +83,7 @@ const updateRoom = async (req, res) => {
     
     if (req.file) {
       try {
-        imageUrl = await uploadToCloudinary(req.file.buffer, 'ptcf/rooms');
+        imageUrl = await uploadToCloudinary(req.file.buffer, 'rooms');
       } catch (uploadError) {
         console.error('Cloudinary upload error:', uploadError);
         return res.status(500).json({ error: 'Failed to upload image' });

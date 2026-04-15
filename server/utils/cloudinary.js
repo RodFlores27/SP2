@@ -6,11 +6,26 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-const uploadToCloudinary = async (fileBuffer, folder = 'ptcf') => {
+const DEFAULT_BASE_FOLDER = process.env.CLOUDINARY_FOLDER || 'ptcf/dev';
+
+function resolveCloudinaryFolder(folder) {
+  if (!folder) return DEFAULT_BASE_FOLDER;
+
+  // Preserve fully-qualified paths for backward compatibility.
+  if (folder.startsWith('ptcf/')) return folder;
+
+  return `${DEFAULT_BASE_FOLDER}/${folder}`;
+}
+
+const uploadToCloudinary = async (
+  fileBuffer,
+  folder
+) => {
   return new Promise((resolve, reject) => {
+    const resolvedFolder = resolveCloudinaryFolder(folder);
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: folder,
+        folder: resolvedFolder,
         resource_type: 'auto',
       },
       (error, result) => {
