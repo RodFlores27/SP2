@@ -91,6 +91,61 @@ npx sequelize-cli db:seed:all --env production
 
 Or manually insert via Supabase SQL Editor.
 
+### Step 5: MVP demo — backup before a full reset
+
+**Wiping data is irreversible** if you have no backup.
+
+1. In **Supabase Dashboard**, use **Database → Backups** if your plan includes point-in-time or daily backups.
+2. On the **free tier**, backups may be limited: export anything you must keep (e.g. run a manual SQL export or copy critical rows) before resetting.
+3. Share demo credentials only over a private channel; seeded passwords are documented in [`PROJECT-ORGANIZATION.md`](PROJECT-ORGANIZATION.md).
+
+### Step 6: MVP demo — schema/seed flow for production
+
+Use the flow that matches your production DB state.
+
+#### Case A: brand-new production DB (empty schema)
+
+Run migrations first, then seed data.
+
+```bash
+# Windows PowerShell / macOS / Linux
+npx sequelize-cli db:migrate --env production
+npx sequelize-cli db:seed:all --env production
+```
+
+#### Case B: existing production DB (refresh demo data)
+
+Use this when you need a **clean slate** (remove stray registrations, refresh demo bookings). `reset:mvp-demo` deletes **all** rows in `Bookings`, `Users`, `Equipment`, and `Rooms`, clears **SequelizeData** (seed history) when that table exists, and does **not** touch **SequelizeMeta** (migrations).
+
+`config.cjs` loads `.env.production` automatically for `--env production`, so you do not need to re-type `NODE_ENV` or `DATABASE_URL` if they are already set in `.env.production`. Keep `ALLOW_MVP_DEMO_RESET` manual as a safety gate.
+
+```bash
+# Windows PowerShell
+$env:ALLOW_MVP_DEMO_RESET="1"
+npm run reset:mvp-demo
+npx sequelize-cli db:seed:all --env production
+```
+
+```bash
+# CMD
+set ALLOW_MVP_DEMO_RESET=1
+npm run reset:mvp-demo
+npx sequelize-cli db:seed:all --env production
+```
+
+```bash
+# macOS / Linux
+ALLOW_MVP_DEMO_RESET=1 npm run reset:mvp-demo
+npx sequelize-cli db:seed:all --env production
+```
+
+**Local dev reset** (uses `development` in `config.cjs` and your `.env` `DB_*` variables; no `ALLOW_` flag needed):
+
+```bash
+npm run reset:mvp-demo
+npx sequelize-cli db:seed:all --env development
+```
+
 ---
 
 ## Part 2: Deploy Backend to Render (15 minutes)
@@ -233,8 +288,16 @@ git push origin main
 
 ### Step 3: Add Environment Variable
 
-**Key:** `VITE_API_URL`
-**Value:** `https://ptcf-backend.onrender.com/api`
+**Key:** `VITE_API_URL`  
+**Value:** `https://ptcf-backend.onrender.com/api` (use your real Render service URL)
+
+The client sets Axios `baseURL` from `import.meta.env.VITE_API_URL` in [`client/src/lib/axios.js`](client/src/lib/axios.js); it must include the **`/api` suffix** so requests hit `https://…onrender.com/api/...`, not the bare origin.
+
+#### Verify `VITE_API_URL` before sharing the app
+
+1. In Vercel → **Project → Settings → Environment Variables**, confirm `VITE_API_URL` is set for **Production** (and **Preview** if you rely on preview deployments).
+2. **Redeploy** after any change to `VITE_*` variables (Vite inlines them at build time).
+3. Smoke-check in the browser: **DevTools → Network** → log in or open equipment list → confirm request URLs use your **Render** host, not `localhost`.
 
 ### Step 4: Deploy
 
@@ -278,6 +341,13 @@ curl https://ptcf-backend.onrender.com/api/equipment
 5. **Test protected routes:**
    - ✅ Equipment detail page (requires auth)
    - ✅ Room detail page (requires auth)
+
+### After an MVP demo reset (`reset:mvp-demo` + `db:seed:all`)
+
+1. **Student** (`student@uplb.edu.ph` / `password123`): dashboard and calendar show pencils and a **pending approval** firm booking where applicable.
+2. **Staff** (`staff@uplb.edu.ph` / `staff123`): staff dashboard shows **contested** pencils and at least one **pending approval** queue item; approve/deny still works.
+3. **Admin** (`admin@uplb.edu.ph` / `admin123`): admin panel lists **five** seeded users (including `researcher1` / `researcher2`).
+4. **Calendar** (any role): upcoming demo events appear on future dates.
 
 ---
 

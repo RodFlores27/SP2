@@ -185,6 +185,8 @@ npm run test:all
 - `student@uplb.edu.ph` / `password123` (regular_user)
 - `staff@uplb.edu.ph` / `staff123` (ptcf_staff)
 - `admin@uplb.edu.ph` / `admin123` (system_admin)
+- `researcher1@uplb.edu.ph` / `password123` (regular_user)
+- `researcher2@uplb.edu.ph` / `password123` (regular_user)
 
 ### Seeded Equipment
 - Laminar Flow Hood
@@ -196,11 +198,13 @@ npm run test:all
 - Preparation Room (capacity: 4)
 
 ### Seeded Bookings
-- 6 demo bookings with various scenarios:
+- 8 demo bookings with various scenarios:
   - Pencil booking for equipment (student)
   - Firm booking for room (staff)
   - Contested pencil bookings (overlapping on same equipment)
-  - Mix of users (student, staff, admin)
+  - Firm booking **pending staff approval** (student, Growth Chamber)
+  - Pencil booking (researcher1, Growth Chamber)
+  - Mix of users (student, staff, admin, researcher)
   - Mix of resources (equipment and rooms)
   - Future dates for all bookings
 

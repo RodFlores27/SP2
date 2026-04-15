@@ -38,6 +38,22 @@ module.exports = {
         createdAt: new Date(),
         updatedAt: new Date(),
       },
+      {
+        email: 'researcher1@uplb.edu.ph',
+        passwordHash: regularUserPassword,
+        accountType: 'regular_user',
+        userCategory: 'graduate_student',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        email: 'researcher2@uplb.edu.ph',
+        passwordHash: regularUserPassword,
+        accountType: 'regular_user',
+        userCategory: 'faculty',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
     ], {});
 
     // Seed 3 equipment rows

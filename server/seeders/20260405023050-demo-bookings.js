@@ -18,6 +18,8 @@ module.exports = {
     const threeDaysLater = createDateAtTime(3, 9, 0); // 9:00 AM
     const fourDaysLater = createDateAtTime(4, 9, 0); // 9:00 AM
     const fiveDaysLater = createDateAtTime(5, 9, 0); // 9:00 AM
+    const sixDaysLater = createDateAtTime(6, 10, 0);
+    const sevenDaysLater = createDateAtTime(7, 13, 0);
 
     // Get actual user IDs from database
     const users = await queryInterface.sequelize.query(
@@ -28,8 +30,9 @@ module.exports = {
     const studentId = users.find(u => u.email === 'student@uplb.edu.ph')?.id;
     const staffId = users.find(u => u.email === 'staff@uplb.edu.ph')?.id;
     const adminId = users.find(u => u.email === 'admin@uplb.edu.ph')?.id;
+    const researcher1Id = users.find(u => u.email === 'researcher1@uplb.edu.ph')?.id;
 
-    if (!studentId || !staffId || !adminId) {
+    if (!studentId || !staffId || !adminId || !researcher1Id) {
       throw new Error('Required users not found. Please run initial data seeder first.');
     }
 
@@ -45,10 +48,17 @@ module.exports = {
 
     const laminarFlowHoodId = equipment.find(e => e.name === 'Laminar Flow Hood')?.id;
     const autoclaveId = equipment.find(e => e.name === 'Autoclave')?.id;
+    const growthChamberId = equipment.find(e => e.name === 'Growth Chamber')?.id;
     const cultureRoomAId = rooms.find(r => r.name === 'Culture Room A')?.id;
     const preparationRoomId = rooms.find(r => r.name === 'Preparation Room')?.id;
 
-    if (!laminarFlowHoodId || !autoclaveId || !cultureRoomAId || !preparationRoomId) {
+    if (
+      !laminarFlowHoodId ||
+      !autoclaveId ||
+      !growthChamberId ||
+      !cultureRoomAId ||
+      !preparationRoomId
+    ) {
       throw new Error('Required equipment/rooms not found. Please run initial data seeder first.');
     }
 
@@ -134,6 +144,34 @@ module.exports = {
         purpose: 'Thesis defense preparation',
         authorizationDocUrl: null,
         expiryAt: new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000),
+        createdAt: now,
+        updatedAt: now
+      },
+      {
+        userId: studentId,
+        resourceType: 'equipment',
+        resourceId: growthChamberId,
+        bookingType: 'firm',
+        status: 'pending_approval',
+        startTime: sixDaysLater,
+        endTime: new Date(sixDaysLater.getTime() + 3 * 60 * 60 * 1000),
+        purpose: 'Sterilized incubation run — awaiting staff approval',
+        authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+        expiryAt: null,
+        createdAt: now,
+        updatedAt: now
+      },
+      {
+        userId: researcher1Id,
+        resourceType: 'equipment',
+        resourceId: growthChamberId,
+        bookingType: 'pencil',
+        status: 'penciled',
+        startTime: sevenDaysLater,
+        endTime: new Date(sevenDaysLater.getTime() + 2 * 60 * 60 * 1000),
+        purpose: 'Faculty pilot study — growth chamber time block',
+        authorizationDocUrl: null,
+        expiryAt: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000),
         createdAt: now,
         updatedAt: now
       }
