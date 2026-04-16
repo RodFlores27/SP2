@@ -68,6 +68,7 @@ function formatStatusLabel(status) {
 export default function BookingForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const prefilledBookingType = searchParams.get('bookingType');
 
   const [equipment, setEquipment] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -97,10 +98,12 @@ export default function BookingForm() {
     defaultValues: {
       resourceType: searchParams.get('resourceType') || '',
       resourceId: searchParams.get('resourceId') || '',
-      bookingType: 'pencil',
+      bookingType: prefilledBookingType === 'firm' || prefilledBookingType === 'pencil'
+        ? prefilledBookingType
+        : 'pencil',
       startTime: toDatetimeLocal(searchParams.get('startTime')),
       endTime: toDatetimeLocal(searchParams.get('endTime')),
-      purpose: '',
+      purpose: searchParams.get('purpose') || '',
     },
   });
 

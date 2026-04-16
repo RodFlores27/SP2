@@ -34,6 +34,7 @@ axiosInstance.interceptors.response.use(
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       clearMyBookingsDashboardSession();
+      localStorage.setItem('logoutReason', 'session_expired');
       window.location.href = '/login';
     }
     return Promise.reject(error);

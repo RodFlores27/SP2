@@ -47,6 +47,31 @@ function sortBookings(bookings, sort) {
   return list;
 }
 
+function buildRebookLink(booking) {
+  if (!booking || !['cancelled', 'expired'].includes(booking.status)) return null;
+
+  const params = new URLSearchParams({
+    resourceType: booking.resourceType,
+    resourceId: String(booking.resourceId),
+    bookingType: booking.bookingType || 'pencil',
+  });
+
+  if (booking.purpose) {
+    params.set('purpose', booking.purpose);
+  }
+
+  // Prefill original slot only when still in the future.
+  const start = new Date(booking.startTime);
+  const end = new Date(booking.endTime);
+  const now = new Date();
+  if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start > now && end > now) {
+    params.set('startTime', start.toISOString());
+    params.set('endTime', end.toISOString());
+  }
+
+  return `/bookings/new?${params.toString()}`;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
 
@@ -99,7 +124,7 @@ export default function Dashboard() {
     setError(null);
     try {
       const [bookingsRes, equipmentRes, roomsRes] = await Promise.all([
-        axiosInstance.get('/bookings'),
+        axiosInstance.get('/bookings?mine=true'),
         fetch(`${BASE_URL}/equipment`),
         fetch(`${BASE_URL}/rooms`),
       ]);
@@ -391,6 +416,7 @@ export default function Dashboard() {
           accordionMap={accordionPastMap}
           onAccordionToggle={(status) => toggleAccordion('past', status)}
           getName={getName}
+          getRebookLink={buildRebookLink}
         />
       )}
 
@@ -491,7 +517,15 @@ function ActiveTabContent({
   );
 }
 
-function PastTabContent({ groups, filteredCount, totalCount, accordionMap, onAccordionToggle, getName }) {
+function PastTabContent({
+  groups,
+  filteredCount,
+  totalCount,
+  accordionMap,
+  onAccordionToggle,
+  getName,
+  getRebookLink,
+}) {
   if (totalCount === 0) {
     return (
       <p className="text-sm text-muted-foreground py-6 text-center">
@@ -524,6 +558,7 @@ function PastTabContent({ groups, filteredCount, totalCount, accordionMap, onAcc
                 key={booking.id}
                 booking={booking}
                 resourceName={getName(booking)}
+                rebookTo={getRebookLink?.(booking)}
               />
             ))}
           </div>

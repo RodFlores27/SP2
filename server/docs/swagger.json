@@ -1331,8 +1331,8 @@
       },
       "get": {
         "tags": ["Bookings"],
-        "summary": "Get all bookings",
-        "description": "Returns bookings based on user role. Regular users see only their own bookings. Staff and admins see all bookings. Supports filtering by status and resourceType.",
+        "summary": "Get bookings",
+        "description": "Returns bookings based on user role. Regular users see only their own bookings. Staff and admins see all bookings by default. Use mine=true to force own-bookings-only regardless of role. Supports filtering by status and resourceType.",
         "operationId": "getAllBookings",
         "security": [
           {
@@ -1356,6 +1356,15 @@
             "schema": {
               "type": "string",
               "enum": ["equipment", "room"]
+            }
+          },
+          {
+            "name": "mine",
+            "in": "query",
+            "description": "When true, only return bookings owned by the authenticated user regardless of role",
+            "schema": {
+              "type": "boolean",
+              "example": true
             }
           }
         ],

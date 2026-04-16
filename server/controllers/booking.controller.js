@@ -224,11 +224,12 @@ const getAllBookings = async (req, res) => {
   try {
     const userId = req.user.id;
     const userAccountType = getUserAccountType(req);
-    const { status, resourceType } = req.query;
+    const { status, resourceType, mine } = req.query;
 
     const whereClause = {};
+    const restrictToOwnBookings = mine === 'true';
 
-    if (userAccountType !== 'ptcf_staff' && userAccountType !== 'system_admin') {
+    if (restrictToOwnBookings || (userAccountType !== 'ptcf_staff' && userAccountType !== 'system_admin')) {
       whereClause.userId = userId;
     }
 

@@ -6,13 +6,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { BookingStatusBadge } from '@/components/BookingStatusBadge';
+import { AuthorizationDocButton } from '@/components/my-bookings/AuthorizationDocButton';
 import {
   AlertTriangle,
   CalendarDays,
   CheckCircle,
   XCircle,
-  FileText,
-  ExternalLink,
   RefreshCw,
   ChevronDown,
   ChevronUp,
@@ -354,18 +353,7 @@ function ApprovalCard({
               </p>
             )}
 
-            {booking.authorizationDocUrl && (
-              <a
-                href={booking.authorizationDocUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                View Authorization Doc
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            )}
+            <AuthorizationDocButton url={booking.authorizationDocUrl} />
           </div>
 
           <div className="flex-shrink-0">
@@ -514,18 +502,7 @@ function ConflictBookingCard({ booking, remark, onRemarkChange, onApprove, onDen
           </p>
         )}
 
-        {booking.authorizationDocUrl && (
-          <a
-            href={booking.authorizationDocUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-primary underline underline-offset-2"
-          >
-            <FileText className="h-3.5 w-3.5" />
-            Auth Doc
-            <ExternalLink className="h-3 w-3" />
-          </a>
-        )}
+        <AuthorizationDocButton url={booking.authorizationDocUrl} />
 
         <div>
           <textarea

@@ -16,9 +16,10 @@ const loginSchema = z.object({
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, isAuthenticated } = useAuth();
+  const { login, isAuthenticated, logoutReason, clearLogoutReason } = useAuth();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState('');
 
   const form = useForm({
     resolver: zodResolver(loginSchema),
@@ -33,6 +34,16 @@ export default function Login() {
       navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
+
+  useEffect(() => {
+    if (logoutReason === 'idle_timeout') {
+      setSessionNotice('You were logged out due to 15 minutes of inactivity. Please log in again.');
+      clearLogoutReason();
+    } else if (logoutReason === 'session_expired') {
+      setSessionNotice('Your session expired. Please log in again.');
+      clearLogoutReason();
+    }
+  }, [logoutReason, clearLogoutReason]);
 
   const onSubmit = async (data) => {
     setIsLoading(true);
@@ -97,6 +108,11 @@ export default function Login() {
 
               {error && (
                 <div className="text-sm text-destructive">{error}</div>
+              )}
+              {sessionNotice && (
+                <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  {sessionNotice}
+                </div>
               )}
 
               <Button type="submit" className="w-full" disabled={isLoading}>
