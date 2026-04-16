@@ -1,4 +1,4 @@
-const { Booking, User, Equipment, Room } = require('../models');
+const { Booking, User, Equipment, Room, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 const {
@@ -9,6 +9,71 @@ const {
 } = require('../utils/booking-notifications');
 
 const getUserAccountType = (req) => req.user?.accountType || req.user?.role;
+const REBOOKABLE_STATUSES = ['cancelled', 'denied', 'expired'];
+
+const THREAD_BOOKING_ATTRIBUTES = [
+  'id',
+  'bookingThreadId',
+  'rebookedFromBookingId',
+  'bookingType',
+  'status',
+  'startTime',
+  'endTime',
+  'purpose',
+  'staffRemark',
+  'createdAt',
+];
+
+const buildBookingIncludes = ({ includeThreadHistory = false } = {}) => {
+  const includes = [{
+    model: User,
+    as: 'user',
+    attributes: ['id', 'email', 'accountType', 'userCategory']
+  }];
+
+  if (includeThreadHistory) {
+    includes.push({
+      model: Booking,
+      as: 'threadBookings',
+      separate: true,
+      order: [['createdAt', 'DESC']],
+      attributes: THREAD_BOOKING_ATTRIBUTES,
+      include: [{
+        model: User,
+        as: 'user',
+        attributes: ['id', 'email', 'accountType', 'userCategory']
+      }]
+    });
+  }
+
+  return includes;
+};
+
+function isNewerBooking(a, b) {
+  const aTime = new Date(a.createdAt).getTime();
+  const bTime = new Date(b.createdAt).getTime();
+  if (aTime !== bTime) return aTime > bTime;
+  return a.id > b.id;
+}
+
+function getLatestBookingIdByThread(bookings) {
+  const latestByThread = new Map();
+
+  for (const booking of bookings) {
+    const threadId = booking.bookingThreadId || booking.id;
+    const current = latestByThread.get(threadId);
+    if (!current || isNewerBooking(booking, current)) {
+      latestByThread.set(threadId, booking);
+    }
+  }
+
+  return new Map([...latestByThread.entries()].map(([threadId, booking]) => [threadId, booking.id]));
+}
+
+async function getNextBookingId() {
+  const [rows] = await sequelize.query('SELECT nextval(\'"Bookings_id_seq"\') AS id;');
+  return rows[0]?.id;
+}
 
 async function resolveResourceName(resourceType, resourceId) {
   try {
@@ -26,10 +91,69 @@ async function resolveResourceName(resourceType, resourceId) {
   return `Resource #${resourceId}`;
 }
 
+function normalizeOptionalText(value) {
+  if (value === undefined || value === null) return '';
+  return String(value).trim();
+}
+
+function hasAuthDoc(url) {
+  return Boolean(url && String(url).trim().length > 0);
+}
+
+function buildRebookChangeSummary(sourceBooking, nextValues) {
+  const changes = {};
+
+  if (sourceBooking.startTime?.toISOString() !== nextValues.startTime?.toISOString()) {
+    changes.startTime = {
+      before: sourceBooking.startTime,
+      after: nextValues.startTime
+    };
+  }
+
+  if (sourceBooking.endTime?.toISOString() !== nextValues.endTime?.toISOString()) {
+    changes.endTime = {
+      before: sourceBooking.endTime,
+      after: nextValues.endTime
+    };
+  }
+
+  if (sourceBooking.bookingType !== nextValues.bookingType) {
+    changes.bookingType = {
+      before: sourceBooking.bookingType,
+      after: nextValues.bookingType
+    };
+  }
+
+  if (normalizeOptionalText(sourceBooking.purpose) !== normalizeOptionalText(nextValues.purpose)) {
+    changes.purpose = {
+      before: sourceBooking.purpose || null,
+      after: nextValues.purpose || null
+    };
+  }
+
+  const sourceHasDoc = hasAuthDoc(sourceBooking.authorizationDocUrl);
+  const nextHasDoc = hasAuthDoc(nextValues.authorizationDocUrl);
+  if (sourceHasDoc !== nextHasDoc || (sourceHasDoc && nextHasDoc && sourceBooking.authorizationDocUrl !== nextValues.authorizationDocUrl)) {
+    changes.authorizationDocUrl = {
+      before: sourceBooking.authorizationDocUrl || null,
+      after: nextValues.authorizationDocUrl || null
+    };
+  }
+
+  const changedFields = Object.keys(changes);
+  if (changedFields.length === 0) return null;
+
+  return {
+    changedFields,
+    changes
+  };
+}
+
 const createBooking = async (req, res) => {
   try {
     const { resourceType, resourceId, bookingType, startTime, endTime, purpose } = req.body;
     const confirmOverlapOwn = req.body.confirmOverlapOwn === true || req.body.confirmOverlapOwn === 'true';
+    const rebookedFromBookingIdRaw = req.body.rebookedFromBookingId;
     const userId = req.user.id;
 
     // Handle optional file upload for authorization document
@@ -65,6 +189,61 @@ const createBooking = async (req, res) => {
 
     if (start < new Date()) {
       return res.status(400).json({ error: 'Cannot create booking in the past' });
+    }
+
+    let rebookedFromBookingId = null;
+    let bookingThreadId = null;
+    let sourceBooking = null;
+    if (rebookedFromBookingIdRaw !== undefined && rebookedFromBookingIdRaw !== null && rebookedFromBookingIdRaw !== '') {
+      rebookedFromBookingId = parseInt(rebookedFromBookingIdRaw, 10);
+      if (Number.isNaN(rebookedFromBookingId)) {
+        return res.status(400).json({ error: 'Invalid rebookedFromBookingId' });
+      }
+
+      sourceBooking = await Booking.findByPk(rebookedFromBookingId);
+      if (!sourceBooking) {
+        return res.status(404).json({ error: 'Source booking for rebook not found' });
+      }
+
+      if (sourceBooking.userId !== userId) {
+        return res.status(403).json({ error: 'Access denied. You can only rebook your own booking attempts.' });
+      }
+
+      if (!REBOOKABLE_STATUSES.includes(sourceBooking.status)) {
+        return res.status(400).json({
+          error: `Cannot rebook from booking with status: ${sourceBooking.status}. Only denied/cancelled/expired attempts can be rebooked.`
+        });
+      }
+
+      bookingThreadId = sourceBooking.bookingThreadId || sourceBooking.id;
+
+      const newerAttempt = await Booking.findOne({
+        where: {
+          bookingThreadId,
+          [Op.or]: [
+            { createdAt: { [Op.gt]: sourceBooking.createdAt } },
+            {
+              [Op.and]: [
+                { createdAt: sourceBooking.createdAt },
+                { id: { [Op.gt]: sourceBooking.id } }
+              ]
+            }
+          ]
+        },
+        attributes: ['id'],
+      });
+
+      if (newerAttempt) {
+        return res.status(409).json({
+          error: 'This booking attempt is no longer the latest in its thread. Please rebook from the most recent attempt.'
+        });
+      }
+
+      if (sourceBooking.resourceType !== resourceType || sourceBooking.resourceId !== parseInt(resourceId, 10)) {
+        return res.status(400).json({
+          error: 'Resource type and resource must match the source booking when rebooking.'
+        });
+      }
     }
 
     let resource;
@@ -157,7 +336,24 @@ const createBooking = async (req, res) => {
       status = 'pending_approval';
     }
 
+    let bookingId = null;
+    if (!bookingThreadId) {
+      bookingId = await getNextBookingId();
+      bookingThreadId = bookingId;
+    }
+
+    const rebookChangeSummary = sourceBooking
+      ? buildRebookChangeSummary(sourceBooking, {
+          startTime: start,
+          endTime: end,
+          bookingType,
+          purpose: purpose || null,
+          authorizationDocUrl
+        })
+      : null;
+
     const booking = await Booking.create({
+      ...(bookingId ? { id: bookingId } : {}),
       userId,
       resourceType,
       resourceId,
@@ -167,7 +363,10 @@ const createBooking = async (req, res) => {
       endTime: end,
       purpose,
       authorizationDocUrl,
-      expiryAt
+      expiryAt,
+      rebookedFromBookingId,
+      bookingThreadId,
+      rebookChangeSummary
     });
 
     // Also mark existing penciled bookings as contested (both sides of overlap)
@@ -184,11 +383,7 @@ const createBooking = async (req, res) => {
     }
 
     const createdBooking = await Booking.findByPk(booking.id, {
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }]
+      include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
     const response = {
@@ -233,10 +428,6 @@ const getAllBookings = async (req, res) => {
       whereClause.userId = userId;
     }
 
-    if (status) {
-      whereClause.status = status;
-    }
-
     if (resourceType) {
       if (!['equipment', 'room'].includes(resourceType)) {
         return res.status(400).json({ error: 'Invalid resourceType. Must be "equipment" or "room"' });
@@ -244,17 +435,41 @@ const getAllBookings = async (req, res) => {
       whereClause.resourceType = resourceType;
     }
 
-    const bookings = await Booking.findAll({
+    const allVisibleBookings = await Booking.findAll({
       where: whereClause,
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }],
-      order: [['startTime', 'DESC']]
+      attributes: ['id', 'bookingThreadId', 'status', 'createdAt'],
     });
 
-    res.json(bookings);
+    const latestBookingIdByThread = getLatestBookingIdByThread(allVisibleBookings);
+    const latestBookingIds = [...latestBookingIdByThread.values()];
+
+    if (latestBookingIds.length === 0) {
+      return res.json([]);
+    }
+
+    const finalWhereClause = {
+      id: { [Op.in]: latestBookingIds }
+    };
+
+    if (status) {
+      finalWhereClause.status = status;
+    }
+
+    const bookings = await Booking.findAll({
+      where: finalWhereClause,
+      include: buildBookingIncludes({
+        includeThreadHistory: restrictToOwnBookings || userAccountType === 'ptcf_staff' || userAccountType === 'system_admin'
+      }),
+      order: [['createdAt', 'DESC']]
+    });
+
+    const withFlags = bookings.map((booking) => {
+      const plain = booking.toJSON();
+      plain.canRebook = REBOOKABLE_STATUSES.includes(plain.status);
+      return plain;
+    });
+
+    res.json(withFlags);
   } catch (error) {
     console.error('Error fetching bookings:', error);
     res.status(500).json({ error: 'Failed to fetch bookings' });
@@ -268,11 +483,9 @@ const getBookingById = async (req, res) => {
     const userAccountType = getUserAccountType(req);
 
     const booking = await Booking.findByPk(id, {
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }]
+      include: buildBookingIncludes({
+        includeThreadHistory: userAccountType === 'ptcf_staff' || userAccountType === 'system_admin'
+      })
     });
 
     if (!booking) {
@@ -299,11 +512,7 @@ const cancelBooking = async (req, res) => {
     const userAccountType = getUserAccountType(req);
 
     const booking = await Booking.findByPk(id, {
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }]
+      include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
     if (!booking) {
@@ -362,11 +571,7 @@ const convertToFirm = async (req, res) => {
     }
 
     const booking = await Booking.findByPk(id, {
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }]
+      include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
     if (!booking) {
@@ -421,11 +626,7 @@ const convertToFirm = async (req, res) => {
     await booking.save();
 
     const updatedBooking = await Booking.findByPk(booking.id, {
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }]
+      include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
     res.json({
@@ -444,11 +645,7 @@ const approveBooking = async (req, res) => {
     const { staffRemark } = req.body;
 
     const booking = await Booking.findByPk(id, {
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }]
+      include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
     if (!booking) {
@@ -468,11 +665,7 @@ const approveBooking = async (req, res) => {
     await booking.save();
 
     const updatedBooking = await Booking.findByPk(booking.id, {
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }]
+      include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
     res.json({
@@ -496,11 +689,7 @@ const denyBooking = async (req, res) => {
     const { staffRemark } = req.body;
 
     const booking = await Booking.findByPk(id, {
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }]
+      include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
     if (!booking) {
@@ -520,11 +709,7 @@ const denyBooking = async (req, res) => {
     await booking.save();
 
     const updatedBooking = await Booking.findByPk(booking.id, {
-      include: [{
-        model: User,
-        as: 'user',
-        attributes: ['id', 'email', 'accountType', 'userCategory']
-      }]
+      include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
     res.json({

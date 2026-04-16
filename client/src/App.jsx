@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigation } from '@/components/Navigation';
 import Login from '@/pages/Login';
@@ -13,7 +14,6 @@ import RoomList from '@/pages/RoomList';
 import RoomDetail from '@/pages/RoomDetail';
 import Calendar from '@/pages/Calendar';
 import BookingForm from '@/pages/BookingForm';
-import { useAuth } from '@/contexts/AuthContext';
 
 function AdminProtectedRoute({ children }) {
   const { user, isAuthenticated, loading } = useAuth();

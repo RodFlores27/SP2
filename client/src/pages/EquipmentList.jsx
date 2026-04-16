@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import axiosInstance from '@/lib/axios';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { StatusBadge } from '@/components/StatusBadge';

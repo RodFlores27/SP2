@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import axiosInstance from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import {
   ChevronUp,
   Users,
   Clock,
+  CornerDownRight,
 } from 'lucide-react';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -57,6 +58,63 @@ function getResourceName(booking, equipment, rooms) {
     return r?.name ?? `Room #${booking.resourceId}`;
   }
   return `Resource #${booking.resourceId}`;
+}
+
+function getPreviousAttempts(booking) {
+  if (!booking?.threadBookings?.length) return [];
+
+  return booking.threadBookings
+    .filter((attempt) => attempt.id !== booking.id)
+    .filter((attempt) => {
+      if (!attempt.createdAt || !booking.createdAt) return true;
+      return new Date(attempt.createdAt) < new Date(booking.createdAt);
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function formatChangeValue(field, value) {
+  if (value === null || value === undefined || value === '') return 'empty';
+  if (field === 'startTime' || field === 'endTime') {
+    return format(new Date(value), 'MMM d, yyyy h:mm a');
+  }
+  if (field === 'authorizationDocUrl') {
+    return value ? 'uploaded' : 'removed';
+  }
+  if (field === 'bookingType') {
+    return String(value).charAt(0).toUpperCase() + String(value).slice(1);
+  }
+  return String(value);
+}
+
+function getRebookChangeItems(booking) {
+  const changedFields = booking?.rebookChangeSummary?.changedFields || [];
+  const changes = booking?.rebookChangeSummary?.changes || {};
+  if (!changedFields.length) return [];
+
+  const labels = {
+    startTime: 'Start time',
+    endTime: 'End time',
+    bookingType: 'Booking type',
+    purpose: 'Purpose',
+    authorizationDocUrl: 'Authorization document'
+  };
+
+  return changedFields
+    .filter((field) => changes[field])
+    .map((field) => ({
+      field,
+      label: labels[field] || field,
+      before: formatChangeValue(field, changes[field].before),
+      after: formatChangeValue(field, changes[field].after),
+    }));
+}
+
+function getRebookSourceStatus(booking) {
+  if (!booking?.rebookedFromBookingId) return null;
+  const sourceAttempt = booking.threadBookings?.find(
+    (attempt) => attempt.id === booking.rebookedFromBookingId
+  );
+  return sourceAttempt?.status || null;
 }
 
 function groupContestedBookings(bookings) {
@@ -313,6 +371,13 @@ function ApprovalCard({
   actionLoading,
 }) {
   const isLoading = (action) => actionLoading === booking.id + action;
+  const previousAttempts = getPreviousAttempts(booking);
+  const rebookChanges = getRebookChangeItems(booking);
+  const isRebookAttempt = Boolean(booking.rebookedFromBookingId);
+  const rebookSourceStatus = getRebookSourceStatus(booking);
+  const showUrgentRebookBadge = isRebookAttempt && rebookSourceStatus === 'denied';
+  const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
+  const [showRebookChanges, setShowRebookChanges] = useState(true);
 
   return (
     <Card>
@@ -325,7 +390,23 @@ function ApprovalCard({
               <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
             </div>
 
-            <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
+            <div className="flex items-center gap-2 flex-wrap">
+              <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
+              {showUrgentRebookBadge && (
+                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                  Rebooked
+                </span>
+              )}
+            </div>
+
+            {isRebookAttempt && (
+              <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                <CornerDownRight className="h-3 w-3" />
+                <span className="underline decoration-dotted underline-offset-2">
+                  Rebooked from #{booking.rebookedFromBookingId}
+                </span>
+              </p>
+            )}
 
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Users className="h-3.5 w-3.5 flex-shrink-0" />
@@ -375,6 +456,69 @@ function ApprovalCard({
 
         {reviewOpen && (
           <div className="mt-4 border-t pt-4 space-y-3">
+            {isRebookAttempt && (
+              <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRebookChanges((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-2 text-left"
+                >
+                  <span className="text-sm font-medium text-blue-900">Changes from previous attempt</span>
+                  <span className="text-xs text-blue-700">
+                    {showRebookChanges ? 'Hide' : 'Show'}
+                  </span>
+                </button>
+                {showRebookChanges && (
+                  rebookChanges.length > 0 ? (
+                    <div className="mt-1 space-y-1">
+                      {rebookChanges.map((item) => (
+                        <p key={item.field} className="text-xs text-blue-800">
+                          {item.label}: {item.before} {'->'} {item.after}
+                        </p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-xs text-blue-800">
+                      No changed fields detected from the previous attempt.
+                    </p>
+                  )
+                )}
+              </div>
+            )}
+            {previousAttempts.length > 0 && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPreviousAttempts((prev) => !prev)}
+                  className="flex w-full items-center justify-between gap-2 text-left"
+                >
+                  <span className="text-sm font-medium text-amber-900">
+                    Previous attempts ({previousAttempts.length})
+                  </span>
+                  <span className="text-xs text-amber-700">
+                    {showPreviousAttempts ? 'Hide' : 'Show'}
+                  </span>
+                </button>
+                {showPreviousAttempts && (
+                  <div className="mt-2 space-y-2">
+                    {previousAttempts.map((attempt) => (
+                      <div key={attempt.id} className="text-sm text-amber-900">
+                        <p className="font-medium">
+                          Booking #{attempt.id} ({attempt.status?.replace('_', ' ')})
+                        </p>
+                        <p className="text-xs text-amber-700">
+                          {format(new Date(attempt.startTime), 'MMM d, yyyy h:mm a')} &mdash;{' '}
+                          {format(new Date(attempt.endTime), 'MMM d, yyyy h:mm a')}
+                        </p>
+                        {!!attempt.staffRemark && (
+                          <p className="mt-1 text-sm text-amber-800">{attempt.staffRemark}</p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium block mb-1">
                 Staff Remark{' '}
@@ -468,14 +612,34 @@ function ConflictGroup({ group, equipment, rooms, remarkMap, onRemarkChange, onA
 
 function ConflictBookingCard({ booking, remark, onRemarkChange, onApprove, onDeny, actionLoading }) {
   const isLoading = (action) => actionLoading === booking.id + action;
+  const previousAttempts = getPreviousAttempts(booking);
+  const rebookChanges = getRebookChangeItems(booking);
+  const isRebookAttempt = Boolean(booking.rebookedFromBookingId);
+  const rebookSourceStatus = getRebookSourceStatus(booking);
+  const showUrgentRebookBadge = isRebookAttempt && rebookSourceStatus === 'denied';
+  const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
+  const [showRebookChanges, setShowRebookChanges] = useState(true);
 
   return (
     <Card className="border-orange-200">
       <CardHeader className="pb-2 pt-3 px-4">
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
           <span>#{booking.id}</span>
           <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
+          {showUrgentRebookBadge && (
+            <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+              Rebooked
+            </span>
+          )}
         </CardTitle>
+        {isRebookAttempt && (
+          <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+            <CornerDownRight className="h-3 w-3" />
+            <span className="underline decoration-dotted underline-offset-2">
+              Rebooked from #{booking.rebookedFromBookingId}
+            </span>
+          </p>
+        )}
       </CardHeader>
       <CardContent className="px-4 pb-4 space-y-2">
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
@@ -500,6 +664,67 @@ function ConflictBookingCard({ booking, remark, onRemarkChange, onApprove, onDen
           <p className="text-sm text-muted-foreground line-clamp-2">
             <span className="font-medium text-foreground">Purpose:</span> {booking.purpose}
           </p>
+        )}
+
+        {isRebookAttempt && (
+          <div className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2">
+            <button
+              type="button"
+              onClick={() => setShowRebookChanges((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-2 text-left"
+            >
+              <span className="text-xs font-medium text-blue-900">Changes from previous attempt</span>
+              <span className="text-[11px] text-blue-700">
+                {showRebookChanges ? 'Hide' : 'Show'}
+              </span>
+            </button>
+            {showRebookChanges && (
+              rebookChanges.length > 0 ? (
+                <div className="mt-1 space-y-1">
+                  {rebookChanges.map((item) => (
+                    <p key={item.field} className="text-xs text-blue-800">
+                      {item.label}: {item.before} {'->'} {item.after}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-1 text-xs text-blue-800">
+                  No changed fields detected from the previous attempt.
+                </p>
+              )
+            )}
+          </div>
+        )}
+
+        {previousAttempts.length > 0 && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2">
+            <button
+              type="button"
+              onClick={() => setShowPreviousAttempts((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-2 text-left"
+            >
+              <span className="text-xs font-medium text-amber-900">
+                Previous attempts ({previousAttempts.length})
+              </span>
+              <span className="text-[11px] text-amber-700">
+                {showPreviousAttempts ? 'Hide' : 'Show'}
+              </span>
+            </button>
+            {showPreviousAttempts && (
+              <div className="mt-1 space-y-1.5">
+                {previousAttempts.map((attempt) => (
+                  <div key={attempt.id} className="text-xs text-amber-900">
+                    <p className="font-medium">
+                      Booking #{attempt.id} ({attempt.status?.replace('_', ' ')})
+                    </p>
+                    {!!attempt.staffRemark && (
+                      <p className="text-amber-700">{attempt.staffRemark}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         <AuthorizationDocButton url={booking.authorizationDocUrl} />

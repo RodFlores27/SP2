@@ -8,6 +8,19 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'userId',
         as: 'user'
       });
+      Booking.belongsTo(models.Booking, {
+        foreignKey: 'rebookedFromBookingId',
+        as: 'rebookedFrom'
+      });
+      Booking.hasMany(models.Booking, {
+        foreignKey: 'rebookedFromBookingId',
+        as: 'rebooks'
+      });
+      Booking.hasMany(models.Booking, {
+        foreignKey: 'bookingThreadId',
+        sourceKey: 'bookingThreadId',
+        as: 'threadBookings'
+      });
     }
 
     isActive() {
@@ -91,6 +104,18 @@ module.exports = (sequelize, DataTypes) => {
     },
     authorizationDocUrl: {
       type: DataTypes.STRING,
+      allowNull: true
+    },
+    rebookedFromBookingId: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    bookingThreadId: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    rebookChangeSummary: {
+      type: DataTypes.JSONB,
       allowNull: true
     },
     staffRemark: {

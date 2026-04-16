@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import axiosInstance from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,6 +29,7 @@ import {
 } from '@/components/my-bookings/myBookingsDashboardSession';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const DASHBOARD_POLL_INTERVAL_MS = 30 * 1000;
 
 const ACCEPTED_FILE_TYPES = [
   'application/pdf',
@@ -48,16 +49,20 @@ function sortBookings(bookings, sort) {
 }
 
 function buildRebookLink(booking) {
-  if (!booking || !['cancelled', 'expired'].includes(booking.status)) return null;
+  if (!booking || booking.canRebook !== true) return null;
 
   const params = new URLSearchParams({
     resourceType: booking.resourceType,
     resourceId: String(booking.resourceId),
     bookingType: booking.bookingType || 'pencil',
+    rebookedFromBookingId: String(booking.id),
   });
 
   if (booking.purpose) {
     params.set('purpose', booking.purpose);
+  }
+  if (booking.authorizationDocUrl) {
+    params.set('authorizationDocUrl', booking.authorizationDocUrl);
   }
 
   // Prefill original slot only when still in the future.
@@ -119,9 +124,11 @@ export default function Dashboard() {
     }
   };
 
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchData = async ({ silent = false } = {}) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const [bookingsRes, equipmentRes, roomsRes] = await Promise.all([
         axiosInstance.get('/bookings?mine=true'),
@@ -135,9 +142,13 @@ export default function Dashboard() {
       if (roomsRes.ok) setRooms(await roomsRes.json());
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
-      setError('Failed to load your bookings. Please try again.');
+      if (!silent) {
+        setError('Failed to load your bookings. Please try again.');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
@@ -157,6 +168,26 @@ export default function Dashboard() {
   useEffect(() => {
     saveFilters('past', pastFilters);
   }, [pastFilters]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      fetchData({ silent: true });
+    }, DASHBOARD_POLL_INTERVAL_MS);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchData({ silent: true });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCancelConfirm = async () => {
     if (!cancelDialog.bookingId) return;

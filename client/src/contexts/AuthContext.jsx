@@ -1,8 +1,8 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axiosInstance from '@/lib/axios';
 import { clearMyBookingsDashboardSession } from '@/components/my-bookings/myBookingsDashboardSession';
+import { AuthContext } from './auth-context';
 
-const AuthContext = createContext(null);
 const IDLE_TIMEOUT_MS = 15 * 60 * 1000; // 15 minutes
 const ACTIVITY_STORAGE_KEY = 'lastActivityAt';
 const LOGOUT_REASON_KEY = 'logoutReason';
@@ -40,44 +40,42 @@ const isIdleExpired = () => {
   return getNow() - lastActivityAt >= IDLE_TIMEOUT_MS;
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [logoutReason, setLogoutReason] = useState(null);
-
-  useEffect(() => {
+  const [logoutReason, setLogoutReason] = useState(() => {
     const storedReason = getStoredLogoutReason();
-    if (storedReason) {
-      setLogoutReason(storedReason);
-    }
-
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
 
-    if (storedToken && storedUser) {
-      if (isIdleExpired()) {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
-        clearMyBookingsDashboardSession();
-        clearLastActivityAt();
-        setStoredLogoutReason('idle_timeout');
-        setLogoutReason('idle_timeout');
-      } else {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
-      }
+    if (storedToken && storedUser && isIdleExpired()) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      clearMyBookingsDashboardSession();
+      clearLastActivityAt();
+      setStoredLogoutReason('idle_timeout');
+      return 'idle_timeout';
     }
-    setLoading(false);
-  }, []);
+
+    return storedReason;
+  });
+  const [token, setToken] = useState(() => {
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    if (!storedToken || !storedUser || isIdleExpired()) return null;
+    return storedToken;
+  });
+  const [user, setUser] = useState(() => {
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+    if (!storedToken || !storedUser || isIdleExpired()) return null;
+
+    try {
+      return JSON.parse(storedUser);
+    } catch {
+      localStorage.removeItem('user');
+      return null;
+    }
+  });
+  const [loading] = useState(false);
 
   const login = async (email, password) => {
     try {
@@ -142,9 +140,9 @@ export const AuthProvider = ({ children }) => {
     if (!token) return false;
 
     try {
-      const response = await axiosInstance.get('/auth/me');
+      await axiosInstance.get('/auth/me');
       return true;
-    } catch (error) {
+    } catch {
       logout();
       return false;
     }

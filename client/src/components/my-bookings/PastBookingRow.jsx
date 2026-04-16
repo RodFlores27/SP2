@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import { CalendarDays } from 'lucide-react';
@@ -5,13 +6,27 @@ import { BookingStatusBadge } from '@/components/BookingStatusBadge';
 import { AuthorizationDocButton } from './AuthorizationDocButton';
 import { Button } from '@/components/ui/button';
 
+function getPreviousAttempts(booking) {
+  if (!booking?.threadBookings?.length) return [];
+
+  return booking.threadBookings
+    .filter((attempt) => attempt.id !== booking.id)
+    .filter((attempt) => {
+      if (!attempt.createdAt || !booking.createdAt) return true;
+      return new Date(attempt.createdAt) < new Date(booking.createdAt);
+    })
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
 /**
  * Compact read-only row for past (cancelled / denied / expired) bookings.
  * Intentionally much lighter than ActiveBookingCard — no action buttons or convert panel.
  */
 export function PastBookingRow({ booking, resourceName, rebookTo }) {
-  const canRebook = booking.status === 'cancelled' || booking.status === 'expired';
+  const canRebook = ['cancelled', 'denied', 'expired'].includes(booking.status);
+  const previousAttempts = getPreviousAttempts(booking);
   const hasActionRow = Boolean(booking.authorizationDocUrl) || (canRebook && rebookTo);
+  const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-start gap-2 py-3 px-4 rounded-lg border border-border bg-card opacity-70 hover:opacity-90 transition-opacity">
@@ -43,6 +58,37 @@ export function PastBookingRow({ booking, resourceName, rebookTo }) {
             <span className="font-medium">Staff remark:</span>{' '}
             <span className="text-muted-foreground">{booking.staffRemark}</span>
           </p>
+        )}
+
+        {previousAttempts.length > 0 && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-xs">
+            <button
+              type="button"
+              onClick={() => setShowPreviousAttempts((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-2 text-left"
+            >
+              <span className="font-medium text-amber-900">
+                Previous attempts ({previousAttempts.length})
+              </span>
+              <span className="text-[11px] text-amber-700">
+                {showPreviousAttempts ? 'Hide' : 'Show'}
+              </span>
+            </button>
+            {showPreviousAttempts && (
+              <div className="mt-1.5 space-y-1.5">
+                {previousAttempts.map((attempt) => (
+                  <div key={attempt.id}>
+                    <p className="font-medium text-amber-900">
+                      Booking #{attempt.id} ({attempt.status?.replace('_', ' ')})
+                    </p>
+                  {!!attempt.staffRemark && (
+                    <p className="text-amber-700">{attempt.staffRemark}</p>
+                  )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         )}
 
         {hasActionRow && (

@@ -2427,6 +2427,15 @@
             "format": "uri",
             "description": "Cloudinary URL for authorization letter (optional)"
           },
+          "rebookedFromBookingId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Previous booking attempt this booking was rebooked from (optional)"
+          },
+          "bookingThreadId": {
+            "type": "integer",
+            "description": "Shared thread ID used to group rebook attempts together"
+          },
           "staffRemark": {
             "type": "string",
             "description": "Staff comment when approving or denying a booking (optional)"
@@ -2451,6 +2460,68 @@
               },
               "userCategory": {
                 "type": "string"
+              }
+            }
+          },
+          "threadBookings": {
+            "type": "array",
+            "description": "Other booking attempts in the same rebook thread (included for staff-facing booking views)",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer"
+                },
+                "bookingThreadId": {
+                  "type": "integer"
+                },
+                "rebookedFromBookingId": {
+                  "type": "integer",
+                  "nullable": true
+                },
+                "bookingType": {
+                  "type": "string",
+                  "enum": ["pencil", "firm"]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": ["penciled", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"]
+                },
+                "startTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "purpose": {
+                  "type": "string"
+                },
+                "staffRemark": {
+                  "type": "string"
+                },
+                "createdAt": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "accountType": {
+                      "type": "string"
+                    },
+                    "userCategory": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             }
           },
@@ -2544,6 +2615,11 @@
             "type": "string",
             "format": "uri",
             "description": "Cloudinary URL for authorization letter (optional)"
+          },
+          "rebookedFromBookingId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Source booking attempt when creating a rebooked booking (optional)"
           }
         }
       },

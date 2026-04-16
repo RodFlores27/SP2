@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/useAuth';
 import axiosInstance from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';

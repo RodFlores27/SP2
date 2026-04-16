@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { AuthorizationDocButton } from '@/components/my-bookings/AuthorizationDocButton';
 import { ArrowLeft, Upload, FileText, X, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 
 const ACCEPTED_FILE_TYPES = [
@@ -69,6 +70,9 @@ export default function BookingForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const prefilledBookingType = searchParams.get('bookingType');
+  const rebookedFromBookingId = searchParams.get('rebookedFromBookingId');
+  const isRebookMode = Boolean(rebookedFromBookingId);
+  const prefilledAuthorizationDocUrl = searchParams.get('authorizationDocUrl') || '';
 
   const [equipment, setEquipment] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -78,6 +82,7 @@ export default function BookingForm() {
   const [submitSuccess, setSubmitSuccess] = useState(null);
   const [conflicts, setConflicts] = useState(null);
   const [docFile, setDocFile] = useState(null);
+  const [existingDocUrl, setExistingDocUrl] = useState(prefilledAuthorizationDocUrl);
   const [docError, setDocError] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
 
@@ -135,11 +140,11 @@ export default function BookingForm() {
 
         if (equipmentRes.ok) {
           const data = await equipmentRes.json();
-          setEquipment(data.filter((e) => ['available', 'in-use'].includes(e.status)));
+          setEquipment(data);
         }
         if (roomsRes.ok) {
           const data = await roomsRes.json();
-          setRooms(data.filter((r) => ['available', 'in-use'].includes(r.status)));
+          setRooms(data);
         }
       } catch (err) {
         console.error('Error fetching resources:', err);
@@ -151,22 +156,32 @@ export default function BookingForm() {
     fetchResources();
   }, []);
 
-  // Reset resourceId when resourceType changes (but not on initial load)
-  const [initialLoad, setInitialLoad] = useState(true);
+  // Reset resourceId only when the user actually changes resourceType.
+  // Keep prefilled resourceId intact during initial rebook load/rerenders.
+  const previousResourceTypeRef = useRef(watchedResourceType);
   useEffect(() => {
-    if (initialLoad) {
-      setInitialLoad(false);
-      return;
+    const previousResourceType = previousResourceTypeRef.current;
+    if (
+      previousResourceType &&
+      watchedResourceType &&
+      previousResourceType !== watchedResourceType
+    ) {
+      form.setValue('resourceId', '');
     }
-    form.setValue('resourceId', '');
-  }, [watchedResourceType]);
+    previousResourceTypeRef.current = watchedResourceType;
+  }, [watchedResourceType, form]);
 
   const getResourceOptions = () => {
+    const isBookable = (status) => ['available', 'in-use'].includes(status);
     if (watchedResourceType === 'equipment') {
-      return equipment.map((e) => ({ id: e.id.toString(), name: e.name }));
+      return equipment
+        .filter((e) => isBookable(e.status) || String(e.id) === String(watchedResourceId))
+        .map((e) => ({ id: e.id.toString(), name: e.name }));
     }
     if (watchedResourceType === 'room') {
-      return rooms.map((r) => ({ id: r.id.toString(), name: r.name }));
+      return rooms
+        .filter((r) => isBookable(r.status) || String(r.id) === String(watchedResourceId))
+        .map((r) => ({ id: r.id.toString(), name: r.name }));
     }
     return [];
   };
@@ -193,11 +208,13 @@ export default function BookingForm() {
     }
 
     setDocFile(file);
+    setExistingDocUrl('');
   };
 
   const removeFile = () => {
     setDocFile(null);
     setDocError(null);
+    setExistingDocUrl('');
   };
 
   const submitBooking = async (data, confirmOverlapOwn = false) => {
@@ -226,7 +243,14 @@ export default function BookingForm() {
         if (confirmOverlapOwn) {
           formData.append('confirmOverlapOwn', 'true');
         }
-        formData.append('authorizationDoc', docFile);
+        if (rebookedFromBookingId) {
+          formData.append('rebookedFromBookingId', rebookedFromBookingId);
+        }
+        if (docFile) {
+          formData.append('authorizationDoc', docFile);
+        } else if (existingDocUrl) {
+          formData.append('authorizationDocUrl', existingDocUrl);
+        }
 
         const token = localStorage.getItem('token');
         const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
@@ -271,6 +295,12 @@ export default function BookingForm() {
         };
         if (confirmOverlapOwn) {
           payload.confirmOverlapOwn = true;
+        }
+        if (rebookedFromBookingId) {
+          payload.rebookedFromBookingId = parseInt(rebookedFromBookingId, 10);
+        }
+        if (existingDocUrl) {
+          payload.authorizationDocUrl = existingDocUrl;
         }
 
         try {
@@ -486,7 +516,7 @@ export default function BookingForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Resource Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={isRebookMode}>
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="Select resource type" />
@@ -498,6 +528,11 @@ export default function BookingForm() {
                         </SelectContent>
                       </Select>
                       <FormMessage />
+                      {isRebookMode && (
+                        <p className="text-xs text-muted-foreground">
+                          Locked for rebook: keep the original resource type.
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
@@ -514,7 +549,7 @@ export default function BookingForm() {
                       <Select
                         onValueChange={field.onChange}
                         value={field.value}
-                        disabled={!watchedResourceType}
+                        disabled={!watchedResourceType || isRebookMode}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -536,6 +571,11 @@ export default function BookingForm() {
                         </SelectContent>
                       </Select>
                       <FormMessage />
+                      {isRebookMode && (
+                        <p className="text-xs text-muted-foreground">
+                          Locked for rebook: keep the original resource.
+                        </p>
+                      )}
                     </FormItem>
                   )}
                 />
@@ -652,23 +692,45 @@ export default function BookingForm() {
                   </p>
 
                   {!docFile ? (
-                    <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
-                      <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                      <p className="text-sm text-muted-foreground mb-2">
-                        PDF, DOC, DOCX, JPG, or PNG (max 5MB)
-                      </p>
-                      <label className="cursor-pointer">
-                        <Button type="button" variant="outline" size="sm" asChild>
-                          <span>Choose File</span>
-                        </Button>
-                        <input
-                          type="file"
-                          className="hidden"
-                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                          onChange={handleFileChange}
-                        />
-                      </label>
-                    </div>
+                    existingDocUrl ? (
+                      <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
+                        <p className="text-sm text-muted-foreground">
+                          Using authorization document from previous attempt.
+                        </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <AuthorizationDocButton url={existingDocUrl} />
+                          <label className="cursor-pointer">
+                            <Button type="button" variant="outline" size="sm" asChild>
+                              <span>Replace File</span>
+                            </Button>
+                            <input
+                              type="file"
+                              className="hidden"
+                              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                              onChange={handleFileChange}
+                            />
+                          </label>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
+                        <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground mb-2">
+                          PDF, DOC, DOCX, JPG, or PNG (max 5MB)
+                        </p>
+                        <label className="cursor-pointer">
+                          <Button type="button" variant="outline" size="sm" asChild>
+                            <span>Choose File</span>
+                          </Button>
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                            onChange={handleFileChange}
+                          />
+                        </label>
+                      </div>
+                    )
                   ) : (
                     <div className="flex items-center gap-3 p-3 border rounded-lg bg-muted/50">
                       <FileText className="h-5 w-5 text-muted-foreground flex-shrink-0" />
