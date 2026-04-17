@@ -1332,7 +1332,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "Get bookings",
-        "description": "Returns bookings based on user role. Regular users see only their own bookings. Staff and admins see all bookings by default. Use mine=true to force own-bookings-only regardless of role. Supports filtering by status and resourceType.",
+        "description": "Returns bookings based on user role. Regular users see only their own bookings. Staff and admins see all bookings by default. Use mine=true to force own-bookings-only regardless of role. Supports filtering by status and resourceType. Staff/admin only: rebookSourceDenied=true limits results to latest thread attempts that were rebooked from a denied attempt (rebookedFromStatus=denied).",
         "operationId": "getAllBookings",
         "security": [
           {
@@ -1366,6 +1366,15 @@
               "type": "boolean",
               "example": true
             }
+          },
+          {
+            "name": "rebookSourceDenied",
+            "in": "query",
+            "description": "When true, only return bookings whose prior attempt was denied (rebookedFromStatus=denied). Staff and system_admin only; returns 403 for other roles.",
+            "schema": {
+              "type": "boolean",
+              "example": true
+            }
           }
         ],
         "responses": {
@@ -1384,6 +1393,16 @@
           },
           "401": {
             "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "description": "Forbidden — e.g. rebookSourceDenied filter requires staff or admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -1789,6 +1808,19 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "Conflict — status changed before approve completed (e.g. concurrent deny/approve)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "This booking was updated by another action. Refresh the staff dashboard and try again."
+                }
+              }
+            }
           }
         }
       }
@@ -1940,6 +1972,19 @@
                 },
                 "example": {
                   "error": "Booking not found"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — status changed before deny completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "error": "This booking was updated by another action. Refresh the staff dashboard and try again."
                 }
               }
             }
@@ -2427,10 +2472,20 @@
             "format": "uri",
             "description": "Cloudinary URL for authorization letter (optional)"
           },
+          "authorizationDocHash": {
+            "type": "string",
+            "nullable": true,
+            "description": "SHA-256 hex digest of the uploaded authorization file (optional; used to detect unchanged documents across Cloudinary re-uploads)"
+          },
           "rebookedFromBookingId": {
             "type": "integer",
             "nullable": true,
             "description": "Previous booking attempt this booking was rebooked from (optional)"
+          },
+          "rebookedFromStatus": {
+            "type": "string",
+            "nullable": true,
+            "description": "Status of the source attempt at rebook time (e.g. denied, cancelled, expired)"
           },
           "bookingThreadId": {
             "type": "integer",

@@ -78,12 +78,35 @@ function formatChangeValue(field, value) {
     return format(new Date(value), 'MMM d, yyyy h:mm a');
   }
   if (field === 'authorizationDocUrl') {
-    return value ? 'uploaded' : 'removed';
+    return value ? 'On file' : 'None';
   }
   if (field === 'bookingType') {
     return String(value).charAt(0).toUpperCase() + String(value).slice(1);
   }
   return String(value);
+}
+
+function hasAuthDocUrl(value) {
+  return Boolean(value && String(value).trim().length > 0);
+}
+
+/** Short staff-facing line for auth doc diffs (avoids "uploaded -> uploaded" when the file changed). */
+function summarizeAuthorizationDocRebookChange(before, after) {
+  const had = hasAuthDocUrl(before);
+  const has = hasAuthDocUrl(after);
+  if (!had && has) {
+    return { detail: 'New document uploaded' };
+  }
+  if (had && !has) {
+    return { detail: 'Document removed' };
+  }
+  if (had && has) {
+    return { detail: 'Document replaced' };
+  }
+  return {
+    before: formatChangeValue('authorizationDocUrl', before),
+    after: formatChangeValue('authorizationDocUrl', after),
+  };
 }
 
 function getRebookChangeItems(booking) {
@@ -101,16 +124,45 @@ function getRebookChangeItems(booking) {
 
   return changedFields
     .filter((field) => changes[field])
-    .map((field) => ({
-      field,
-      label: labels[field] || field,
-      before: formatChangeValue(field, changes[field].before),
-      after: formatChangeValue(field, changes[field].after),
-    }));
+    .map((field) => {
+      const label = labels[field] || field;
+      if (field === 'authorizationDocUrl') {
+        const { before: b, after: a } = changes[field];
+        const auth = summarizeAuthorizationDocRebookChange(b, a);
+        if (auth.detail != null) {
+          return { field, label, detail: auth.detail };
+        }
+        return { field, label, before: auth.before, after: auth.after };
+      }
+      return {
+        field,
+        label,
+        before: formatChangeValue(field, changes[field].before),
+        after: formatChangeValue(field, changes[field].after),
+      };
+    });
 }
 
-function getRebookSourceStatus(booking) {
+function RebookChangeRow({ item }) {
+  return (
+    <p className="text-xs text-blue-800">
+      {item.detail != null ? (
+        <>
+          {item.label}: {item.detail}
+        </>
+      ) : (
+        <>
+          {item.label}: {item.before} {'->'} {item.after}
+        </>
+      )}
+    </p>
+  );
+}
+
+/** Prefer server-persisted rebookedFromStatus; fall back to thread history for legacy rows. */
+function getEffectiveRebookSourceStatus(booking) {
   if (!booking?.rebookedFromBookingId) return null;
+  if (booking.rebookedFromStatus) return booking.rebookedFromStatus;
   const sourceAttempt = booking.threadBookings?.find(
     (attempt) => attempt.id === booking.rebookedFromBookingId
   );
@@ -156,6 +208,8 @@ export default function StaffDashboard() {
 
   const [pendingBookings, setPendingBookings] = useState([]);
   const [contestedBookings, setContestedBookings] = useState([]);
+  const [deniedRebookPending, setDeniedRebookPending] = useState([]);
+  const [deniedRebookContested, setDeniedRebookContested] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -170,13 +224,17 @@ export default function StaffDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [pendingRes, contestedRes, resources] = await Promise.all([
+      const [pendingRes, contestedRes, deniedPendRes, deniedContRes, resources] = await Promise.all([
         axiosInstance.get('/bookings?status=pending_approval'),
         axiosInstance.get('/bookings?status=contested'),
+        axiosInstance.get('/bookings?status=pending_approval&rebookSourceDenied=true'),
+        axiosInstance.get('/bookings?status=contested&rebookSourceDenied=true'),
         fetchResources(),
       ]);
       setPendingBookings(pendingRes.data);
       setContestedBookings(contestedRes.data);
+      setDeniedRebookPending(deniedPendRes.data);
+      setDeniedRebookContested(deniedContRes.data);
       setEquipment(resources.equipment);
       setRooms(resources.rooms);
     } catch (err) {
@@ -220,6 +278,8 @@ export default function StaffDashboard() {
   };
 
   const conflictGroups = groupContestedBookings(contestedBookings);
+  const deniedRebookConflictGroups = groupContestedBookings(deniedRebookContested);
+  const deniedRebookQueueCount = deniedRebookPending.length + deniedRebookConflictGroups.length;
 
   if (loading) {
     return (
@@ -291,6 +351,21 @@ export default function StaffDashboard() {
             </span>
           )}
         </button>
+        <button
+          onClick={() => setActiveTab('deniedRebooks')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'deniedRebooks'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Denied rebooks
+          {deniedRebookQueueCount > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-xs min-w-5 h-5 px-1">
+              {deniedRebookQueueCount}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Pending Approvals Tab */}
@@ -355,6 +430,68 @@ export default function StaffDashboard() {
           )}
         </section>
       )}
+
+      {activeTab === 'deniedRebooks' && (
+        <section className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            Latest attempts that were rebooked after a <span className="font-medium text-foreground">denied</span>{' '}
+            decision (pending approval or contested).
+          </p>
+          {deniedRebookQueueCount === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No denied-origin rebooks in queue</p>
+                <p className="text-sm mt-1">Nothing needs attention here right now.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {deniedRebookPending.length > 0 && (
+                <div className="space-y-3">
+                  <h2 className="text-sm font-semibold text-foreground">Pending approval</h2>
+                  {deniedRebookPending.map((booking) => (
+                    <ApprovalCard
+                      key={booking.id}
+                      booking={booking}
+                      resourceName={getResourceName(booking, equipment, rooms)}
+                      reviewOpen={reviewOpenId === booking.id}
+                      remark={remarkMap[booking.id] || ''}
+                      onRemarkChange={(val) =>
+                        setRemarkMap((prev) => ({ ...prev, [booking.id]: val }))
+                      }
+                      onToggleReview={() => toggleReview(booking.id)}
+                      onApprove={() => handleAction(booking.id, 'approve')}
+                      onDeny={() => handleAction(booking.id, 'deny')}
+                      actionLoading={actionLoading}
+                    />
+                  ))}
+                </div>
+              )}
+              {deniedRebookConflictGroups.length > 0 && (
+                <div className="space-y-3">
+                  <h2 className="text-sm font-semibold text-foreground">Contested</h2>
+                  {deniedRebookConflictGroups.map((group, idx) => (
+                    <ConflictGroup
+                      key={idx}
+                      group={group}
+                      equipment={equipment}
+                      rooms={rooms}
+                      remarkMap={remarkMap}
+                      onRemarkChange={(id, val) =>
+                        setRemarkMap((prev) => ({ ...prev, [id]: val }))
+                      }
+                      onApprove={(id) => handleAction(id, 'approve')}
+                      onDeny={(id) => handleAction(id, 'deny')}
+                      actionLoading={actionLoading}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </section>
+      )}
     </div>
   );
 }
@@ -374,7 +511,7 @@ function ApprovalCard({
   const previousAttempts = getPreviousAttempts(booking);
   const rebookChanges = getRebookChangeItems(booking);
   const isRebookAttempt = Boolean(booking.rebookedFromBookingId);
-  const rebookSourceStatus = getRebookSourceStatus(booking);
+  const rebookSourceStatus = getEffectiveRebookSourceStatus(booking);
   const showUrgentRebookBadge = isRebookAttempt && rebookSourceStatus === 'denied';
   const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
   const [showRebookChanges, setShowRebookChanges] = useState(true);
@@ -472,9 +609,7 @@ function ApprovalCard({
                   rebookChanges.length > 0 ? (
                     <div className="mt-1 space-y-1">
                       {rebookChanges.map((item) => (
-                        <p key={item.field} className="text-xs text-blue-800">
-                          {item.label}: {item.before} {'->'} {item.after}
-                        </p>
+                        <RebookChangeRow key={item.field} item={item} />
                       ))}
                     </div>
                   ) : (
@@ -615,7 +750,7 @@ function ConflictBookingCard({ booking, remark, onRemarkChange, onApprove, onDen
   const previousAttempts = getPreviousAttempts(booking);
   const rebookChanges = getRebookChangeItems(booking);
   const isRebookAttempt = Boolean(booking.rebookedFromBookingId);
-  const rebookSourceStatus = getRebookSourceStatus(booking);
+  const rebookSourceStatus = getEffectiveRebookSourceStatus(booking);
   const showUrgentRebookBadge = isRebookAttempt && rebookSourceStatus === 'denied';
   const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
   const [showRebookChanges, setShowRebookChanges] = useState(true);
@@ -682,9 +817,7 @@ function ConflictBookingCard({ booking, remark, onRemarkChange, onApprove, onDen
               rebookChanges.length > 0 ? (
                 <div className="mt-1 space-y-1">
                   {rebookChanges.map((item) => (
-                    <p key={item.field} className="text-xs text-blue-800">
-                      {item.label}: {item.before} {'->'} {item.after}
-                    </p>
+                    <RebookChangeRow key={item.field} item={item} />
                   ))}
                 </div>
               ) : (

@@ -106,8 +106,16 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true
     },
+    authorizationDocHash: {
+      type: DataTypes.STRING(64),
+      allowNull: true
+    },
     rebookedFromBookingId: {
       type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    rebookedFromStatus: {
+      type: DataTypes.STRING,
       allowNull: true
     },
     bookingThreadId: {

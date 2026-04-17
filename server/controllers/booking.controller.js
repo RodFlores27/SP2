@@ -1,6 +1,7 @@
 const { Booking, User, Equipment, Room, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const { uploadToCloudinary } = require('../utils/cloudinary');
+const { sha256HexBuffer } = require('../utils/file-hash');
 const {
   notifyBookingCreated,
   notifyBookingApproved,
@@ -21,6 +22,7 @@ const THREAD_BOOKING_ATTRIBUTES = [
   'endTime',
   'purpose',
   'staffRemark',
+  'rebookedFromStatus',
   'createdAt',
 ];
 
@@ -133,7 +135,17 @@ function buildRebookChangeSummary(sourceBooking, nextValues) {
 
   const sourceHasDoc = hasAuthDoc(sourceBooking.authorizationDocUrl);
   const nextHasDoc = hasAuthDoc(nextValues.authorizationDocUrl);
-  if (sourceHasDoc !== nextHasDoc || (sourceHasDoc && nextHasDoc && sourceBooking.authorizationDocUrl !== nextValues.authorizationDocUrl)) {
+  let authorizationDocChanged = sourceHasDoc !== nextHasDoc;
+  if (!authorizationDocChanged && sourceHasDoc && nextHasDoc) {
+    if (sourceBooking.authorizationDocUrl !== nextValues.authorizationDocUrl) {
+      const srcHash = sourceBooking.authorizationDocHash || null;
+      const nextHash = nextValues.authorizationDocHash || null;
+      if (!(srcHash && nextHash && srcHash === nextHash)) {
+        authorizationDocChanged = true;
+      }
+    }
+  }
+  if (authorizationDocChanged) {
     changes.authorizationDocUrl = {
       before: sourceBooking.authorizationDocUrl || null,
       after: nextValues.authorizationDocUrl || null
@@ -158,7 +170,9 @@ const createBooking = async (req, res) => {
 
     // Handle optional file upload for authorization document
     let authorizationDocUrl = req.body.authorizationDocUrl || null;
+    let authorizationDocHash = null;
     if (req.file) {
+      authorizationDocHash = sha256HexBuffer(req.file.buffer);
       authorizationDocUrl = await uploadToCloudinary(req.file.buffer, 'authorization-docs');
     }
 
@@ -194,6 +208,7 @@ const createBooking = async (req, res) => {
     let rebookedFromBookingId = null;
     let bookingThreadId = null;
     let sourceBooking = null;
+    let rebookedFromStatus = null;
     if (rebookedFromBookingIdRaw !== undefined && rebookedFromBookingIdRaw !== null && rebookedFromBookingIdRaw !== '') {
       rebookedFromBookingId = parseInt(rebookedFromBookingIdRaw, 10);
       if (Number.isNaN(rebookedFromBookingId)) {
@@ -243,6 +258,16 @@ const createBooking = async (req, res) => {
         return res.status(400).json({
           error: 'Resource type and resource must match the source booking when rebooking.'
         });
+      }
+
+      rebookedFromStatus = sourceBooking.status;
+      if (
+        !req.file &&
+        authorizationDocUrl &&
+        sourceBooking.authorizationDocUrl === authorizationDocUrl &&
+        sourceBooking.authorizationDocHash
+      ) {
+        authorizationDocHash = sourceBooking.authorizationDocHash;
       }
     }
 
@@ -348,7 +373,8 @@ const createBooking = async (req, res) => {
           endTime: end,
           bookingType,
           purpose: purpose || null,
-          authorizationDocUrl
+          authorizationDocUrl,
+          authorizationDocHash
         })
       : null;
 
@@ -363,8 +389,10 @@ const createBooking = async (req, res) => {
       endTime: end,
       purpose,
       authorizationDocUrl,
+      authorizationDocHash,
       expiryAt,
       rebookedFromBookingId,
+      rebookedFromStatus,
       bookingThreadId,
       rebookChangeSummary
     });
@@ -420,6 +448,16 @@ const getAllBookings = async (req, res) => {
     const userId = req.user.id;
     const userAccountType = getUserAccountType(req);
     const { status, resourceType, mine } = req.query;
+    const rebookSourceDenied =
+      req.query.rebookSourceDenied === 'true' || req.query.rebookSourceDenied === true;
+
+    if (
+      rebookSourceDenied &&
+      userAccountType !== 'ptcf_staff' &&
+      userAccountType !== 'system_admin'
+    ) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
 
     const whereClause = {};
     const restrictToOwnBookings = mine === 'true';
@@ -453,6 +491,10 @@ const getAllBookings = async (req, res) => {
 
     if (status) {
       finalWhereClause.status = status;
+    }
+
+    if (rebookSourceDenied) {
+      finalWhereClause.rebookedFromStatus = 'denied';
     }
 
     const bookings = await Booking.findAll({
@@ -618,10 +660,12 @@ const convertToFirm = async (req, res) => {
     }
 
     const authDocUrl = await uploadToCloudinary(req.file.buffer, 'authorization-docs');
+    const authDocHash = sha256HexBuffer(req.file.buffer);
 
     booking.bookingType = 'firm';
     booking.status = 'pending_approval';
     booking.authorizationDocUrl = authDocUrl;
+    booking.authorizationDocHash = authDocHash;
     booking.expiryAt = null;
     await booking.save();
 
@@ -641,11 +685,14 @@ const convertToFirm = async (req, res) => {
 
 const approveBooking = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid booking id' });
+    }
     const { staffRemark } = req.body;
 
     const booking = await Booking.findByPk(id, {
-      include: buildBookingIncludes({ includeThreadHistory: true })
+      attributes: ['id', 'status']
     });
 
     if (!booking) {
@@ -658,13 +705,25 @@ const approveBooking = async (req, res) => {
       });
     }
 
-    booking.status = 'approved';
+    const updatePayload = { status: 'approved' };
     if (staffRemark) {
-      booking.staffRemark = staffRemark;
+      updatePayload.staffRemark = staffRemark;
     }
-    await booking.save();
 
-    const updatedBooking = await Booking.findByPk(booking.id, {
+    const [affectedCount] = await Booking.update(updatePayload, {
+      where: {
+        id,
+        status: { [Op.in]: ['pending_approval', 'contested'] }
+      }
+    });
+
+    if (affectedCount === 0) {
+      return res.status(409).json({
+        error: 'This booking was updated by another action. Refresh the staff dashboard and try again.'
+      });
+    }
+
+    const updatedBooking = await Booking.findByPk(id, {
       include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
@@ -685,11 +744,14 @@ const approveBooking = async (req, res) => {
 
 const denyBooking = async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = parseInt(req.params.id, 10);
+    if (Number.isNaN(id)) {
+      return res.status(400).json({ error: 'Invalid booking id' });
+    }
     const { staffRemark } = req.body;
 
     const booking = await Booking.findByPk(id, {
-      include: buildBookingIncludes({ includeThreadHistory: true })
+      attributes: ['id', 'status']
     });
 
     if (!booking) {
@@ -702,13 +764,25 @@ const denyBooking = async (req, res) => {
       });
     }
 
-    booking.status = 'denied';
+    const updatePayload = { status: 'denied' };
     if (staffRemark) {
-      booking.staffRemark = staffRemark;
+      updatePayload.staffRemark = staffRemark;
     }
-    await booking.save();
 
-    const updatedBooking = await Booking.findByPk(booking.id, {
+    const [affectedCount] = await Booking.update(updatePayload, {
+      where: {
+        id,
+        status: { [Op.notIn]: ['denied', 'cancelled', 'expired'] }
+      }
+    });
+
+    if (affectedCount === 0) {
+      return res.status(409).json({
+        error: 'This booking was updated by another action. Refresh the staff dashboard and try again.'
+      });
+    }
+
+    const updatedBooking = await Booking.findByPk(id, {
       include: buildBookingIncludes({ includeThreadHistory: true })
     });
 
