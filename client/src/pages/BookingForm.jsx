@@ -85,6 +85,7 @@ export default function BookingForm() {
   const [existingDocUrl, setExistingDocUrl] = useState(prefilledAuthorizationDocUrl);
   const [docError, setDocError] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
+  const [pendingContentionConfirmation, setPendingContentionConfirmation] = useState(null);
 
   // Format ISO string to datetime-local value
   const toDatetimeLocal = (isoString) => {
@@ -217,7 +218,7 @@ export default function BookingForm() {
     setExistingDocUrl('');
   };
 
-  const submitBooking = async (data, confirmOverlapOwn = false) => {
+  const submitBooking = async (data, confirmOverlapOwn = false, confirmContention = false) => {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
@@ -242,6 +243,9 @@ export default function BookingForm() {
         }
         if (confirmOverlapOwn) {
           formData.append('confirmOverlapOwn', 'true');
+        }
+        if (confirmContention) {
+          formData.append('confirmContention', 'true');
         }
         if (rebookedFromBookingId) {
           formData.append('rebookedFromBookingId', rebookedFromBookingId);
@@ -275,6 +279,13 @@ export default function BookingForm() {
               });
               return;
             }
+            if (resData.requiresContentionConfirmation) {
+              setPendingContentionConfirmation({
+                formData: data,
+                conflicts: resData.conflicts || [],
+              });
+              return;
+            }
             setConflicts(resData.conflicts || []);
             setSubmitError(resData.error || 'Booking conflicts with existing bookings.');
             return;
@@ -296,6 +307,9 @@ export default function BookingForm() {
         if (confirmOverlapOwn) {
           payload.confirmOverlapOwn = true;
         }
+        if (confirmContention) {
+          payload.confirmContention = true;
+        }
         if (rebookedFromBookingId) {
           payload.rebookedFromBookingId = parseInt(rebookedFromBookingId, 10);
         }
@@ -313,18 +327,30 @@ export default function BookingForm() {
             });
             return;
           }
+          if (axiosErr.response?.status === 409 && axiosErr.response?.data?.requiresContentionConfirmation) {
+            setPendingContentionConfirmation({
+              formData: data,
+              conflicts: axiosErr.response.data.conflicts || [],
+            });
+            return;
+          }
           throw axiosErr;
         }
       }
 
       const result = response.data;
 
+      const st = result.booking?.status;
+      const contentionSuccess =
+        result.booking?.bookingType === 'pencil' &&
+        (st === 'contested' || st === 'queued');
+
       if (result.conflicts && result.conflicts.length > 0) {
         setConflicts(result.conflicts);
         setSubmitSuccess({
           message: result.message,
           booking: result.booking,
-          isContested: true,
+          isContested: contentionSuccess,
         });
       } else {
         setSubmitSuccess({
@@ -332,6 +358,7 @@ export default function BookingForm() {
           booking: result.booking,
           isContested: false,
           cancelledPencilBookings: result.cancelledPencilBookings || [],
+          overlappingPencils: result.overlappingPencils || [],
         });
       }
     } catch (err) {
@@ -351,17 +378,28 @@ export default function BookingForm() {
 
   const onSubmit = async (data) => {
     setPendingConfirmation(null);
-    await submitBooking(data, false);
+    setPendingContentionConfirmation(null);
+    await submitBooking(data, false, false);
   };
 
   const handleConfirmOverlap = async () => {
     if (!pendingConfirmation) return;
     setPendingConfirmation(null);
-    await submitBooking(pendingConfirmation.formData, true);
+    await submitBooking(pendingConfirmation.formData, true, false);
   };
 
   const handleCancelOverlap = () => {
     setPendingConfirmation(null);
+  };
+
+  const handleConfirmContention = async () => {
+    if (!pendingContentionConfirmation) return;
+    setPendingContentionConfirmation(null);
+    await submitBooking(pendingContentionConfirmation.formData, false, true);
+  };
+
+  const handleCancelContention = () => {
+    setPendingContentionConfirmation(null);
   };
 
   if (loadingResources) {
@@ -398,15 +436,44 @@ export default function BookingForm() {
                     <p>Type: <span className="font-medium capitalize">{submitSuccess.booking.bookingType}</span></p>
                   </div>
                 )}
-                {submitSuccess.isContested && (
+                {submitSuccess.isContested && submitSuccess.booking?.status === 'contested' && (
                   <div className="flex items-start gap-2 mt-2 p-2 bg-orange-50 border border-orange-200 rounded">
                     <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                     <p className="text-sm text-orange-700">
-                      Your booking overlaps with existing bookings and has been marked as <strong>contested</strong>. 
-                      A staff member will review and resolve the conflict.
+                      You are challenging an existing pencil booking. A contention timer is running — the current holder must convert to a firm booking before the deadline, or you will take the slot.
                     </p>
                   </div>
                 )}
+                {submitSuccess.isContested && submitSuccess.booking?.status === 'queued' && (
+                  <div className="flex items-start gap-2 mt-2 p-2 bg-violet-50 border border-violet-200 rounded">
+                    <Info className="h-4 w-4 text-violet-600 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-violet-800">
+                      Your booking is <strong>queued</strong> behind an earlier contention on this resource. You will be notified when your turn starts.
+                    </p>
+                  </div>
+                )}
+                {submitSuccess.booking?.bookingType === 'firm' &&
+                  submitSuccess.overlappingPencils?.length > 0 && (
+                    <div className="flex items-start gap-2 mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
+                      <Info className="h-4 w-4 text-amber-700 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-amber-900 space-y-1">
+                        <p>
+                          This request overlaps existing pencil bookings. If staff approves your firm booking,
+                          those holders will be <strong>displaced</strong> (they can rebook).
+                        </p>
+                        <p className="font-medium">Overlapping pencils:</p>
+                        <ul className="list-disc pl-4 space-y-0.5 text-xs">
+                          {submitSuccess.overlappingPencils.map((c) => (
+                            <li key={c.id}>
+                              #{c.id} — {format(new Date(c.startTime), 'MMM d, yyyy h:mm a')} to{' '}
+                              {format(new Date(c.endTime), 'h:mm a')}
+                              {c.user?.email ? ` (${c.user.email})` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  )}
                 <div className="flex gap-3 mt-3">
                   <Button size="sm" variant="outline" onClick={() => navigate('/calendar')}>
                     View Calendar
@@ -476,7 +543,43 @@ export default function BookingForm() {
         </Card>
       )}
 
-      {!submitSuccess && !pendingConfirmation && (
+      {pendingContentionConfirmation && (
+        <Card className="mb-6 border-amber-200 bg-amber-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
+              <div className="space-y-3">
+                <p className="font-medium text-amber-900">
+                  This pencil booking would contest an existing pencil on the same resource.
+                </p>
+                <p className="text-sm text-amber-800">
+                  Contention is resolved automatically: the holder must convert to a firm booking before the deadline, or you receive the slot. Later challengers may be queued (first come, first served).
+                </p>
+                <div className="space-y-1">
+                  {pendingContentionConfirmation.conflicts.map((c) => (
+                    <div key={c.id} className="text-sm bg-white/60 border border-amber-200 rounded px-3 py-2">
+                      <p className="font-medium">Booking #{c.id}</p>
+                      <p className="text-xs text-amber-800">
+                        {format(new Date(c.startTime), 'MMM d, yyyy h:mm a')} — {format(new Date(c.endTime), 'h:mm a')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <Button size="sm" onClick={handleConfirmContention} disabled={isSubmitting}>
+                    {isSubmitting ? 'Creating...' : 'Confirm & place booking'}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={handleCancelContention} disabled={isSubmitting}>
+                    Go Back
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {!submitSuccess && !pendingConfirmation && !pendingContentionConfirmation && (
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Create New Booking</CardTitle>
@@ -613,7 +716,8 @@ export default function BookingForm() {
                         >
                           <p className="font-medium">Firm</p>
                           <p className="text-xs text-muted-foreground mt-1">
-                            Confirmed reservation. No overlaps allowed. Pending staff approval after submission.
+                            Confirmed reservation. Cannot overlap other firms; may overlap pencils (displaced if
+                            approved). Pending staff approval after submission.
                           </p>
                         </button>
                       </div>
@@ -621,7 +725,8 @@ export default function BookingForm() {
                         <div className="flex items-start gap-2 mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
                           <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                           <p className="text-sm text-blue-700">
-                            Firm bookings cannot overlap with existing firm bookings. After submission, a staff member will review and approve your booking.
+                            Firm bookings cannot overlap other firm bookings. They may overlap pencil bookings —
+                            overlapping pencils are displaced only after staff approves your request.
                           </p>
                         </div>
                       )}

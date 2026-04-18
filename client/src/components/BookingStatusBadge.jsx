@@ -9,6 +9,10 @@ export function BookingStatusBadge({ status, bookingType }) {
         return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'contested':
         return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 'queued':
+        return 'bg-violet-100 text-violet-800 border-violet-200';
+      case 'displaced':
+        return 'bg-slate-100 text-slate-700 border-slate-200';
       case 'denied':
         return 'bg-red-100 text-red-800 border-red-200';
       case 'cancelled':

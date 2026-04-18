@@ -1,10 +1,21 @@
 const cron = require('node-cron');
 const { Op } = require('sequelize');
-const { Booking, User, Equipment, Room } = require('../models');
+const {
+  Booking,
+  User,
+  Equipment,
+  Room,
+  sequelize,
+  ContentionEpisode,
+  ContentionQueueItem
+} = require('../models');
 const {
   notifyBookingExpired,
-  notifyBookingExpiringSoon,
+  notifyBookingExpiringSoon
 } = require('../utils/booking-notifications');
+const contention = require('../services/contention.service');
+
+const PENCIL_WARN_STATUSES = ['penciled', 'contested', 'queued'];
 
 async function resolveResourceName(resourceType, resourceId) {
   try {
@@ -23,20 +34,38 @@ async function resolveResourceName(resourceType, resourceId) {
 }
 
 /**
- * Expire job — runs every 15 minutes.
- * Finds pencil bookings whose expiryAt has passed and marks them expired.
- * Sends a notification email to each affected owner.
+ * Expire + contention resolution — runs every 15 minutes.
  */
 cron.schedule('*/15 * * * *', async () => {
   try {
     const now = new Date();
 
+    await contention.resolveChallengerExpiredDuringContention(now, {
+      sequelize,
+      Booking,
+      ContentionEpisode,
+      ContentionQueueItem
+    });
+    await contention.resolveDefenderExpiredDuringContention(now, {
+      sequelize,
+      Booking,
+      ContentionEpisode,
+      ContentionQueueItem
+    });
+    await contention.resolveDueContentionEpisodes(now, {
+      sequelize,
+      Booking,
+      ContentionEpisode,
+      ContentionQueueItem
+    });
+
     const expired = await Booking.findAll({
       where: {
-        status: 'penciled',
-        expiryAt: { [Op.lte]: now },
+        bookingType: 'pencil',
+        status: { [Op.in]: ['penciled', 'queued'] },
+        expiryAt: { [Op.lte]: now }
       },
-      include: [{ model: User, as: 'user', attributes: ['id', 'email'] }],
+      include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
     });
 
     if (expired.length === 0) return;
@@ -44,8 +73,29 @@ cron.schedule('*/15 * * * *', async () => {
     console.log(`[cron:expire] Expiring ${expired.length} pencil booking(s)`);
 
     for (const booking of expired) {
-      booking.status = 'expired';
-      await booking.save();
+      await sequelize.transaction(async (t) => {
+        const b = await Booking.findByPk(booking.id, {
+          transaction: t,
+          lock: t.LOCK.UPDATE
+        });
+        if (!b || !['penciled', 'queued'].includes(b.status)) return;
+
+        await contention.onBookingCancelledMidContention(b, {
+          transaction: t,
+          Booking,
+          ContentionEpisode,
+          ContentionQueueItem
+        });
+
+        await ContentionQueueItem.destroy({
+          where: { bookingId: b.id },
+          transaction: t
+        });
+
+        b.status = 'expired';
+        b.staffRemark = b.staffRemark || 'Expired: pencil booking lifetime ended';
+        await b.save({ transaction: t });
+      });
 
       const resourceName = await resolveResourceName(booking.resourceType, booking.resourceId);
       notifyBookingExpired(booking, resourceName).catch(() => {});
@@ -57,35 +107,34 @@ cron.schedule('*/15 * * * *', async () => {
 
 /**
  * Warning job — runs daily at 08:00 Asia/Manila (UTC+8 = 00:00 UTC).
- * Sends 48hr and 24hr expiry warnings for pencil bookings.
  */
 cron.schedule('0 0 * * *', async () => {
   try {
     const now = new Date();
 
-    // 48hr window: expiryAt between 47h and 49h from now
     const window48Start = new Date(now.getTime() + 47 * 60 * 60 * 1000);
     const window48End = new Date(now.getTime() + 49 * 60 * 60 * 1000);
 
-    // 24hr window: expiryAt between 23h and 25h from now
     const window24Start = new Date(now.getTime() + 23 * 60 * 60 * 1000);
     const window24End = new Date(now.getTime() + 25 * 60 * 60 * 1000);
 
     const [bookings48, bookings24] = await Promise.all([
       Booking.findAll({
         where: {
-          status: 'penciled',
-          expiryAt: { [Op.between]: [window48Start, window48End] },
+          bookingType: 'pencil',
+          status: { [Op.in]: PENCIL_WARN_STATUSES },
+          expiryAt: { [Op.between]: [window48Start, window48End] }
         },
-        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }],
+        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
       }),
       Booking.findAll({
         where: {
-          status: 'penciled',
-          expiryAt: { [Op.between]: [window24Start, window24End] },
+          bookingType: 'pencil',
+          status: { [Op.in]: PENCIL_WARN_STATUSES },
+          expiryAt: { [Op.between]: [window24Start, window24End] }
         },
-        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }],
-      }),
+        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+      })
     ]);
 
     console.log(
@@ -106,4 +155,4 @@ cron.schedule('0 0 * * *', async () => {
   }
 });
 
-console.log('[cron] Booking expiry jobs scheduled');
+console.log('[cron] Booking expiry + contention jobs scheduled');

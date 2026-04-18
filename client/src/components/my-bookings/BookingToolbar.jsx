@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 const ACTIVE_STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
   { value: 'contested', label: 'Contested' },
+  { value: 'queued', label: 'Queued' },
   { value: 'pending_approval', label: 'Pending Approval' },
   { value: 'penciled', label: 'Penciled' },
   { value: 'approved', label: 'Approved' },
@@ -12,6 +13,7 @@ const ACTIVE_STATUS_OPTIONS = [
 const PAST_STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
   { value: 'denied', label: 'Denied' },
+  { value: 'displaced', label: 'Displaced' },
   { value: 'cancelled', label: 'Cancelled' },
   { value: 'expired', label: 'Expired' },
 ];

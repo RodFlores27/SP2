@@ -27,15 +27,21 @@ export function formatStatusLabel(status) {
 }
 
 export function isCancellable(booking) {
-  if (['cancelled', 'denied', 'expired'].includes(booking.status)) return false;
-  const hoursUntilStart = (new Date(booking.startTime) - new Date()) / (1000 * 60 * 60);
-  return hoursUntilStart >= 24;
+  if (['cancelled', 'denied', 'expired', 'displaced'].includes(booking.status)) return false;
+  if (
+    booking.bookingType === 'firm' &&
+    ['pending_approval', 'approved'].includes(booking.status)
+  ) {
+    const hoursUntilStart = (new Date(booking.startTime) - new Date()) / (1000 * 60 * 60);
+    return hoursUntilStart > 24;
+  }
+  return true;
 }
 
 export function isConvertible(booking) {
   return (
     booking.bookingType === 'pencil' &&
-    !['cancelled', 'denied', 'expired'].includes(booking.status)
+    !['cancelled', 'denied', 'expired', 'displaced', 'queued'].includes(booking.status)
   );
 }
 
@@ -50,9 +56,9 @@ export function guessFileType(url) {
 }
 
 /** Active-tab status order (highest priority first). */
-const ACTIVE_STATUS_ORDER = ['contested', 'pending_approval', 'penciled', 'approved'];
+const ACTIVE_STATUS_ORDER = ['contested', 'queued', 'pending_approval', 'penciled', 'approved'];
 /** Past-tab status order (denied first — staff decision, highest visibility). */
-const PAST_STATUS_ORDER = ['denied', 'cancelled', 'expired'];
+const PAST_STATUS_ORDER = ['denied', 'displaced', 'cancelled', 'expired'];
 
 /** Group an array of bookings by status, returning ordered non-empty groups. */
 export function groupByStatus(bookings, statusOrder) {

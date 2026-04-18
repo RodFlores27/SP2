@@ -81,6 +81,8 @@ npm run test:all
 | Controllers | `server/controllers/` |
 | Sequelize models | `server/models/` |
 | DB migrations | `server/migrations/` |
+| Booking & contention transition catalog (IDs like P-01, F-01, EP-01; Section 13 changelog) | `docs/booking-transition-catalog-seed.md` |
+| Staff-facing booking rules (plain language) | `docs/booking-system-rules-staff.md` |
 | API docs (Swagger) | `server/docs/swagger.json` → rendered at `localhost:4000/api-docs` |
 | Frontend pages | `client/src/pages/` |
 | React components | `client/src/components/` |
@@ -125,6 +127,7 @@ npm run test:all
 - Tailwind v4 CSS-first: never use `tailwind.config.js` for theme tokens; use `@theme` in CSS instead.
 - All file uploads go through Cloudinary (`server/utils/cloudinary.js`). Never use local disk storage.
 - All emails go through Resend (`server/utils/email.js`). Not nodemailer, not mailgun, not SendGrid.
-- Firm bookings always require staff approval (`pending_approval` → `approved`). There is no `confirmed` status.
+- Firm bookings require staff approval (`pending_approval` → `approved`). There is no `confirmed` status. A firm request may overlap other users’ pencils; those pencils are **`displaced` when staff approves** the firm (not at submit). Firm still cannot overlap another firm (`pending_approval` or `approved`). Overlapping pencil–pencil contention is automated (`contested` / `queued`); staff do not resolve pencil contests.
 - `server/docs/swagger.json` must be updated whenever API endpoints are added or modified.
+- After a **database re-seed** or demo reset, an old JWT may be rejected with **401** and `AUTH_USER_MISSING` (user id no longer exists). Sign in again. See `docs/booking-transition-catalog-seed.md` Section 13.2.
 - Documentation files may occasionally lag behind the actual codebase by a small margin.

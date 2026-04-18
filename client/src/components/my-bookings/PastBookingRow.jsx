@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
-import { CalendarDays } from 'lucide-react';
+import { AlertTriangle, CalendarDays } from 'lucide-react';
 import { BookingStatusBadge } from '@/components/BookingStatusBadge';
 import { AuthorizationDocButton } from './AuthorizationDocButton';
 import { Button } from '@/components/ui/button';
@@ -19,18 +19,35 @@ function getPreviousAttempts(booking) {
 }
 
 /**
- * Compact read-only row for past (cancelled / denied / expired) bookings.
+ * Compact read-only row for past (cancelled / denied / expired / displaced) bookings.
  * Intentionally much lighter than ActiveBookingCard — no action buttons or convert panel.
  */
 export function PastBookingRow({ booking, resourceName, rebookTo }) {
-  const canRebook = ['cancelled', 'denied', 'expired'].includes(booking.status);
+  const isPastTerminal = ['cancelled', 'denied', 'expired', 'displaced'].includes(booking.status);
+  const canRebook = booking.canRebook === true;
+  const rebookBlockedByActiveFirm =
+    booking.status === 'displaced' && !canRebook;
   const previousAttempts = getPreviousAttempts(booking);
-  const hasActionRow = Boolean(booking.authorizationDocUrl) || (canRebook && rebookTo);
+  const hasActionRow =
+    Boolean(booking.authorizationDocUrl) ||
+    (isPastTerminal && (canRebook || rebookBlockedByActiveFirm));
   const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
 
   return (
     <div className="flex flex-col sm:flex-row sm:items-start gap-2 py-3 px-4 rounded-lg border border-border bg-card opacity-70 hover:opacity-90 transition-opacity">
       <div className="space-y-1 min-w-0 flex-1">
+        {rebookBlockedByActiveFirm && (
+          <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-amber-700" />
+              <p>
+                You can’t rebook this displaced slot yet — the firm booking that replaced it is still pending
+                or approved. Try again after that booking is cancelled or denied.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-semibold text-xs text-muted-foreground">#{booking.id}</span>
           <span className="font-medium text-sm truncate">{resourceName}</span>
@@ -105,6 +122,14 @@ export function PastBookingRow({ booking, resourceName, rebookTo }) {
                   Rebook
                 </Button>
               </Link>
+            )}
+            {rebookBlockedByActiveFirm && (
+              <Button size="sm" variant="outline" className="gap-1" disabled>
+                <span className="text-base leading-none" aria-hidden>
+                  ↺
+                </span>
+                Rebook
+              </Button>
             )}
           </div>
         )}

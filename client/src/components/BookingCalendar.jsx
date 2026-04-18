@@ -34,9 +34,25 @@ const STATUS_STYLES = {
     borderColor: '#9ca3af',
     color: '#374151',
   },
+  /** Active challenger in an open contention episode (DB status is still penciled). */
+  contesting: {
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0284c7',
+    color: '#fff',
+  },
   contested: {
     backgroundColor: '#fb923c',
     borderColor: '#ea580c',
+    color: '#fff',
+  },
+  queued: {
+    backgroundColor: '#a78bfa',
+    borderColor: '#7c3aed',
+    color: '#fff',
+  },
+  displaced: {
+    backgroundColor: '#94a3b8',
+    borderColor: '#64748b',
     color: '#fff',
   },
 };
@@ -164,7 +180,7 @@ export function BookingCalendar({
 
         const startTime = format(new Date(booking.startTime), 'hh:mm a');
         const endTime = format(new Date(booking.endTime), 'hh:mm a');
-        const title = `${startTime} - ${endTime} [${resourceName}]`;
+        const title = `#${booking.id} ${startTime} - ${endTime} [${resourceName}]`;
 
         return {
           id: booking.id,
@@ -201,8 +217,11 @@ export function BookingCalendar({
   };
 
   const eventStyleGetter = (event) => {
-    const status = event.resource?.status || 'penciled';
-    const styles = STATUS_STYLES[status] || STATUS_STYLES.penciled;
+    const b = event.resource;
+    const rawStatus = b?.status || 'penciled';
+    const calendarStatus =
+      rawStatus === 'penciled' && b?.contentionChallenger ? 'contesting' : rawStatus;
+    const styles = STATUS_STYLES[calendarStatus] || STATUS_STYLES.penciled;
 
     return {
       style: {
@@ -212,7 +231,13 @@ export function BookingCalendar({
         borderStyle: styles.borderStyle || 'solid',
         color: styles.color,
         borderRadius: '4px',
-        opacity: status === 'penciled' || status === 'contested' ? 0.7 : 1,
+        opacity:
+          calendarStatus === 'penciled' ||
+          calendarStatus === 'contesting' ||
+          calendarStatus === 'contested' ||
+          calendarStatus === 'queued'
+            ? 0.7
+            : 1,
       },
     };
   };
@@ -269,8 +294,12 @@ export function BookingCalendar({
           <span>Penciled</span>
         </div>
         <div className="flex items-center gap-2">
+          <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#0ea5e9' }}></span>
+          <span>Contesting (challenger)</span>
+        </div>
+        <div className="flex items-center gap-2">
           <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#fb923c' }}></span>
-          <span>Contested</span>
+          <span>Contested (defender)</span>
         </div>
       </div>
 

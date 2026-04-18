@@ -48,8 +48,17 @@ export function ActiveBookingCard({
           <div className="mb-3 flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2 rounded-md text-sm">
             <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600" />
             <span>
-              This booking is <strong>contested</strong> — it overlaps with another booking for the
-              same resource. A staff member will review and resolve the conflict.
+              This pencil booking is <strong>contested</strong>. Another user is challenging your slot.
+              Convert to a firm booking before the deadline to keep it.
+            </span>
+          </div>
+        )}
+        {booking.status === 'queued' && (
+          <div className="mb-3 flex items-start gap-2 bg-violet-50 border border-violet-200 text-violet-900 px-3 py-2 rounded-md text-sm">
+            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-violet-600" />
+            <span>
+              Your booking is <strong>queued</strong> behind an earlier contention. You will be notified
+              when your turn starts.
             </span>
           </div>
         )}
@@ -120,7 +129,7 @@ export function ActiveBookingCard({
               </div>
             )}
 
-            {booking.expiryAt && booking.status === 'penciled' && (
+            {booking.expiryAt && ['penciled', 'contested', 'queued'].includes(booking.status) && (
               <p className="text-xs text-muted-foreground">
                 Expires: {format(new Date(booking.expiryAt), 'MMM d, yyyy h:mm a')}
               </p>

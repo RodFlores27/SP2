@@ -368,6 +368,21 @@ node milestone_tests/milestone-{number}-{description}.js
 - `AdminProtectedRoute` (system_admin only redirect)
 - `AdminPanel.jsx` with stats, search, role select, delete
 
+### Milestone 13: Booking contention rules + displacement
+**File:** `milestone-13-booking-contention-rules.js`  
+**Run:** `npm run test:milestone-13` (from project root; server on `http://localhost:4000`)
+
+**Tests (representative):**
+- Pencil overlap with contention confirmation → `contested` / `queued` paths
+- Third (and further) overlapping pencils enqueue correctly
+- **Defender cancel** mid-episode: reopen pairing per **P-19** (`createdAt` ordering; waitlist only if overlaps new defender)
+- Firm approval / convert-to-firm: overlapping pencils → **`displaced`** with `displacedByBookingId`
+- 24h lock window and related guards
+
+**Manual UI (same milestone):** My Bookings — `queued` / `displaced` badges, filters, and displaced rebook messaging; calendar — `#id` titles and **contesting** (challenger) styling from availability `contentionChallenger`.
+
+**Related design doc:** `docs/booking-transition-catalog-seed.md` (transition IDs **P-05b**, **P-19**–**P-21**, **P-07** challenger-expiry row, Section 13 changelog).
+
 ## Notes
 
 - Tests use axios for HTTP requests

@@ -28,7 +28,7 @@ async function login(email, password) {
 
 async function testMilestone11() {
   console.log('=== MILESTONE 11 VERIFICATION TEST ===');
-  console.log('Staff Dashboard: Pending Approvals Queue + Conflict Resolution\n');
+  console.log('Staff Dashboard: Pending Approvals + Pencil contention awareness\n');
 
   const healthCheck = await checkServerHealth(BASE_URL);
   if (!healthCheck.success) {
@@ -235,25 +235,42 @@ async function testMilestone11() {
     console.log('  ⚠️  No pending_approval bookings to test approve action — skipping');
   }
 
-  // ── Deny a contested booking if one exists ────────────────────────────────
+  // ── GET /bookings?status=queued (staff) ───────────────────────────────────
+  console.log('\n--- Queued pencil bookings ---');
+  try {
+    const res = await axios.get(`${BASE_URL}/bookings?status=queued`, {
+      headers: staffHeaders,
+    });
+    if (Array.isArray(res.data)) {
+      pass(`Staff can fetch queued pencil bookings (${res.data.length} found)`);
+    } else {
+      fail('Expected array response for queued bookings');
+    }
+  } catch (e) {
+    fail('Fetch queued bookings', e.response?.data?.error || e.message);
+  }
+
+  // Contested pencils are no longer staff-deniable; optional sanity check
   if (contestedBookings.length > 0) {
     const target = contestedBookings[0];
-    try {
-      const res = await axios.patch(
-        `${BASE_URL}/bookings/${target.id}/deny`,
-        { staffRemark: 'Denied via milestone 11 test — conflict resolution' },
-        { headers: staffHeaders }
-      );
-      if (res.data.booking?.status === 'denied') {
-        pass(`Staff denied contested booking #${target.id} with staffRemark`);
-      } else {
-        fail('Deny did not set status to denied', res.data.booking?.status);
+    if (target.bookingType === 'pencil') {
+      try {
+        await axios.patch(
+          `${BASE_URL}/bookings/${target.id}/deny`,
+          { staffRemark: 'should fail' },
+          { headers: staffHeaders }
+        );
+        fail('Deny on contested pencil should be rejected');
+      } catch (e) {
+        if (e.response?.status === 400) {
+          pass('Staff deny rejected for contested pencil (automated contention)');
+        } else {
+          fail('Unexpected deny response for contested pencil', e.response?.status);
+        }
       }
-    } catch (e) {
-      fail(`Deny contested booking #${target.id}`, e.response?.data?.error || e.message);
     }
   } else {
-    console.log('  ⚠️  No contested bookings to test deny action — skipping');
+    console.log('  ⚠️  No contested bookings to test deny rejection — skipping');
   }
 
   // ── Frontend Manual Checklist ─────────────────────────────────────────────
@@ -262,21 +279,17 @@ async function testMilestone11() {
     'Login as staff@uplb.edu.ph — "Staff Dashboard" link appears in nav',
     'Login as student@uplb.edu.ph — "Staff Dashboard" link is NOT visible in nav',
     'Navigate to /staff as student — redirected to /dashboard',
-    'Navigate to /staff as staff — page loads with two tabs',
+    'Navigate to /staff as staff — page loads with tabs',
     '"Pending Approvals" tab shows badge count matching pending_approval bookings',
-    '"Conflict Resolution" tab shows badge count matching contested booking groups',
+    '"Pencil contention" tab shows awareness list (contested + queued)',
     'Pending Approvals: each card shows requester email, resource, time range, booking type badge',
     'Pending Approvals: "Review" button toggles inline approve/deny panel',
     'Pending Approvals: staffRemark textarea present in review panel',
     'Pending Approvals: "Approve" (green) and "Deny" (red) buttons work and refresh list',
     'Pending Approvals: auth doc link visible when booking has authorizationDocUrl',
     'Pending Approvals: empty state shown when no pending bookings',
-    'Conflict Resolution: contested bookings grouped by resource + time overlap',
-    'Conflict Resolution: each conflict group shows bookings side-by-side (2-col on desktop)',
-    'Conflict Resolution: each booking card in group has staffRemark textarea + approve/deny',
-    'Conflict Resolution: resource name + time window shown as group header',
-    'Conflict Resolution: empty state shown when no contested bookings',
-    'Refresh button reloads both pending and contested lists',
+    'Pencil contention: informational cards only (no staff approve/deny for pencils)',
+    'Refresh button reloads pending and contention watch lists',
   ];
   checks.forEach((c) => console.log(`  [ ] ${c}`));
 

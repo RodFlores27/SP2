@@ -1,6 +1,13 @@
 'use strict';
 const { Model, Op } = require('sequelize');
 
+const TERMINAL_STATUSES = ['cancelled', 'denied', 'expired', 'displaced'];
+
+/** Firm bookings that block other bookings from overlapping this window. */
+const FIRM_BLOCKING_STATUSES = ['pending_approval', 'approved'];
+
+const ACTIVE_PENCIL_STATUSES = ['penciled', 'contested', 'queued'];
+
 module.exports = (sequelize, DataTypes) => {
   class Booking extends Model {
     static associate(models) {
@@ -21,11 +28,18 @@ module.exports = (sequelize, DataTypes) => {
         sourceKey: 'bookingThreadId',
         as: 'threadBookings'
       });
+      Booking.belongsTo(models.Booking, {
+        foreignKey: 'displacedByBookingId',
+        as: 'displacedByBooking'
+      });
+      Booking.hasMany(models.Booking, {
+        foreignKey: 'displacedByBookingId',
+        as: 'displacedBookings'
+      });
     }
 
     isActive() {
-      const inactiveStatuses = ['cancelled', 'denied', 'expired'];
-      return !inactiveStatuses.includes(this.status);
+      return !TERMINAL_STATUSES.includes(this.status);
     }
 
     isConflicting(otherBooking) {
@@ -38,34 +52,97 @@ module.exports = (sequelize, DataTypes) => {
              (this.endTime > otherBooking.startTime);
     }
 
+    /**
+     * Any booking that still occupies the calendar for conflict purposes (legacy / admin tools).
+     */
     static async findConflicts(resourceType, resourceId, startTime, endTime, excludeId = null) {
+      const [firm, pencils] = await Promise.all([
+        Booking.findFirmBlockers(resourceType, resourceId, startTime, endTime, excludeId),
+        Booking.findActivePencilOverlaps(resourceType, resourceId, startTime, endTime, excludeId)
+      ]);
+      const merged = [...firm, ...pencils].sort(
+        (a, b) => new Date(a.startTime) - new Date(b.startTime) || a.id - b.id
+      );
+      return merged;
+    }
+
+    /** Overlapping firm bookings that block new bookings (pending or approved). */
+    static async findFirmBlockers(
+      resourceType,
+      resourceId,
+      startTime,
+      endTime,
+      excludeId = null,
+      options = {}
+    ) {
+      const { transaction } = options;
       const whereClause = {
         resourceType,
         resourceId,
-        status: {
-          [Op.notIn]: ['cancelled', 'denied', 'expired']
-        },
+        bookingType: 'firm',
+        status: { [Op.in]: FIRM_BLOCKING_STATUSES },
         [Op.and]: [
           { startTime: { [Op.lt]: endTime } },
           { endTime: { [Op.gt]: startTime } }
         ]
       };
-
-      if (excludeId) {
-        whereClause.id = { [Op.ne]: excludeId };
-      }
-
-      return await Booking.findAll({
+      if (excludeId) whereClause.id = { [Op.ne]: excludeId };
+      return Booking.findAll({
         where: whereClause,
-        include: [{
-          model: sequelize.models.User,
-          as: 'user',
-          attributes: ['id', 'email', 'accountType', 'userCategory']
-        }],
-        order: [['startTime', 'ASC']]
+        include: [
+          {
+            model: sequelize.models.User,
+            as: 'user',
+            attributes: ['id', 'email', 'accountType', 'userCategory']
+          }
+        ],
+        order: [['startTime', 'ASC']],
+        transaction
+      });
+    }
+
+    /** Active pencil bookings overlapping the interval (penciled / contested / queued). */
+    static async findActivePencilOverlaps(
+      resourceType,
+      resourceId,
+      startTime,
+      endTime,
+      excludeId = null,
+      options = {}
+    ) {
+      const { transaction } = options;
+      const whereClause = {
+        resourceType,
+        resourceId,
+        bookingType: 'pencil',
+        status: { [Op.in]: ACTIVE_PENCIL_STATUSES },
+        [Op.and]: [
+          { startTime: { [Op.lt]: endTime } },
+          { endTime: { [Op.gt]: startTime } }
+        ]
+      };
+      if (excludeId) whereClause.id = { [Op.ne]: excludeId };
+      return Booking.findAll({
+        where: whereClause,
+        include: [
+          {
+            model: sequelize.models.User,
+            as: 'user',
+            attributes: ['id', 'email', 'accountType', 'userCategory']
+          }
+        ],
+        order: [
+          ['createdAt', 'ASC'],
+          ['id', 'ASC']
+        ],
+        transaction
       });
     }
   }
+
+  Booking.TERMINAL_STATUSES = TERMINAL_STATUSES;
+  Booking.FIRM_BLOCKING_STATUSES = FIRM_BLOCKING_STATUSES;
+  Booking.ACTIVE_PENCIL_STATUSES = ACTIVE_PENCIL_STATUSES;
 
   Booking.init({
     userId: {
@@ -86,7 +163,17 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'pencil'
     },
     status: {
-      type: DataTypes.ENUM('penciled', 'contested', 'pending_approval', 'approved', 'denied', 'cancelled', 'expired'),
+      type: DataTypes.ENUM(
+        'penciled',
+        'contested',
+        'queued',
+        'pending_approval',
+        'approved',
+        'denied',
+        'cancelled',
+        'expired',
+        'displaced'
+      ),
       allowNull: false,
       defaultValue: 'penciled'
     },
@@ -132,6 +219,10 @@ module.exports = (sequelize, DataTypes) => {
     },
     expiryAt: {
       type: DataTypes.DATE,
+      allowNull: true
+    },
+    displacedByBookingId: {
+      type: DataTypes.INTEGER,
       allowNull: true
     }
   }, {

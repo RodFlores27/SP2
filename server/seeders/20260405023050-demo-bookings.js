@@ -62,7 +62,7 @@ module.exports = {
       throw new Error('Required equipment/rooms not found. Please run initial data seeder first.');
     }
 
-    await queryInterface.bulkInsert('Bookings', [
+    const bookingRows = [
       {
         userId: studentId,
         resourceType: 'equipment',
@@ -175,7 +175,30 @@ module.exports = {
         createdAt: now,
         updatedAt: now
       }
-    ], {});
+    ];
+
+    for (const row of bookingRows) {
+      const inserted = await queryInterface.sequelize.query(
+        `INSERT INTO "Bookings" (
+          "userId", "resourceType", "resourceId", "bookingType", "status",
+          "startTime", "endTime", "purpose", "authorizationDocUrl", "expiryAt",
+          "createdAt", "updatedAt", "bookingThreadId"
+        ) VALUES (
+          :userId, :resourceType, :resourceId, :bookingType, :status,
+          :startTime, :endTime, :purpose, :authorizationDocUrl, :expiryAt,
+          :createdAt, :updatedAt, 0
+        ) RETURNING id`,
+        {
+          replacements: row,
+          type: Sequelize.QueryTypes.SELECT
+        }
+      );
+      const id = inserted[0].id;
+      await queryInterface.sequelize.query(
+        `UPDATE "Bookings" SET "bookingThreadId" = :id WHERE id = :id`,
+        { replacements: { id } }
+      );
+    }
   },
 
   async down(queryInterface, Sequelize) {

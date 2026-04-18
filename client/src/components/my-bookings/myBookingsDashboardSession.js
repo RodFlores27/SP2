@@ -40,7 +40,7 @@ function safeParseObject(raw) {
 /** --- Accordion --- */
 
 export function getDefaultAccordionOpenActive(status) {
-  return status === 'contested';
+  return status === 'contested' || status === 'queued';
 }
 
 export function getDefaultAccordionOpenPast(status) {

@@ -1,6 +1,7 @@
 "use strict";
 
 const jwt = require("jsonwebtoken");
+const { User } = require("../models");
 
 function normalizeRole(role) {
   return String(role || "")
@@ -21,8 +22,20 @@ function authenticateToken(req, res, next) {
     return res.status(500).json({ message: 'JWT_SECRET not configured' });
   }
 
-  jwt.verify(token, secret, (err, payload) => {
+  jwt.verify(token, secret, async (err, payload) => {
     if (err) return res.status(401).json({ message: 'Invalid or expired token' });
+
+    try {
+      const user = await User.findByPk(payload.userId, { attributes: ["id"] });
+      if (!user) {
+        return res.status(401).json({
+          message: "Session no longer matches this database. Sign in again (e.g. after a demo reset or re-seed).",
+          code: "AUTH_USER_MISSING",
+        });
+      }
+    } catch {
+      return res.status(500).json({ message: "Authentication check failed" });
+    }
 
     req.user = {
       id: payload.userId,

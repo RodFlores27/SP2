@@ -49,7 +49,12 @@ function sortBookings(bookings, sort) {
 }
 
 function buildRebookLink(booking) {
-  if (!booking || booking.canRebook !== true) return null;
+  if (!booking) return null;
+  const rebookAllowed =
+    booking.canRebook === true ||
+    (booking.canRebook === undefined &&
+      ['cancelled', 'denied', 'expired'].includes(booking.status));
+  if (!rebookAllowed) return null;
 
   const params = new URLSearchParams({
     resourceType: booking.resourceType,
@@ -288,12 +293,12 @@ export default function Dashboard() {
     }
   };
 
-  // Partition
+  // Partition (displaced is terminal — show under Past, not Active)
   const activeBookings = bookings.filter(
-    (b) => !['cancelled', 'denied', 'expired'].includes(b.status)
+    (b) => !['cancelled', 'denied', 'expired', 'displaced'].includes(b.status)
   );
   const pastBookings = bookings.filter((b) =>
-    ['cancelled', 'denied', 'expired'].includes(b.status)
+    ['cancelled', 'denied', 'expired', 'displaced'].includes(b.status)
   );
 
   // Helper bound to current resource lists
@@ -603,22 +608,26 @@ function PastTabContent({
 function StatusGroup({ status, count, children, open, onToggle }) {
   const labelMap = {
     contested: 'Contested',
+    queued: 'Queued',
     pending_approval: 'Pending Approval',
     penciled: 'Penciled',
     approved: 'Approved',
     cancelled: 'Cancelled',
     denied: 'Denied',
+    displaced: 'Displaced',
     expired: 'Expired',
     other: 'Other',
   };
 
   const accentMap = {
     contested: 'text-orange-700 border-orange-200 bg-orange-50',
+    queued: 'text-violet-800 border-violet-200 bg-violet-50',
     pending_approval: 'text-yellow-700 border-yellow-200 bg-yellow-50',
     penciled: 'text-blue-700 border-blue-200 bg-blue-50',
     approved: 'text-green-700 border-green-200 bg-green-50',
     cancelled: 'text-gray-500 border-gray-200 bg-gray-50',
     denied: 'text-red-700 border-red-200 bg-red-50',
+    displaced: 'text-slate-700 border-slate-200 bg-slate-50',
     expired: 'text-gray-400 border-gray-200 bg-gray-50',
     other: 'text-gray-600 border-gray-200 bg-gray-50',
   };

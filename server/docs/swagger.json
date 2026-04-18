@@ -1175,7 +1175,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Create a new booking",
-        "description": "Creates a new booking for equipment or room. Supports pencil (tentative) and firm (confirmed) booking types. Automatically detects conflicts with existing bookings.",
+        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings cannot start within 24 hours of creation.",
         "operationId": "createBooking",
         "security": [
           {
@@ -1248,6 +1248,16 @@
                     "type": "string",
                     "description": "Reason for booking (optional)"
                   },
+                  "confirmOverlapOwn": {
+                    "type": "string",
+                    "enum": ["true", "false"],
+                    "description": "Firm: confirm superseding own pencils (multipart sends string)"
+                  },
+                  "confirmContention": {
+                    "type": "string",
+                    "enum": ["true", "false"],
+                    "description": "Pencil: confirm contesting another pencil"
+                  },
                   "authorizationDoc": {
                     "type": "string",
                     "format": "binary",
@@ -1318,7 +1328,7 @@
             }
           },
           "409": {
-            "description": "Conflict - Firm booking conflicts with existing bookings",
+            "description": "Conflict — firm overlaps, own pencil supersede confirmation, or pencil contention confirmation",
             "content": {
               "application/json": {
                 "schema": {
@@ -1346,7 +1356,7 @@
             "description": "Filter by booking status",
             "schema": {
               "type": "string",
-              "enum": ["penciled", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"]
+              "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced"]
             }
           },
           {
@@ -1696,7 +1706,7 @@
                   "$ref": "#/components/schemas/BookingConflictResponse"
                 },
                 "example": {
-                  "error": "Cannot convert to firm booking due to conflicts with existing bookings",
+                  "error": "Cannot convert to firm booking: time slot overlaps another firm booking",
                   "conflicts": [
                     {
                       "id": 5,
@@ -1721,7 +1731,7 @@
       "patch": {
         "tags": ["Bookings"],
         "summary": "Approve a booking (Staff only)",
-        "description": "Approves a booking that is pending approval or contested. Only staff and admin can approve bookings. Optional staff remark can be included.",
+        "description": "Approves a firm booking in pending_approval only. Overlapping pencil bookings become displaced (automated). Staff and system_admin only. Optional staff remark.",
         "operationId": "approveBooking",
         "security": [
           {
@@ -1785,7 +1795,7 @@
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
                 "example": {
-                  "error": "Cannot approve booking with status: approved. Only pending_approval or contested bookings can be approved."
+                  "error": "Cannot approve booking with status: approved. Only firm bookings in pending_approval can be approved."
                 }
               }
             }
@@ -1829,7 +1839,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "Get conflicts for a booking (Staff only)",
-        "description": "Returns all active bookings that overlap with the given booking's resource and time window. Used by staff to view contested bookings side-by-side.",
+        "description": "Returns bookings that overlap this booking's resource and time window per scheduling rules (firm blockers and active pencils). Useful for staff review alongside calendar data.",
         "operationId": "getBookingConflicts",
         "security": [
           {
@@ -2450,8 +2460,8 @@
           },
           "status": {
             "type": "string",
-            "enum": ["penciled", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"],
-            "description": "Current booking status"
+            "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced"],
+            "description": "Current booking status (pencil: penciled/contested/queued/displaced; firm: pending_approval/approved/denied/cancelled/expired)"
           },
           "startTime": {
             "type": "string",
@@ -2498,7 +2508,28 @@
           "expiryAt": {
             "type": "string",
             "format": "date-time",
-            "description": "Auto-expiry timestamp for pencil bookings (3 days from creation)"
+            "description": "Pencil auto-expiry: earlier of 3 days from creation or 24 hours before start"
+          },
+          "displacedByBookingId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "When status is displaced, the approved firm booking that caused displacement"
+          },
+          "displacedByBooking": {
+            "type": "object",
+            "nullable": true,
+            "description": "Populated on list/detail when the displacing firm row exists (id, status, bookingType, times)",
+            "properties": {
+              "id": { "type": "integer" },
+              "status": { "type": "string" },
+              "bookingType": { "type": "string" },
+              "startTime": { "type": "string", "format": "date-time" },
+              "endTime": { "type": "string", "format": "date-time" }
+            }
+          },
+          "canRebook": {
+            "type": "boolean",
+            "description": "Whether the user may start a rebook from this attempt (false for displaced while displacing firm is still pending_approval or approved)"
           },
           "user": {
             "type": "object",
@@ -2540,7 +2571,7 @@
                 },
                 "status": {
                   "type": "string",
-                  "enum": ["penciled", "contested", "pending_approval", "approved", "denied", "cancelled", "expired"]
+                  "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced"]
                 },
                 "startTime": {
                   "type": "string",
@@ -2616,8 +2647,8 @@
           },
           "status": {
             "type": "string",
-            "enum": ["penciled", "contested", "pending_approval", "approved"],
-            "description": "Booking status (excludes cancelled, denied, expired)"
+            "enum": ["penciled", "contested", "queued", "pending_approval", "approved"],
+            "description": "Booking status for calendar display (excludes terminal statuses including displaced, cancelled, denied, expired)"
           },
           "startTime": {
             "type": "string",
@@ -2628,6 +2659,10 @@
             "type": "string",
             "format": "date-time",
             "description": "Booking end time"
+          },
+          "contentionChallenger": {
+            "type": "boolean",
+            "description": "True when this booking is the active challenger on an open contention episode for this resource (calendar UI treats it as contesting; DB status remains penciled)."
           }
         }
       },
@@ -2675,6 +2710,14 @@
             "type": "integer",
             "nullable": true,
             "description": "Source booking attempt when creating a rebooked booking (optional)"
+          },
+          "confirmOverlapOwn": {
+            "type": "boolean",
+            "description": "Firm booking: confirm cancelling own overlapping pencil bookings"
+          },
+          "confirmContention": {
+            "type": "boolean",
+            "description": "Pencil booking: confirm starting automated contention against another user's pencil"
           }
         }
       },
@@ -2691,7 +2734,7 @@
           },
           "conflicts": {
             "type": "array",
-            "description": "Array of conflicting bookings (only present if status is 'contested')",
+            "description": "On 201 pencil contention success, overlapping pencils; not used for firm success (see overlappingPencils)",
             "items": {
               "type": "object",
               "properties": {
@@ -2725,6 +2768,13 @@
                 }
               }
             }
+          },
+          "overlappingPencils": {
+            "type": "array",
+            "description": "When bookingType is firm (201): other users' pencils overlapped by this request; displaced if staff approves",
+            "items": {
+              "type": "object"
+            }
           }
         }
       },
@@ -2734,6 +2784,21 @@
           "error": {
             "type": "string",
             "example": "Firm booking conflicts with existing bookings"
+          },
+          "requiresConfirmation": {
+            "type": "boolean",
+            "description": "When true, resubmit with confirmOverlapOwn to supersede own pencils (firm)"
+          },
+          "requiresContentionConfirmation": {
+            "type": "boolean",
+            "description": "When true, resubmit with confirmContention to start automated pencil contention"
+          },
+          "ownPencilConflicts": {
+            "type": "array",
+            "description": "User's pencil bookings that would be cancelled (firm supersede path)",
+            "items": {
+              "type": "object"
+            }
           },
           "conflicts": {
             "type": "array",

@@ -16,7 +16,6 @@ import {
   ChevronDown,
   ChevronUp,
   Users,
-  Clock,
   CornerDownRight,
 } from 'lucide-react';
 
@@ -169,47 +168,14 @@ function getEffectiveRebookSourceStatus(booking) {
   return sourceAttempt?.status || null;
 }
 
-function groupContestedBookings(bookings) {
-  const byResource = {};
-  for (const b of bookings) {
-    const key = `${b.resourceType}:${b.resourceId}`;
-    if (!byResource[key]) byResource[key] = [];
-    byResource[key].push(b);
-  }
-
-  const groups = [];
-  for (const [, list] of Object.entries(byResource)) {
-    const visited = new Set();
-    for (const b of list) {
-      if (visited.has(b.id)) continue;
-      const cluster = [b];
-      visited.add(b.id);
-      for (const other of list) {
-        if (visited.has(other.id)) continue;
-        const overlaps = cluster.some(
-          (c) =>
-            new Date(c.startTime) < new Date(other.endTime) &&
-            new Date(c.endTime) > new Date(other.startTime)
-        );
-        if (overlaps) {
-          cluster.push(other);
-          visited.add(other.id);
-        }
-      }
-      groups.push(cluster);
-    }
-  }
-  return groups;
-}
-
 export default function StaffDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('approvals');
 
   const [pendingBookings, setPendingBookings] = useState([]);
   const [contestedBookings, setContestedBookings] = useState([]);
+  const [queuedPencilBookings, setQueuedPencilBookings] = useState([]);
   const [deniedRebookPending, setDeniedRebookPending] = useState([]);
-  const [deniedRebookContested, setDeniedRebookContested] = useState([]);
   const [equipment, setEquipment] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -224,17 +190,17 @@ export default function StaffDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [pendingRes, contestedRes, deniedPendRes, deniedContRes, resources] = await Promise.all([
+      const [pendingRes, contestedRes, queuedRes, deniedPendRes, resources] = await Promise.all([
         axiosInstance.get('/bookings?status=pending_approval'),
         axiosInstance.get('/bookings?status=contested'),
+        axiosInstance.get('/bookings?status=queued'),
         axiosInstance.get('/bookings?status=pending_approval&rebookSourceDenied=true'),
-        axiosInstance.get('/bookings?status=contested&rebookSourceDenied=true'),
         fetchResources(),
       ]);
       setPendingBookings(pendingRes.data);
       setContestedBookings(contestedRes.data);
+      setQueuedPencilBookings(queuedRes.data);
       setDeniedRebookPending(deniedPendRes.data);
-      setDeniedRebookContested(deniedContRes.data);
       setEquipment(resources.equipment);
       setRooms(resources.rooms);
     } catch (err) {
@@ -277,9 +243,8 @@ export default function StaffDashboard() {
     setActionError(null);
   };
 
-  const conflictGroups = groupContestedBookings(contestedBookings);
-  const deniedRebookConflictGroups = groupContestedBookings(deniedRebookContested);
-  const deniedRebookQueueCount = deniedRebookPending.length + deniedRebookConflictGroups.length;
+  const contentionWatchCount = contestedBookings.length + queuedPencilBookings.length;
+  const deniedRebookQueueCount = deniedRebookPending.length;
 
   if (loading) {
     return (
@@ -337,17 +302,17 @@ export default function StaffDashboard() {
           )}
         </button>
         <button
-          onClick={() => setActiveTab('conflicts')}
+          onClick={() => setActiveTab('contention')}
           className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'conflicts'
+            activeTab === 'contention'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          Conflict Resolution
-          {conflictGroups.length > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-xs w-5 h-5">
-              {conflictGroups.length}
+          Pencil contention
+          {contentionWatchCount > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-xs min-w-5 h-5 px-1">
+              {contentionWatchCount}
             </span>
           )}
         </button>
@@ -400,33 +365,42 @@ export default function StaffDashboard() {
         </section>
       )}
 
-      {/* Conflict Resolution Tab */}
-      {activeTab === 'conflicts' && (
-        <section className="space-y-6">
-          {conflictGroups.length === 0 ? (
+      {activeTab === 'contention' && (
+        <section className="space-y-4">
+          <Card className="border-muted">
+            <CardContent className="py-4 text-sm text-muted-foreground">
+              <p className="text-foreground font-medium mb-1">Automated pencil contention</p>
+              <p>
+                Overlapping pencil bookings are resolved automatically by timers and conversion to firm. Staff
+                no longer approve or deny contested pencils. Use this tab for situational awareness only.
+              </p>
+            </CardContent>
+          </Card>
+          {contentionWatchCount === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No contested bookings</p>
-                <p className="text-sm mt-1">There are no active booking conflicts to resolve.</p>
+                <p className="font-medium">No active pencil contests in the latest-attempt view</p>
+                <p className="text-sm mt-1">Contested or queued pencils will appear here when present.</p>
               </CardContent>
             </Card>
           ) : (
-            conflictGroups.map((group, idx) => (
-              <ConflictGroup
-                key={idx}
-                group={group}
-                equipment={equipment}
-                rooms={rooms}
-                remarkMap={remarkMap}
-                onRemarkChange={(id, val) =>
-                  setRemarkMap((prev) => ({ ...prev, [id]: val }))
-                }
-                onApprove={(id) => handleAction(id, 'approve')}
-                onDeny={(id) => handleAction(id, 'deny')}
-                actionLoading={actionLoading}
-              />
-            ))
+            <div className="space-y-3">
+              {contestedBookings.map((booking) => (
+                <ContentionSnapshotCard
+                  key={`c-${booking.id}`}
+                  booking={booking}
+                  resourceName={getResourceName(booking, equipment, rooms)}
+                />
+              ))}
+              {queuedPencilBookings.map((booking) => (
+                <ContentionSnapshotCard
+                  key={`q-${booking.id}`}
+                  booking={booking}
+                  resourceName={getResourceName(booking, equipment, rooms)}
+                />
+              ))}
+            </div>
           )}
         </section>
       )}
@@ -435,7 +409,7 @@ export default function StaffDashboard() {
         <section className="space-y-6">
           <p className="text-sm text-muted-foreground">
             Latest attempts that were rebooked after a <span className="font-medium text-foreground">denied</span>{' '}
-            decision (pending approval or contested).
+            decision (firm bookings pending approval).
           </p>
           {deniedRebookQueueCount === 0 ? (
             <Card>
@@ -468,31 +442,36 @@ export default function StaffDashboard() {
                   ))}
                 </div>
               )}
-              {deniedRebookConflictGroups.length > 0 && (
-                <div className="space-y-3">
-                  <h2 className="text-sm font-semibold text-foreground">Contested</h2>
-                  {deniedRebookConflictGroups.map((group, idx) => (
-                    <ConflictGroup
-                      key={idx}
-                      group={group}
-                      equipment={equipment}
-                      rooms={rooms}
-                      remarkMap={remarkMap}
-                      onRemarkChange={(id, val) =>
-                        setRemarkMap((prev) => ({ ...prev, [id]: val }))
-                      }
-                      onApprove={(id) => handleAction(id, 'approve')}
-                      onDeny={(id) => handleAction(id, 'deny')}
-                      actionLoading={actionLoading}
-                    />
-                  ))}
-                </div>
-              )}
             </>
           )}
         </section>
       )}
     </div>
+  );
+}
+
+function ContentionSnapshotCard({ booking, resourceName }) {
+  return (
+    <Card className="border-orange-200/60">
+      <CardContent className="py-3 space-y-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="font-semibold text-sm">#{booking.id}</span>
+          <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
+          <span className="text-sm font-medium truncate">{resourceName}</span>
+        </div>
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <Users className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="truncate">{booking.user?.email}</span>
+        </div>
+        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+          <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>
+            {format(new Date(booking.startTime), 'MMM d, yyyy h:mm a')} &mdash;{' '}
+            {format(new Date(booking.endTime), 'MMM d, yyyy h:mm a')}
+          </span>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -689,210 +668,6 @@ function ApprovalCard({
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function ConflictGroup({ group, equipment, rooms, remarkMap, onRemarkChange, onApprove, onDeny, actionLoading }) {
-  const first = group[0];
-  const resourceName = getResourceName(first, equipment, rooms);
-
-  const timeMin = group.reduce(
-    (min, b) => (new Date(b.startTime) < new Date(min) ? b.startTime : min),
-    group[0].startTime
-  );
-  const timeMax = group.reduce(
-    (max, b) => (new Date(b.endTime) > new Date(max) ? b.endTime : max),
-    group[0].endTime
-  );
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="h-4 w-4 text-orange-500 flex-shrink-0" />
-        <div>
-          <span className="font-semibold text-sm">{resourceName}</span>
-          <span className="text-xs text-muted-foreground ml-2 capitalize">{first.resourceType}</span>
-        </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground ml-auto">
-          <Clock className="h-3.5 w-3.5" />
-          <span>
-            {format(new Date(timeMin), 'MMM d, h:mm a')} &mdash;{' '}
-            {format(new Date(timeMax), 'MMM d, h:mm a')}
-          </span>
-        </div>
-      </div>
-
-      <div
-        className={`grid gap-3 ${
-          group.length === 2 ? 'sm:grid-cols-2' : group.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
-        }`}
-      >
-        {group.map((booking) => (
-          <ConflictBookingCard
-            key={booking.id}
-            booking={booking}
-            remark={remarkMap[booking.id] || ''}
-            onRemarkChange={(val) => onRemarkChange(booking.id, val)}
-            onApprove={() => onApprove(booking.id)}
-            onDeny={() => onDeny(booking.id)}
-            actionLoading={actionLoading}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ConflictBookingCard({ booking, remark, onRemarkChange, onApprove, onDeny, actionLoading }) {
-  const isLoading = (action) => actionLoading === booking.id + action;
-  const previousAttempts = getPreviousAttempts(booking);
-  const rebookChanges = getRebookChangeItems(booking);
-  const isRebookAttempt = Boolean(booking.rebookedFromBookingId);
-  const rebookSourceStatus = getEffectiveRebookSourceStatus(booking);
-  const showUrgentRebookBadge = isRebookAttempt && rebookSourceStatus === 'denied';
-  const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
-  const [showRebookChanges, setShowRebookChanges] = useState(true);
-
-  return (
-    <Card className="border-orange-200">
-      <CardHeader className="pb-2 pt-3 px-4">
-        <CardTitle className="text-sm flex items-center gap-2 flex-wrap">
-          <span>#{booking.id}</span>
-          <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
-          {showUrgentRebookBadge && (
-            <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
-              Rebooked
-            </span>
-          )}
-        </CardTitle>
-        {isRebookAttempt && (
-          <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
-            <CornerDownRight className="h-3 w-3" />
-            <span className="underline decoration-dotted underline-offset-2">
-              Rebooked from #{booking.rebookedFromBookingId}
-            </span>
-          </p>
-        )}
-      </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-2">
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Users className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="truncate">
-            {booking.user?.email}
-            {booking.user?.userCategory && (
-              <span className="ml-1 text-xs">({formatUserCategory(booking.user.userCategory)})</span>
-            )}
-          </span>
-        </div>
-
-        <div className="flex items-start gap-1 text-sm text-muted-foreground">
-          <CalendarDays className="h-3.5 w-3.5 flex-shrink-0 mt-0.5" />
-          <span>
-            {format(new Date(booking.startTime), 'MMM d, h:mm a')} &mdash;{' '}
-            {format(new Date(booking.endTime), 'MMM d, h:mm a')}
-          </span>
-        </div>
-
-        {booking.purpose && (
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            <span className="font-medium text-foreground">Purpose:</span> {booking.purpose}
-          </p>
-        )}
-
-        {isRebookAttempt && (
-          <div className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-2">
-            <button
-              type="button"
-              onClick={() => setShowRebookChanges((prev) => !prev)}
-              className="flex w-full items-center justify-between gap-2 text-left"
-            >
-              <span className="text-xs font-medium text-blue-900">Changes from previous attempt</span>
-              <span className="text-[11px] text-blue-700">
-                {showRebookChanges ? 'Hide' : 'Show'}
-              </span>
-            </button>
-            {showRebookChanges && (
-              rebookChanges.length > 0 ? (
-                <div className="mt-1 space-y-1">
-                  {rebookChanges.map((item) => (
-                    <RebookChangeRow key={item.field} item={item} />
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-1 text-xs text-blue-800">
-                  No changed fields detected from the previous attempt.
-                </p>
-              )
-            )}
-          </div>
-        )}
-
-        {previousAttempts.length > 0 && (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2">
-            <button
-              type="button"
-              onClick={() => setShowPreviousAttempts((prev) => !prev)}
-              className="flex w-full items-center justify-between gap-2 text-left"
-            >
-              <span className="text-xs font-medium text-amber-900">
-                Previous attempts ({previousAttempts.length})
-              </span>
-              <span className="text-[11px] text-amber-700">
-                {showPreviousAttempts ? 'Hide' : 'Show'}
-              </span>
-            </button>
-            {showPreviousAttempts && (
-              <div className="mt-1 space-y-1.5">
-                {previousAttempts.map((attempt) => (
-                  <div key={attempt.id} className="text-xs text-amber-900">
-                    <p className="font-medium">
-                      Booking #{attempt.id} ({attempt.status?.replace('_', ' ')})
-                    </p>
-                    {!!attempt.staffRemark && (
-                      <p className="text-amber-700">{attempt.staffRemark}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
-
-        <AuthorizationDocButton url={booking.authorizationDocUrl} />
-
-        <div>
-          <textarea
-            className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-            rows={2}
-            placeholder="Staff remark (optional)..."
-            value={remark}
-            onChange={(e) => onRemarkChange(e.target.value)}
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            className="flex-1 bg-green-600 hover:bg-green-700 text-white text-xs h-8"
-            onClick={onApprove}
-            disabled={isLoading('approve') || isLoading('deny')}
-          >
-            <CheckCircle className="h-3.5 w-3.5 mr-1" />
-            {isLoading('approve') ? '...' : 'Approve'}
-          </Button>
-          <Button
-            size="sm"
-            variant="destructive"
-            className="flex-1 text-xs h-8"
-            onClick={onDeny}
-            disabled={isLoading('approve') || isLoading('deny')}
-          >
-            <XCircle className="h-3.5 w-3.5 mr-1" />
-            {isLoading('deny') ? '...' : 'Deny'}
-          </Button>
-        </div>
       </CardContent>
     </Card>
   );
