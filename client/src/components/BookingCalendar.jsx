@@ -5,6 +5,7 @@ import { enUS } from 'date-fns/locale';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/components/BookingCalendar.rbc.css';
 import { suppressNativeEventTooltip } from '@/components/bookingCalendarUtils';
+import { formatCalendarEventTimeRange } from '@/lib/formatBookingDateRange';
 import { useBookingCalendarSideEffects } from '@/components/useBookingCalendarSideEffects';
 
 const locales = { 'en-US': enUS };
@@ -45,10 +46,16 @@ const STATUS_STYLES = {
     borderColor: '#ea580c',
     color: '#fff',
   },
+  /** Match dashboard queued (violet-100 / violet-800) — distinct from contesting blue. */
   queued: {
-    backgroundColor: '#a78bfa',
-    borderColor: '#7c3aed',
-    color: '#fff',
+    backgroundColor: '#ede9fe',
+    borderColor: '#a78bfa',
+    color: '#5b21b6',
+  },
+  completed: {
+    backgroundColor: '#a7f3d0',
+    borderColor: '#34d399',
+    color: '#064e3b',
   },
   displaced: {
     backgroundColor: '#94a3b8',
@@ -178,9 +185,8 @@ export function BookingCalendar({
           resourceData?.name || `${booking.resourceType} #${booking.resourceId}`;
         const resourceStatus = resourceData?.status || 'unknown';
 
-        const startTime = format(new Date(booking.startTime), 'hh:mm a');
-        const endTime = format(new Date(booking.endTime), 'hh:mm a');
-        const title = `#${booking.id} ${startTime} - ${endTime} [${resourceName}]`;
+        const timeRange = formatCalendarEventTimeRange(booking.startTime, booking.endTime);
+        const title = `#${booking.id} ${timeRange} [${resourceName}]`;
 
         return {
           id: booking.id,
@@ -234,10 +240,11 @@ export function BookingCalendar({
         opacity:
           calendarStatus === 'penciled' ||
           calendarStatus === 'contesting' ||
-          calendarStatus === 'contested' ||
-          calendarStatus === 'queued'
+          calendarStatus === 'contested'
             ? 0.7
-            : 1,
+            : calendarStatus === 'queued'
+              ? 0.92
+              : 1,
       },
     };
   };
@@ -301,6 +308,13 @@ export function BookingCalendar({
           <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#fb923c' }}></span>
           <span>Contested (defender)</span>
         </div>
+        <div className="flex items-center gap-2">
+          <span
+            className="w-4 h-4 rounded border-2 opacity-70"
+            style={{ backgroundColor: '#ede9fe', borderColor: '#a78bfa' }}
+          ></span>
+          <span>Queued</span>
+        </div>
       </div>
 
       <div
@@ -311,11 +325,11 @@ export function BookingCalendar({
         {monthBookingTooltip && (
           <div
             role="tooltip"
-            className="pointer-events-none fixed z-[100] max-w-sm rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md whitespace-pre-line"
+            className="pointer-events-none fixed z-[100] max-w-md rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md whitespace-pre-line"
             style={{
               left: Math.min(
                 monthBookingTooltip.x + 14,
-                typeof window !== 'undefined' ? window.innerWidth - 280 : monthBookingTooltip.x
+                typeof window !== 'undefined' ? window.innerWidth - 340 : monthBookingTooltip.x
               ),
               top: monthBookingTooltip.y + 14,
             }}

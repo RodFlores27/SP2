@@ -127,7 +127,7 @@ npm run test:all
 - Tailwind v4 CSS-first: never use `tailwind.config.js` for theme tokens; use `@theme` in CSS instead.
 - All file uploads go through Cloudinary (`server/utils/cloudinary.js`). Never use local disk storage.
 - All emails go through Resend (`server/utils/email.js`). Not nodemailer, not mailgun, not SendGrid.
-- Firm bookings require staff approval (`pending_approval` → `approved`). There is no `confirmed` status. A firm request may overlap other users’ pencils; those pencils are **`displaced` when staff approves** the firm (not at submit). Firm still cannot overlap another firm (`pending_approval` or `approved`). Overlapping pencil–pencil contention is automated (`contested` / `queued`); staff do not resolve pencil contests.
+- Firm bookings require staff approval (`pending_approval` → `approved`). There is no `confirmed` status. A firm request may overlap other users’ pencils; those pencils are **`displaced` when staff approves** the firm—including after a **defender convert-to-firm** from contention—not at submit or at convert. Firm still cannot overlap another firm (`pending_approval` or `approved`). Overlapping pencil–pencil contention is automated (`contested` / `queued`); staff do not resolve pencil contests.
 - `server/docs/swagger.json` must be updated whenever API endpoints are added or modified.
 - After a **database re-seed** or demo reset, an old JWT may be rejected with **401** and `AUTH_USER_MISSING` (user id no longer exists). Sign in again. See `docs/booking-transition-catalog-seed.md` Section 13.2.
 - Documentation files may occasionally lag behind the actual codebase by a small margin.

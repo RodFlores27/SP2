@@ -1,5 +1,18 @@
 const axios = require('axios');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const FormData = require('form-data');
 const { checkServerHealth } = require('./utils/test-helpers');
+
+/** Minimal PDF bytes for convert-to-firm multipart (Cloudinary upload). */
+function makeTempPdfForM13() {
+  const filePath = path.join(os.tmpdir(), `m13-convert-${Date.now()}.pdf`);
+  const pdfBase64 =
+    'JVBERi0xLjQKJcTl8uXrp/Og0MTGCjEgMCBvYmoKPDwvVHlwZS9DYXRhbG9nL1BhZ2VzIDIgMCBSPj4KZW5kb2JqCjIgMCBvYmoKPDwvVHlwZS9QYWdlcy9LaWRzWzMgMCBSXS9Db3VudCAxPj4KZW5kb2JqCjMgMCBvYmoKPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgNTk1IDg0Ml0vQ29udGVudHMgNCAwIFIvUmVzb3VyY2VzPDwvRm9udDw8L0YxIDUgMCBSPj4+Pj4+CmVuZG9iago0IDAgb2JqCjw8L0xlbmd0aCA1NT4+CnN0cmVhbQpCVCAvRjEgMjQgVGYgMTAwIDcwMCBUZCAoSGVsbG8gUERGKSBUaiBFVAplbmRzdHJlYW0KZW5kb2JqCjUgMCBvYmoKPDwvVHlwZS9Gb250L1N1YnR5cGUvVHlwZTEvQmFzZUZvbnQvSGVsdmV0aWNhPj4KZW5kb2JqCnhyZWYKMCA2CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxNSAwMDAwMCBuIAowMDAwMDAwMDY0IDAwMDAwIG4gCjAwMDAwMDAxMjEgMDAwMDAgbiAKMDAwMDAwMDI0OCAwMDAwMCBuIAowMDAwMDAwMzUzIDAwMDAwIG4gCnRyYWlsZXIKPDwvU2l6ZSA2L1Jvb3QgMSAwIFI+PgpzdGFydHhyZWYKNDE5CiUlRU9G';
+  fs.writeFileSync(filePath, Buffer.from(pdfBase64, 'base64'));
+  return filePath;
+}
 
 const BASE_URL = 'http://localhost:4000/api';
 
@@ -135,7 +148,11 @@ async function testMilestone13() {
         created = true;
       } catch (e) {
         const err = e.response?.data?.error || e.message;
-        if (err.includes('already have a pencil booking')) continue;
+        const errStr = String(err);
+        if (errStr.includes('already have a pencil booking')) continue;
+        // Prior test run / DB noise: skip slots that still hit contention or firm overlap.
+        if (errStr.includes('would contest an existing pencil')) continue;
+        if (errStr.includes('overlaps a firm booking')) continue;
         fail('Create base pencil', err);
         return;
       }
@@ -182,7 +199,8 @@ async function testMilestone13() {
         startTime: startB.toISOString(),
         endTime: endB.toISOString(),
         purpose: 'M13 overlap with confirm',
-        confirmContention: true
+        confirmContention: true,
+        expectedWillBeQueued: false
       },
       { headers: h2 }
     );
@@ -233,7 +251,8 @@ async function testMilestone13() {
         startTime: startB.toISOString(),
         endTime: endB.toISOString(),
         purpose: 'M13 third pencil — expect queued',
-        confirmContention: true
+        confirmContention: true,
+        expectedWillBeQueued: true
       },
       { headers: hStudent }
     );
@@ -246,6 +265,114 @@ async function testMilestone13() {
   } catch (e) {
     fail('Create third queued pencil', e.response?.data?.error || e.message);
     return;
+  }
+
+  let adminToken;
+  let hAdmin;
+  try {
+    adminToken = await login('admin@uplb.edu.ph', 'admin123');
+    hAdmin = { Authorization: `Bearer ${adminToken}` };
+    pass('Login admin (fourth user for 409 waitlist preview)');
+  } catch (e) {
+    fail('Login admin', e.response?.data?.error || e.message);
+    return;
+  }
+
+  try {
+    await axios.post(
+      `${BASE_URL}/bookings`,
+      {
+        resourceType,
+        resourceId,
+        bookingType: 'pencil',
+        startTime: startB.toISOString(),
+        endTime: endB.toISOString(),
+        purpose: 'M13 fourth pencil — 409 should include full contentionWaitlist'
+      },
+      { headers: hAdmin }
+    );
+    fail('Expected 409 without confirmContention (episode already has queue)');
+  } catch (e) {
+    const st = e.response?.status;
+    const d = e.response?.data;
+    if (st !== 409 || !d?.requiresContentionConfirmation) {
+      fail(
+        '409 contention gate (waitlist case)',
+        d?.error || e.message
+      );
+    } else if (d.willBeQueued !== true) {
+      fail('409 waitlist case expects willBeQueued true', String(d.willBeQueued));
+    } else if (!Array.isArray(d.contentionWaitlist) || d.contentionWaitlist.length < 3) {
+      fail(
+        '409 should include contentionWaitlist (defender + challenger + queued)',
+        `got ${Array.isArray(d.contentionWaitlist) ? d.contentionWaitlist.length : 'non-array'}`
+      );
+    } else {
+      const wl = d.contentionWaitlist;
+      const byId = new Map(wl.map((r) => [r.id, r]));
+      const okOrder =
+        wl[0]?.role === 'defender' &&
+        wl[0]?.id === bookingAId &&
+        wl[1]?.role === 'challenger' &&
+        wl[1]?.id === bookingBId;
+      const cRow = byId.get(bookingCId);
+      const okQueued =
+        cRow?.role === 'queued' &&
+        cRow.queuePosition === 1 &&
+        wl.filter((r) => r.role === 'queued').length >= 1;
+      if (!okOrder || !okQueued) {
+        fail(
+          'contentionWaitlist order / roles',
+          JSON.stringify(wl.map((r) => ({ id: r.id, role: r.role, queuePosition: r.queuePosition })))
+        );
+      } else {
+        pass('409 includes contentionWaitlist: defender → challenger → queued (full line)');
+      }
+    }
+  }
+
+  let convertPdfPath = null;
+  try {
+    convertPdfPath = makeTempPdfForM13();
+    const formData = new FormData();
+    formData.append('authorizationDoc', fs.createReadStream(convertPdfPath), {
+      filename: 'm13-auth.pdf',
+      contentType: 'application/pdf'
+    });
+    const conv = await axios.patch(
+      `${BASE_URL}/bookings/${bookingAId}/convert-to-firm`,
+      formData,
+      { headers: { ...h1, ...formData.getHeaders() } }
+    );
+    if (conv.data.booking?.bookingType !== 'firm' || conv.data.booking?.status !== 'pending_approval') {
+      fail(
+        'Defender convert-to-firm (freeze line)',
+        JSON.stringify(conv.data).slice(0, 200)
+      );
+    } else {
+      pass('Defender converts to firm pending: contention line stays frozen (no new pencil pairing)');
+    }
+    const bFrozen = (await axios.get(`${BASE_URL}/bookings/${bookingBId}`, { headers: h2 })).data;
+    const cFrozen = (await axios.get(`${BASE_URL}/bookings/${bookingCId}`, { headers: hStudent })).data;
+    if (bFrozen.status !== 'penciled' || cFrozen.status !== 'queued') {
+      fail(
+        'While firm pending: challenger penciled + queue row queued',
+        `B=${bFrozen.status} C=${cFrozen.status}`
+      );
+    } else {
+      pass('Challenger remains penciled and third booking remains queued while firm awaits approval');
+    }
+  } catch (e) {
+    fail('Convert defender to firm (freeze waitlist)', e.response?.data?.error || e.message);
+    return;
+  } finally {
+    if (convertPdfPath && fs.existsSync(convertPdfPath)) {
+      try {
+        fs.unlinkSync(convertPdfPath);
+      } catch {
+        /* ignore */
+      }
+    }
   }
 
   try {
@@ -311,7 +438,10 @@ async function testMilestone13() {
         pid = pr.data.booking.id;
       } catch (e) {
         const err = e.response?.data?.error || e.message;
-        if (String(err).includes('already have a pencil')) continue;
+        const errStr = String(err);
+        if (errStr.includes('already have a pencil')) continue;
+        if (errStr.includes('overlaps a firm booking')) continue;
+        if (errStr.includes('would contest an existing pencil')) continue;
         throw e;
       }
       const fStart = addHours(pStart, 0.25);

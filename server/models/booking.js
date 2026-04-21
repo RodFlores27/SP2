@@ -1,7 +1,7 @@
 'use strict';
 const { Model, Op } = require('sequelize');
 
-const TERMINAL_STATUSES = ['cancelled', 'denied', 'expired', 'displaced'];
+const TERMINAL_STATUSES = ['cancelled', 'denied', 'expired', 'displaced', 'completed'];
 
 /** Firm bookings that block other bookings from overlapping this window. */
 const FIRM_BLOCKING_STATUSES = ['pending_approval', 'approved'];
@@ -31,6 +31,10 @@ module.exports = (sequelize, DataTypes) => {
       Booking.belongsTo(models.Booking, {
         foreignKey: 'displacedByBookingId',
         as: 'displacedByBooking'
+      });
+      Booking.belongsTo(models.User, {
+        foreignKey: 'approvedByUserId',
+        as: 'approvedBy'
       });
       Booking.hasMany(models.Booking, {
         foreignKey: 'displacedByBookingId',
@@ -172,7 +176,8 @@ module.exports = (sequelize, DataTypes) => {
         'denied',
         'cancelled',
         'expired',
-        'displaced'
+        'displaced',
+        'completed'
       ),
       allowNull: false,
       defaultValue: 'penciled'
@@ -215,6 +220,14 @@ module.exports = (sequelize, DataTypes) => {
     },
     staffRemark: {
       type: DataTypes.TEXT,
+      allowNull: true
+    },
+    approvedByUserId: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    approvedAt: {
+      type: DataTypes.DATE,
       allowNull: true
     },
     expiryAt: {

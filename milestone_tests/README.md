@@ -376,7 +376,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - Pencil overlap with contention confirmation → `contested` / `queued` paths
 - Third (and further) overlapping pencils enqueue correctly
 - **Defender cancel** mid-episode: reopen pairing per **P-19** (`createdAt` ordering; waitlist only if overlaps new defender)
-- Firm approval / convert-to-firm: overlapping pencils → **`displaced`** with `displacedByBookingId`
+- Firm **approval**: overlapping pencils → **`displaced`** with `displacedByBookingId` (convert-to-firm releases challenger/queue to **`penciled`** until approve)
 - 24h lock window and related guards
 
 **Manual UI (same milestone):** My Bookings — `queued` / `displaced` badges, filters, and displaced rebook messaging; calendar — `#id` titles and **contesting** (challenger) styling from availability `contentionChallenger`.

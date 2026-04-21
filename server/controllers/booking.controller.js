@@ -23,7 +23,7 @@ const { computePencilExpiryAt, assertStartNotWithinLockHours, isWithinLockHours 
 const contention = require('../services/contention.service');
 
 const getUserAccountType = (req) => req.user?.accountType || req.user?.role;
-const REBOOKABLE_STATUSES = ['cancelled', 'denied', 'expired', 'displaced'];
+const REBOOKABLE_STATUSES = ['cancelled', 'denied', 'expired', 'displaced', 'completed'];
 
 /** Firm still "holds" the slot for displacement purposes — rebook not allowed until gone. */
 const FIRM_ACTIVE_FOR_DISPLACEMENT = ['pending_approval', 'approved'];
@@ -59,6 +59,13 @@ const buildBookingIncludes = ({ includeThreadHistory = false } = {}) => {
     as: 'user',
     attributes: ['id', 'email', 'accountType', 'userCategory']
   }];
+
+  includes.push({
+    model: User,
+    as: 'approvedBy',
+    required: false,
+    attributes: ['id', 'email', 'accountType', 'userCategory']
+  });
 
   if (includeThreadHistory) {
     includes.push({
@@ -109,6 +116,76 @@ function getLatestBookingIdByThread(bookings) {
 async function getNextBookingId() {
   const [rows] = await sequelize.query('SELECT nextval(\'"Bookings_id_seq"\') AS id;');
   return rows[0]?.id;
+}
+
+/** Display-only next id for contention confirmation UI (MAX(id)+1). Can differ if another booking is created before confirm. */
+async function previewNextBookingId() {
+  const m = await Booking.max('id');
+  if (m == null) return 1;
+  const n = Number(m);
+  return Number.isFinite(n) ? n + 1 : 1;
+}
+
+/**
+ * Ordered episode line for waitlist confirmation: defender, challenger, then queue rows by position.
+ * Each row matches conflict-like shape plus role / queuePosition for UI.
+ */
+async function buildContentionWaitlistPreview(episodeId) {
+  if (!episodeId) return null;
+  const ep = await ContentionEpisode.findByPk(episodeId, {
+    include: [
+      {
+        model: Booking,
+        as: 'defenderBooking',
+        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+      },
+      {
+        model: Booking,
+        as: 'challengerBooking',
+        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+      },
+      {
+        model: ContentionQueueItem,
+        as: 'queueItems',
+        separate: true,
+        order: [['position', 'ASC']],
+        include: [
+          {
+            model: Booking,
+            as: 'booking',
+            include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+          }
+        ]
+      }
+    ]
+  });
+  if (!ep || !['open', 'awaiting_firm'].includes(ep.status)) return null;
+
+  const toRow = (booking, role, queuePosition = undefined) => {
+    if (!booking) return null;
+    const u = booking.user;
+    return {
+      role,
+      ...(queuePosition != null ? { queuePosition } : {}),
+      id: booking.id,
+      bookingType: booking.bookingType,
+      status: booking.status,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      user: u ? { id: u.id, email: u.email } : undefined
+    };
+  };
+
+  const out = [];
+  const dRow = toRow(ep.defenderBooking, 'defender');
+  if (dRow) out.push(dRow);
+  const cRow = toRow(ep.challengerBooking, 'challenger');
+  if (cRow) out.push(cRow);
+  for (const qi of ep.queueItems || []) {
+    const qRow = toRow(qi.booking, 'queued', qi.position);
+    if (qRow) out.push(qRow);
+  }
+  return out;
 }
 
 async function resolveResourceName(resourceType, resourceId) {
@@ -200,6 +277,13 @@ const createBooking = async (req, res) => {
     const { resourceType, resourceId, bookingType, startTime, endTime, purpose } = req.body;
     const confirmOverlapOwn = req.body.confirmOverlapOwn === true || req.body.confirmOverlapOwn === 'true';
     const confirmContention = req.body.confirmContention === true || req.body.confirmContention === 'true';
+    const rawExpectedWillBeQueued = req.body.expectedWillBeQueued;
+    const expectedWillBeQueued =
+      rawExpectedWillBeQueued === true || rawExpectedWillBeQueued === 'true'
+        ? true
+        : rawExpectedWillBeQueued === false || rawExpectedWillBeQueued === 'false'
+          ? false
+          : undefined;
     const rebookedFromBookingIdRaw = req.body.rebookedFromBookingId;
     const userId = req.user.id;
 
@@ -270,7 +354,7 @@ const createBooking = async (req, res) => {
 
       if (!REBOOKABLE_STATUSES.includes(sourceBooking.status)) {
         return res.status(400).json({
-          error: `Cannot rebook from booking with status: ${sourceBooking.status}. Only denied, cancelled, expired, or displaced attempts can be rebooked.`
+          error: `Cannot rebook from booking with status: ${sourceBooking.status}. Only ${REBOOKABLE_STATUSES.join(', ')} attempts can be rebooked.`
         });
       }
 
@@ -403,11 +487,30 @@ const createBooking = async (req, res) => {
         });
       }
       if (otherPencilOverlaps.length > 0 && !confirmContention) {
+        const openEpForSlot = await contention.findOpenEpisodeOverlappingSlot(
+          { resourceType, resourceId, startTime: start, endTime: end },
+          { transaction: null, ContentionEpisode, Booking }
+        );
+        const willBeQueued = Boolean(openEpForSlot);
+        const contentionWaitlist = willBeQueued
+          ? await buildContentionWaitlistPreview(openEpForSlot.id)
+          : null;
         return res.status(409).json({
           error:
             'This pencil booking would contest an existing pencil booking. Confirm to proceed.',
           requiresContentionConfirmation: true,
-          conflicts: formatConflicts(otherPencilOverlaps)
+          /** True when an open episode already overlaps this slot — new booking would be enqueued, not the active challenger. */
+          willBeQueued,
+          previewBookingId: await previewNextBookingId(),
+          conflicts: formatConflicts(otherPencilOverlaps),
+          ...(contentionWaitlist?.length ? { contentionWaitlist } : {})
+        });
+      }
+      if (otherPencilOverlaps.length > 0 && confirmContention && expectedWillBeQueued === undefined) {
+        return res.status(400).json({
+          error:
+            'expectedWillBeQueued is required when confirming a pencil booking that overlaps other pencils. Refresh this page if the problem continues.',
+          code: 'EXPECTED_WILL_BE_QUEUED_REQUIRED'
         });
       }
     }
@@ -459,6 +562,52 @@ const createBooking = async (req, res) => {
     let createdBooking;
     try {
       createdBooking = await sequelize.transaction(async (t) => {
+        let contentionAttach = null;
+
+        if (bookingType === 'pencil' && otherPencilOverlaps.length > 0 && confirmContention) {
+          const freshPencilOverlaps = await Booking.findActivePencilOverlaps(
+            resourceType,
+            resourceId,
+            start,
+            end,
+            null,
+            { transaction: t }
+          );
+          const freshOther = freshPencilOverlaps.filter(
+            (c) => !(c.userId === userId && c.bookingType === 'pencil')
+          );
+
+          if (freshOther.length === 0) {
+            const err = new Error(
+              'Overlapping pencil bookings changed before your request completed. Please check the calendar and try again.'
+            );
+            err.statusCode = 409;
+            err.code = 'PENCIL_OVERLAP_CHANGED';
+            err.conflicts = [];
+            throw err;
+          }
+
+          const openEpLocked = await contention.findOpenEpisodeOverlappingSlot(
+            { resourceType, resourceId, startTime: start, endTime: end },
+            { transaction: t, ContentionEpisode, Booking }
+          );
+          const actualWillBeQueued = Boolean(openEpLocked);
+          if (expectedWillBeQueued !== actualWillBeQueued) {
+            const err = new Error(
+              'Waitlist vs active challenger changed while you were reviewing. Please confirm again.'
+            );
+            err.statusCode = 409;
+            err.code = 'CONTESTATION_OUTCOME_CHANGED';
+            err.requiresContentionConfirmation = true;
+            err.willBeQueued = actualWillBeQueued;
+            err.conflicts = formatConflicts(freshOther);
+            err.episodeId = openEpLocked ? openEpLocked.id : null;
+            throw err;
+          }
+
+          contentionAttach = { openEp: openEpLocked, freshOther };
+        }
+
         const created = await Booking.create(
           {
             ...(bookingId ? { id: bookingId } : {}),
@@ -481,20 +630,16 @@ const createBooking = async (req, res) => {
           { transaction: t }
         );
 
-        if (bookingType === 'pencil' && otherPencilOverlaps.length > 0) {
-          const openEp = await contention.findOpenEpisodeOverlappingSlot(
-            { resourceType, resourceId, startTime: start, endTime: end },
-            { transaction: t, ContentionEpisode, Booking }
-          );
-          if (openEp) {
+        if (contentionAttach) {
+          if (contentionAttach.openEp) {
             const b = await Booking.findByPk(created.id, { transaction: t, lock: t.LOCK.UPDATE });
-            await contention.enqueueBookingInEpisode(b, openEp.id, {
+            await contention.enqueueBookingInEpisode(b, contentionAttach.openEp.id, {
               transaction: t,
               ContentionQueueItem,
               Booking
             });
           } else {
-            const defenderRow = contention.pickDefenderBooking(otherPencilOverlaps);
+            const defenderRow = contention.pickDefenderBooking(contentionAttach.freshOther);
             if (!defenderRow) {
               throw new Error('No defender for contention');
             }
@@ -527,6 +672,28 @@ const createBooking = async (req, res) => {
       if (txnErr.code === 'CONTENTION_DEFENDER_INVALID' || txnErr.code === 'CONTENTION_CHALLENGER_INVALID') {
         return res.status(txnErr.statusCode || 409).json({ error: txnErr.message, code: txnErr.code });
       }
+      if (txnErr.code === 'CONTESTATION_OUTCOME_CHANGED') {
+        let contentionWaitlist = null;
+        if (txnErr.willBeQueued && txnErr.episodeId) {
+          contentionWaitlist = await buildContentionWaitlistPreview(txnErr.episodeId);
+        }
+        return res.status(409).json({
+          error: txnErr.message,
+          code: txnErr.code,
+          requiresContentionConfirmation: true,
+          willBeQueued: txnErr.willBeQueued,
+          previewBookingId: await previewNextBookingId(),
+          conflicts: txnErr.conflicts || [],
+          ...(contentionWaitlist?.length ? { contentionWaitlist } : {})
+        });
+      }
+      if (txnErr.code === 'PENCIL_OVERLAP_CHANGED') {
+        return res.status(409).json({
+          error: txnErr.message,
+          code: txnErr.code,
+          conflicts: txnErr.conflicts || []
+        });
+      }
       throw txnErr;
     }
 
@@ -536,10 +703,10 @@ const createBooking = async (req, res) => {
         cancelledPencilBookings.length > 0
           ? `Booking created successfully. ${cancelledPencilBookings.length} overlapping pencil booking(s) were cancelled.`
           : bookingType === 'firm' && otherPencilOverlaps.length > 0
-            ? 'Firm booking submitted for staff approval. Overlapping pencil bookings will be displaced if it is approved.'
+            ? 'Firm booking submitted for staff approval.'
             : otherPencilOverlaps.length > 0 && bookingType === 'pencil'
               ? createdBooking.status === 'queued'
-                ? 'Booking created and queued for contention.'
+                ? 'Booking created successfully.'
                 : 'Booking created; contention timer started against the overlapping pencil holder.'
               : 'Booking created successfully'
     };
@@ -590,6 +757,12 @@ const getAllBookings = async (req, res) => {
     const userId = req.user.id;
     const userAccountType = getUserAccountType(req);
     const { status, resourceType, mine } = req.query;
+    const approvedBy = req.query.approvedBy;
+    const approvedByUserIdRaw = req.query.approvedByUserId;
+    const approvedByUserIdParsed =
+      approvedByUserIdRaw != null && approvedByUserIdRaw !== ''
+        ? parseInt(approvedByUserIdRaw, 10)
+        : null;
     const rebookSourceDenied =
       req.query.rebookSourceDenied === 'true' || req.query.rebookSourceDenied === true;
 
@@ -599,6 +772,31 @@ const getAllBookings = async (req, res) => {
       userAccountType !== 'system_admin'
     ) {
       return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    if (
+      (approvedBy === 'me' || approvedByUserIdRaw != null) &&
+      userAccountType !== 'ptcf_staff' &&
+      userAccountType !== 'system_admin'
+    ) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    if (approvedBy != null && approvedBy !== 'me') {
+      return res.status(400).json({ error: 'Invalid approvedBy filter. Use approvedBy=me.' });
+    }
+
+    if (
+      approvedByUserIdRaw != null &&
+      (Number.isNaN(approvedByUserIdParsed) || approvedByUserIdParsed <= 0)
+    ) {
+      return res.status(400).json({ error: 'approvedByUserId must be a positive integer.' });
+    }
+
+    if ((approvedBy === 'me' || approvedByUserIdRaw != null) && status !== 'approved') {
+      return res.status(400).json({
+        error: 'approvedBy filters are only valid with status=approved.'
+      });
     }
 
     const whereClause = {};
@@ -639,6 +837,14 @@ const getAllBookings = async (req, res) => {
       finalWhereClause.rebookedFromStatus = 'denied';
     }
 
+    if (status === 'approved') {
+      if (approvedBy === 'me') {
+        finalWhereClause.approvedByUserId = userId;
+      } else if (approvedByUserIdParsed != null) {
+        finalWhereClause.approvedByUserId = approvedByUserIdParsed;
+      }
+    }
+
     const bookings = await Booking.findAll({
       where: finalWhereClause,
       include: buildBookingIncludes({
@@ -647,13 +853,56 @@ const getAllBookings = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
+    const challengerEpisodes = await ContentionEpisode.findAll({
+      where: {
+        challengerBookingId: { [Op.in]: latestBookingIds },
+        status: { [Op.in]: ['open', 'awaiting_firm'] }
+      },
+      attributes: ['challengerBookingId']
+    });
+    const challengerIdSet = new Set(challengerEpisodes.map((r) => r.challengerBookingId));
+
+    const planByChallengerId = new Map();
+    await Promise.all(
+      [...challengerIdSet].map(async (cid) => {
+        const plan = await contention.getChallengerContentionPlan(cid, { Booking, ContentionEpisode });
+        planByChallengerId.set(cid, plan);
+      })
+    );
+
     const withFlags = bookings.map((booking) => {
       const plain = booking.toJSON();
       plain.canRebook = computeCanRebook(plain);
+      plain.contentionChallenger = challengerIdSet.has(plain.id);
+      plain.challengerContentionPlan = plain.contentionChallenger
+        ? planByChallengerId.get(plain.id) ?? null
+        : null;
       return plain;
     });
 
-    res.json(withFlags);
+    const contestedIds = withFlags.filter((b) => b.status === 'contested').map((b) => b.id);
+    const queuedIds = withFlags.filter((b) => b.status === 'queued').map((b) => b.id);
+    const [defenderContentionMap, queueContentionMap] = await Promise.all([
+      contention.getDefenderContentionSummaries(contestedIds, { ContentionEpisode, Booking, User }),
+      contention.getQueuedContentionSummaries(queuedIds, {
+        ContentionQueueItem,
+        ContentionEpisode,
+        Booking,
+        User
+      })
+    ]);
+
+    const enriched = withFlags.map((plain) => ({
+      ...plain,
+      defenderContentionDetail:
+        plain.status === 'contested'
+          ? defenderContentionMap.get(Number(plain.id)) ?? null
+          : null,
+      queueContentionDetail:
+        plain.status === 'queued' ? queueContentionMap.get(Number(plain.id)) ?? null : null
+    }));
+
+    res.json(enriched);
   } catch (error) {
     console.error('Error fetching bookings:', error);
     res.status(500).json({ error: 'Failed to fetch bookings' });
@@ -684,6 +933,41 @@ const getBookingById = async (req, res) => {
 
     const plain = booking.toJSON();
     plain.canRebook = computeCanRebook(plain);
+
+    const challengerEp = await ContentionEpisode.findOne({
+      where: {
+        challengerBookingId: booking.id,
+        status: { [Op.in]: ['open', 'awaiting_firm'] }
+      },
+      attributes: ['id']
+    });
+    plain.contentionChallenger = Boolean(challengerEp);
+    plain.challengerContentionPlan = plain.contentionChallenger
+      ? await contention.getChallengerContentionPlan(booking.id, { Booking, ContentionEpisode })
+      : null;
+
+    if (plain.status === 'contested') {
+      const dm = await contention.getDefenderContentionSummaries([booking.id], {
+        ContentionEpisode,
+        Booking,
+        User
+      });
+      plain.defenderContentionDetail = dm.get(Number(booking.id)) ?? null;
+      plain.queueContentionDetail = null;
+    } else if (plain.status === 'queued') {
+      const qm = await contention.getQueuedContentionSummaries([booking.id], {
+        ContentionQueueItem,
+        ContentionEpisode,
+        Booking,
+        User
+      });
+      plain.queueContentionDetail = qm.get(Number(booking.id)) ?? null;
+      plain.defenderContentionDetail = null;
+    } else {
+      plain.defenderContentionDetail = null;
+      plain.queueContentionDetail = null;
+    }
+
     res.json(plain);
   } catch (error) {
     console.error('Error fetching booking:', error);
@@ -711,7 +995,7 @@ const cancelBooking = async (req, res) => {
       return res.status(403).json({ error: 'Access denied. You can only cancel your own bookings.' });
     }
 
-    if (['cancelled', 'denied', 'expired', 'displaced'].includes(booking.status)) {
+    if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) {
       return res.status(400).json({ error: `Booking is already ${booking.status}` });
     }
 
@@ -773,12 +1057,7 @@ const convertToFirm = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.user.id;
-
-    if (!req.file) {
-      return res.status(400).json({
-        error: 'Authorization document is required when converting to firm booking'
-      });
-    }
+    const purposeInput = req.body?.purpose;
 
     const booking = await Booking.findByPk(id, {
       include: buildBookingIncludes({ includeThreadHistory: true })
@@ -796,7 +1075,7 @@ const convertToFirm = async (req, res) => {
       return res.status(400).json({ error: 'Booking is already a firm booking' });
     }
 
-    if (['cancelled', 'denied', 'expired', 'displaced'].includes(booking.status)) {
+    if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) {
       return res.status(400).json({
         error: `Cannot convert ${booking.status} booking to firm`
       });
@@ -816,12 +1095,31 @@ const convertToFirm = async (req, res) => {
     if (epAsChallenger) {
       return res.status(400).json({
         error:
-          'Only the contested pencil holder (defender) can convert to firm to win a contention. You are the challenger.'
+          'As the challenger in an open contention, you cannot convert to firm until that round finishes. See your booking card for the current step and overlapping slots.'
       });
     }
 
-    const authDocUrl = await uploadToCloudinary(req.file.buffer, 'authorization-docs');
-    const authDocHash = sha256HexBuffer(req.file.buffer);
+    const hasExistingAuth = hasAuthDoc(booking.authorizationDocUrl);
+    if (!req.file && !hasExistingAuth) {
+      return res.status(400).json({
+        error: 'Authorization document is required when converting to firm booking'
+      });
+    }
+
+    let authDocUrl;
+    let authDocHash;
+    if (req.file) {
+      authDocUrl = await uploadToCloudinary(req.file.buffer, 'authorization-docs');
+      authDocHash = sha256HexBuffer(req.file.buffer);
+    } else {
+      authDocUrl = booking.authorizationDocUrl;
+      authDocHash = booking.authorizationDocHash;
+    }
+
+    const nextPurpose =
+      purposeInput !== undefined && purposeInput !== null
+        ? normalizeOptionalText(purposeInput) || null
+        : undefined;
 
     const formatConflict = (c) => ({
       id: c.id,
@@ -850,14 +1148,6 @@ const convertToFirm = async (req, res) => {
         }
 
         const epDef = await contention.findOpenEpisodeForDefender(b.id, { transaction: t, ContentionEpisode });
-        if (epDef) {
-          await contention.onDefenderConvertedToFirm(b, epDef.id, {
-            transaction: t,
-            Booking,
-            ContentionEpisode,
-            ContentionQueueItem
-          });
-        }
 
         const firmBlockers = await Booking.findFirmBlockers(
           b.resourceType,
@@ -879,8 +1169,18 @@ const convertToFirm = async (req, res) => {
         b.status = 'pending_approval';
         b.authorizationDocUrl = authDocUrl;
         b.authorizationDocHash = authDocHash;
+        if (nextPurpose !== undefined) {
+          b.purpose = nextPurpose;
+        }
         b.expiryAt = null;
         await b.save({ transaction: t });
+
+        if (epDef) {
+          await contention.onDefenderConvertedToFirm(b, epDef.id, {
+            transaction: t,
+            ContentionEpisode
+          });
+        }
       });
     } catch (txnErr) {
       if (txnErr.statusCode === 409) {
@@ -916,6 +1216,7 @@ const approveBooking = async (req, res) => {
       return res.status(400).json({ error: 'Invalid booking id' });
     }
     const { staffRemark } = req.body;
+    const approverUserId = req.user.id;
 
     const booking = await Booking.findByPk(id, {
       attributes: ['id', 'status', 'bookingType']
@@ -933,7 +1234,11 @@ const approveBooking = async (req, res) => {
 
     try {
       await sequelize.transaction(async (t) => {
-        const updatePayload = { status: 'approved' };
+        const updatePayload = {
+          status: 'approved',
+          approvedByUserId: approverUserId,
+          approvedAt: new Date()
+        };
         if (staffRemark) {
           updatePayload.staffRemark = staffRemark;
         }
@@ -1019,18 +1324,43 @@ const denyBooking = async (req, res) => {
       updatePayload.staffRemark = staffRemark;
     }
 
-    const [affectedCount] = await Booking.update(updatePayload, {
-      where: {
-        id,
-        status: 'pending_approval',
-        bookingType: 'firm'
-      }
-    });
+    try {
+      await sequelize.transaction(async (t) => {
+        const [affectedCount] = await Booking.update(updatePayload, {
+          where: {
+            id,
+            status: 'pending_approval',
+            bookingType: 'firm'
+          },
+          transaction: t
+        });
 
-    if (affectedCount === 0) {
-      return res.status(409).json({
-        error: 'This booking was updated by another action. Refresh the staff dashboard and try again.'
+        if (affectedCount === 0) {
+          const err = new Error(
+            'This booking was updated by another action. Refresh the staff dashboard and try again.'
+          );
+          err.statusCode = 409;
+          throw err;
+        }
+
+        const deniedRow = await Booking.findByPk(id, {
+          attributes: ['id', 'bookingType', 'status'],
+          transaction: t,
+          lock: t.LOCK.UPDATE
+        });
+
+        await contention.onAwaitingFirmEpisodeRejected(deniedRow, {
+          transaction: t,
+          Booking,
+          ContentionEpisode,
+          ContentionQueueItem
+        });
       });
+    } catch (txnErr) {
+      if (txnErr.statusCode === 409) {
+        return res.status(409).json({ error: txnErr.message });
+      }
+      throw txnErr;
     }
 
     const updatedBooking = await Booking.findByPk(id, {
@@ -1058,7 +1388,7 @@ const getAvailability = async (req, res) => {
 
     const whereClause = {
       status: {
-        [Op.notIn]: ['cancelled', 'denied', 'expired', 'displaced']
+        [Op.notIn]: ['cancelled', 'denied', 'expired', 'displaced', 'completed']
       }
     };
 
@@ -1100,6 +1430,8 @@ const getAvailability = async (req, res) => {
 
     const challengerIdSet = new Set();
     if (bookings.length > 0) {
+      // Calendar "contesting" color only while the contention timer is active (open).
+      // awaiting_firm freezes the line — challenger stays a normal grey pencil until approve/deny/cancel.
       const episodeWhere = { status: 'open' };
       if (resourceType && resourceId) {
         episodeWhere.resourceType = resourceType;
@@ -1120,9 +1452,27 @@ const getAvailability = async (req, res) => {
 
       const episodes = await ContentionEpisode.findAll({
         where: episodeWhere,
-        attributes: ['challengerBookingId']
+        attributes: ['challengerBookingId'],
+        include: [
+          {
+            model: Booking,
+            as: 'defenderBooking',
+            required: true,
+            attributes: ['bookingType', 'status']
+          }
+        ]
       });
       for (const ep of episodes) {
+        const d = ep.defenderBooking;
+        // Stale rows: episode still "open" but defender already converted to firm — not an active timer.
+        // Calendar contesting stripe only while the defender is a contested pencil.
+        if (
+          d &&
+          d.bookingType === 'firm' &&
+          ['pending_approval', 'approved'].includes(d.status)
+        ) {
+          continue;
+        }
         challengerIdSet.add(ep.challengerBookingId);
       }
     }

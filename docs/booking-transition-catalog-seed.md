@@ -90,15 +90,15 @@ All values exist on the model; **not every value is reachable for every `booking
 | P-07 | `penciled` / `contested` / `queued` | `expired` | `resolveChallengerExpiredDuringContention` | Cron | Challenger pencil `expiryAt <= now` (episode `open`) | Episode closed + queue drained; challenger → `expired`; defender **`contested`→`penciled`**; then **`openEpisodeOrEnqueueFromWinner(defender, queueIds)`** |
 | P-08 | `contested` | `expired` | `resolveDefenderExpiredDuringContention` → `applyChallengerWins` | Cron | Defender pencil `expiryAt <= now` | Defender terminal `expired`; challenger → `penciled` if not terminal |
 | P-09 | `penciled` | `expired` | `applyChallengerWins` (defender branch) | Cron | `resolveDueContentionEpisodes` past `deadlineAt` | Defender `expired` remark set |
-| P-10 | `penciled` | `displaced` | `onDefenderConvertedToFirm` | User | Defender converts same row to firm in txn | Challenger **`displaced`** + `displacedByBookingId` = firm row (same as `onFirmBookingApproved` overlap); not `cancelled` |
-| P-11 | `queued` | `displaced` | `onDefenderConvertedToFirm` | User | Queued slot overlaps firm window | Same displacement semantics as firm approval overlap |
-| P-12 | `queued` | `penciled` | `onDefenderConvertedToFirm` | User | Queued slot does **not** overlap firm window | Then `tryAttachPencilToContention` |
+| P-10 | `penciled` / `contested` | `penciled` (+ `tryAttachPencilToContention`) | `onDefenderConvertedToFirm` | User | Defender row **already** saved as **firm** `pending_approval` in txn; episode `open` | Episode closed + queue drained; challenger → **`penciled`**, `displacedByBookingId` cleared; **no** `displaced` until **`onFirmBookingApproved`** (**P-15**). |
+| P-11 | `queued` | `penciled` (+ `tryAttachPencilToContention`) | `onDefenderConvertedToFirm` | User | Drained queue IDs from that episode | All **`queued`→`penciled`** (phase 1), then per-id **`tryAttach`** (phase 2); overlap with the new firm **does not** displace at convert (**P-16** on approve for overlaps). |
+| P-12 | — | — | — | — | *Row kept for ID stability; queue split “overlap vs non-overlap at convert” is folded into **P-11**.* | |
 | P-13 | `*` (active) | `cancelled` | `cancelBooking` after `onBookingCancelledMidContention` | User/Staff | Not already terminal; firm cancel has extra lock rule | Episode/queue handling; cancelled row saved **before** queue promotion |
 | P-14 | `penciled` / `queued` | `expired` | Cron expiry job | Cron | `expiryAt <= now`; status still in `['penciled','queued']` | `onBookingCancelledMidContention` then `expired` |
 | P-15 | `penciled` | `displaced` | `onFirmBookingApproved` | Staff | Overlaps approved firm window; not already `displaced` | `displacedByBookingId = firm.id` |
 | P-16 | `queued` | `displaced` | `onFirmBookingApproved` | Staff | Episode touches firm; queue item overlaps firm | Same FK |
 | P-17 | `queued` | `penciled` | `onFirmBookingApproved` | Staff | Queue item does **not** overlap firm | Then `tryAttachPencilToContention` |
-| P-18 | `pencil` row | `firm` + `pending_approval` | `convertToFirm` | User | Not challenger/queued; no firm blocker | Same row: `bookingType` and `status` change; `expiryAt` null; episode may run `onDefenderConvertedToFirm` first |
+| P-18 | `pencil` row | `firm` + `pending_approval` | `convertToFirm` | User | Not challenger/queued; no firm blocker | Same row: `bookingType`, `status`, auth fields, `expiryAt` null — **saved as firm before** `onDefenderConvertedToFirm` when an episode exists |
 | P-19 | `penciled` / `queued` / `contested` | `penciled` / `contested` / `queued` | `reopenContentionAfterDefenderCancelled` | System | **Defender** row cancelled mid-episode (`onBookingCancelledMidContention`) | Rebuild episode from **former challenger** + pencils overlapping **that slot only**; drained-queue rows that **do not** overlap former challenger → `penciled` + `tryAttachPencilToContention`. **Pairing:** if **≥2** foreign pencils overlap anchor → **defender** = foreign with **earliest `createdAt`** (tie-break `id`), **challenger** = anchor (`openEpisode` then makes defender **`contested`**). If **1** foreign → **earlier `createdAt`** = **defender**, later = challenger. **Waitlist:** only enqueue foreigners that **overlap the new defender**; others stay **`penciled`** (drop spurious `queued`). No `attachUnqueuedPencilOverlapsToEpisode` on this path (avoids challenger-only enqueue). |
 | P-20 | `penciled` | `penciled` | `openEpisodeOrEnqueueFromWinner` | System | Winner promoted, **empty** waitlist | Calls `tryAttachPencilToContention(winner)` so overlapping pencils not on old queue (e.g. only overlapped prior challenger) still attach |
 | P-21 | — | — | `promoteQueueAfterChallengerWin` | System | Challenger wins by deadline | Invokes `openEpisodeOrEnqueueFromWinner` even when `queueIds` empty (pairs with P-20) |
@@ -115,7 +115,7 @@ All values exist on the model; **not every value is reachable for every `booking
 | ID | From | To | Trigger | Actor | Main guards | Side effects |
 |----|------|-----|---------|-------|-------------|--------------|
 | F-01 | — | `pending_approval` | `POST /bookings` firm | User | No firm blocker; lock window; own-pencil confirm if needed | May overlap foreign pencils (no displacement yet) |
-| F-02 | `pencil` / `penciled` or `contested` | `pending_approval` | `convertToFirm` | User | Defender-only; auth file; no firm blocker | May run `onDefenderConvertedToFirm` on open episode |
+| F-02 | `pencil` / `penciled` or `contested` | `pending_approval` | `convertToFirm` | User | Defender-only; auth file; no firm blocker | Row saved as **firm** `pending_approval`, then `onDefenderConvertedToFirm` closes episode (challenger/queue **not** displaced until **F-03**) |
 | F-03 | `pending_approval` | `approved` | `approveBooking` | Staff | Optimistic lock on row | `onFirmBookingApproved`: pencils → `displaced`, episodes/queue cleanup |
 | F-04 | `pending_approval` | `denied` | `denyBooking` | Staff | Firm + pending only | Email notify |
 | F-05 | `pending_approval` / `approved` | `cancelled` | `cancelBooking` | User/Staff | Firm cancel within 24h of start blocked **only** for `pending_approval`/`approved` per controller | If **approved**: notify displaced users slot may reopen |
@@ -175,7 +175,7 @@ stateDiagram-v2
   contested --> expired: deadline / defender expiry paths
   queued --> penciled: promotion / firm approve non-overlap
   queued --> displaced: firm approved overlap
-  penciled --> displaced: firm approved / convert-to-firm overlap
+  penciled --> displaced: firm approved (includes firm from defender convert)
   penciled --> cancelled: user cancel
   queued --> cancelled: user cancel / convert cleanup
   contested --> cancelled: user cancel defender
@@ -242,17 +242,17 @@ Documented for milestone / contention hardening (manual + `milestone-13` coverag
 
 | Area | What changed |
 |------|----------------|
-| **Catalog rows** | **P-05b**, **P-19**–**P-21**; **P-10** / **P-11** now **`displaced`** (not `cancelled`); **EP** note on promotion stragglers (`attachUnqueuedPencilOverlapsToEpisode`). |
-| **Contention service** | `queued`→`penciled` before `openEpisode` on promotion overlap; empty-queue **`tryAttachPencilToContention(winner)`**; **`promoteQueueAfterChallengerWin`** when `winnerId` set (empty `queueIds` still calls **`openEpisodeOrEnqueueFromWinner`**); **`attachUnqueuedPencilOverlapsToEpisode`** after overlap `openEpisode` (not on **`reopenContentionAfterDefenderCancelled`**); defender-cancel **P-19** pairing (**`createdAt`** / `id` tie-break; waitlist only if overlaps new defender); **`onDefenderConvertedToFirm`** → **`displaced`** + `displacedByBookingId`. |
+| **Catalog rows** | **P-05b**, **P-19**–**P-21**; **P-10** / **P-11** convert path releases **`penciled`** + **`tryAttach`** (displace only on approve via **P-15**/**P-16**); **EP** note on promotion stragglers (`attachUnqueuedPencilOverlapsToEpisode`). |
+| **Contention service** | `queued`→`penciled` before `openEpisode` on promotion overlap; empty-queue **`tryAttachPencilToContention(winner)`**; **`promoteQueueAfterChallengerWin`** when `winnerId` set (empty `queueIds` still calls **`openEpisodeOrEnqueueFromWinner`**); **`attachUnqueuedPencilOverlapsToEpisode`** after overlap `openEpisode` (not on **`reopenContentionAfterDefenderCancelled`**); defender-cancel **P-19** pairing (**`createdAt`** / `id` tie-break; waitlist only if overlaps new defender); **`onDefenderConvertedToFirm`**: close episode, **`penciled`** + **`tryAttach`** (no **`displaced`** until **`onFirmBookingApproved`**). |
 | **Booking controller** | **`GET /bookings/availability`**: optional **`contentionChallenger`** per row (open episode challenger). |
-| **Swagger** | `AvailabilityBooking.contentionChallenger` documented in `server/docs/swagger.json`. |
+| **Swagger** | `AvailabilityBooking.contentionChallenger` documented in `server/docs/swagger.json`; challenger plan metadata now includes `episodeId`, `episodeStatus`, `deadlineAt`. |
 | **Auth middleware** | Post-JWT **`User.findByPk`** → **401** `AUTH_USER_MISSING` if user row missing. |
 | **Client calendar** | Event titles **`#<id>`**; **`contesting`** styling from API flag; legend **Contested (defender)** / **Contesting (challenger)**. |
 | **Demo seeder** | **`20260405023050-demo-bookings.js`**: satisfy **`bookingThreadId` NOT NULL** via insert-then-`UPDATE bookingThreadId = id`. |
 | **Regression tests** | **`milestone_tests/milestone-13-booking-contention-rules.js`** (+ **`npm run test:milestone-13`**). |
 | **Package scripts** | Root **`package.json`**: **`test:milestone-13`**, **`test:all`** includes milestone 13. |
 | **Database** | **`server/migrations/20260417120000-booking-contention-and-displaced.js`**: `queued` / `displaced` on `Bookings`, `displacedByBookingId`, `ContentionEpisodes`, `ContentionQueueItems`, indexes (see migration for full DDL). |
-| **My Bookings / badges** | **`BookingStatusBadge`**: `queued` / `displaced`; **`ActiveBookingCard`**: queued explainer; **`PastBookingRow`**: displaced terminal + rebook messaging; **`BookingToolbar`**: status filters include `queued` / `displaced`. |
+| **My Bookings / badges** | **`BookingStatusBadge`**: `queued` / `displaced`; **`ActiveBookingCard`**: contested/queued/challenger cards use collapsed **View details** panels; challenger top alert now carries instruction + overlap waterfall + deadline, and challenger convert action is disabled; **`PastBookingRow`**: displaced terminal + rebook messaging; **`BookingToolbar`**: status filters include `queued` / `displaced`. |
 
 ### 13.1 Contention service (`server/services/contention.service.js`)
 
@@ -262,14 +262,16 @@ Documented for milestone / contention hardening (manual + `milestone-13` coverag
 | **Empty queue after promotion** | If waitlist is empty after a win/promotion, still run `tryAttachPencilToContention(winner)` so other pencils on the resource can attach (e.g. only overlapped removed defender, not old queue). |
 | **`promoteQueueAfterChallengerWin`** | Runs `openEpisodeOrEnqueueFromWinner` when `winnerId` exists even if `queueIds` is empty (uses empty-queue tryAttach above). |
 | **`attachUnqueuedPencilOverlapsToEpisode`** | After opening a new episode from `openEpisodeOrEnqueueFromWinner`, attaches `penciled` pencils overlapping defender **or** challenger so “stragglers” get a queue row. |
+| **`onFirmBookingApproved` (orphan contested)** | If an episode is closed because the **challenger** (or queue) **touches** the approved firm but the **defender’s** window does **not** overlap the firm, the defender was never in the displacement loop and could stay **`contested`** with no open episode; normalized to **`penciled`** + **`tryAttachPencilToContention`**. |
 | **`reopenContentionAfterDefenderCancelled`** | Replaces “former challenger becomes defender + queue head becomes challenger” for **defender cancel**. Cluster = former challenger **slot overlap** only; non-overlapping drained-queue IDs → `penciled` + `tryAttach`. Pairing rules in **P-19**. |
-| **`onDefenderConvertedToFirm`** | Challenger and overlapping queue pencils → **`displaced`** + `displacedByBookingId` (not `cancelled`); `staffRemark` cleared on those rows. Aligns with firm-over-pencil displacement. |
+| **`onDefenderConvertedToFirm`** | Runs **after** defender row is saved **`firm`** + **`pending_approval`**. Closes episode; challenger + drained queue → **`penciled`**, `tryAttach` (two-phase for queue). **`displaced`** only when staff approves (**`onFirmBookingApproved`**), same as **`POST` firm** over foreign pencils. |
 
 ### 13.2 HTTP / auth / API
 
 | Change | Behavior |
 |--------|----------|
 | **`GET /bookings/availability`** | Each row may include **`contentionChallenger: boolean`**: `true` when the booking is `challengerBookingId` on an **open** `ContentionEpisode` for that resource (DB status stays `penciled`). Used for calendar “contesting” color. Documented in `server/docs/swagger.json` (`AvailabilityBooking`). |
+| **`GET /bookings` / `GET /bookings/:id` challenger detail payload** | When `contentionChallenger` is true, `challengerContentionPlan` now includes episode metadata (`episodeId`, `episodeStatus`, `deadlineAt`) in addition to `currentDefenderBookingId` and `steps`, enabling challenger deadline/ETA UX in My Bookings. |
 | **`authenticateToken`** | After JWT verify, **`User.findByPk`**; if missing → **401** with `code: AUTH_USER_MISSING` and message to sign in again (e.g. after demo reset / re-seed). Prevents FK error on `Bookings.userId`. |
 
 ### 13.3 Client UI (calendar + My Bookings)
@@ -279,7 +281,7 @@ Documented for milestone / contention hardening (manual + `milestone-13` coverag
 | Calendar: event title | `#<id> <time> [<resource>]` for debugging. |
 | Calendar: colors | Distinct **`contesting`** (challenger) style when `contentionChallenger` is true; legend labels **Contested (defender)** vs **Contesting (challenger)**. |
 | Calendar: tooltip | `formatBookingHoverDetail` shows `contesting (challenger)` when flag set. |
-| My Bookings | Queued and displaced statuses surfaced in badges, active-card copy, past-row messaging (`canRebook` / firm still pending), and toolbar filters (see **Section 12** file map). |
+| My Bookings | Queued and displaced statuses surfaced in badges, active-card copy, past-row messaging (`canRebook` / firm still pending), and toolbar filters (see **Section 12** file map). Contested/queued/challenger info blocks now default to collapsed **View details**. Challenger cards use a single top alert for instruction + context (active step, overlap waterfall, deadline/ETA) and remove duplicate challenger notice in convert panel. |
 
 ### 13.4 Seeders / ops
 
@@ -295,5 +297,5 @@ Documented for milestone / contention hardening (manual + `milestone-13` coverag
 
 ### 13.6 Catalog rows superseded
 
-- **P-10 / P-11** in the original seed described **`cancelled`** + remarks for convert-to-firm; behavior is now **`displaced`** (see updated table).
+- **P-10 / P-11** (first seed): convert-to-firm once described **`cancelled`**; later **`displaced` at convert**; current policy is **`penciled`** + **`tryAttach`** at convert and **`displaced` on staff approve** only (aligned with **`POST` firm**).
 - **Defender-cancel** promotion is **not** fully described by **P-05 / P-06** alone; see **P-19** and **Section 13.1**.

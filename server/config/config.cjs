@@ -20,6 +20,14 @@ module.exports = {
         rejectUnauthorized: false,
       },
     },
+    // Blank line after each SQL line for easier terminal scanning (set SEQUELIZE_LOGGING=false to disable).
+    logging:
+      process.env.SEQUELIZE_LOGGING === 'false'
+        ? false
+        : (sql) => {
+            console.log(sql);
+            console.log();
+          },
   },
   production: {
     use_env_variable: 'DATABASE_URL',

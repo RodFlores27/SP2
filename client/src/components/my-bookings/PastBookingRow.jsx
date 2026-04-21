@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
+import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
 import { AlertTriangle, CalendarDays } from 'lucide-react';
 import { BookingStatusBadge } from '@/components/BookingStatusBadge';
 import { AuthorizationDocButton } from './AuthorizationDocButton';
@@ -19,11 +19,13 @@ function getPreviousAttempts(booking) {
 }
 
 /**
- * Compact read-only row for past (cancelled / denied / expired / displaced) bookings.
+ * Compact read-only row for past (cancelled / denied / expired / displaced / completed) bookings.
  * Intentionally much lighter than ActiveBookingCard — no action buttons or convert panel.
  */
 export function PastBookingRow({ booking, resourceName, rebookTo }) {
-  const isPastTerminal = ['cancelled', 'denied', 'expired', 'displaced'].includes(booking.status);
+  const isPastTerminal = ['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(
+    booking.status
+  );
   const canRebook = booking.canRebook === true;
   const rebookBlockedByActiveFirm =
     booking.status === 'displaced' && !canRebook;
@@ -58,10 +60,7 @@ export function PastBookingRow({ booking, resourceName, rebookTo }) {
 
         <div className="text-xs text-muted-foreground flex items-center gap-1">
           <CalendarDays className="h-3 w-3 flex-shrink-0" />
-          <span>
-            {format(new Date(booking.startTime), 'MMM d, yyyy h:mm a')} &mdash;{' '}
-            {format(new Date(booking.endTime), 'h:mm a')}
-          </span>
+          <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
         </div>
 
         {booking.purpose && (

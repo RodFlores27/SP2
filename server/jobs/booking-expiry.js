@@ -59,6 +59,20 @@ cron.schedule('*/15 * * * *', async () => {
       ContentionQueueItem
     });
 
+    const [completedFirms] = await Booking.update(
+      { status: 'completed' },
+      {
+        where: {
+          bookingType: 'firm',
+          status: 'approved',
+          endTime: { [Op.lte]: now }
+        }
+      }
+    );
+    if (completedFirms > 0) {
+      console.log(`[cron:expire] Marked ${completedFirms} approved firm booking(s) as completed (past endTime)`);
+    }
+
     const expired = await Booking.findAll({
       where: {
         bookingType: 'pencil',

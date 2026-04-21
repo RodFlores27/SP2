@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import axiosInstance from '@/lib/axios';
 import { Button } from '@/components/ui/button';
@@ -27,6 +27,7 @@ import {
   loadDashboardTab,
   saveDashboardTab,
 } from '@/components/my-bookings/myBookingsDashboardSession';
+import { stashConvertFirmSuccess } from '@/lib/convertFirmSuccessSession';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const DASHBOARD_POLL_INTERVAL_MS = 30 * 1000;
@@ -53,7 +54,7 @@ function buildRebookLink(booking) {
   const rebookAllowed =
     booking.canRebook === true ||
     (booking.canRebook === undefined &&
-      ['cancelled', 'denied', 'expired'].includes(booking.status));
+      ['cancelled', 'denied', 'expired', 'completed'].includes(booking.status));
   if (!rebookAllowed) return null;
 
   const params = new URLSearchParams({
@@ -84,6 +85,7 @@ function buildRebookLink(booking) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [bookings, setBookings] = useState([]);
   const [equipment, setEquipment] = useState([]);
@@ -100,6 +102,7 @@ export default function Dashboard() {
   const [cancelError, setCancelError] = useState(null);
 
   const [convertOpenId, setConvertOpenId] = useState(null);
+  const [convertPurpose, setConvertPurpose] = useState('');
   const [convertFile, setConvertFile] = useState(null);
   const [convertFileError, setConvertFileError] = useState(null);
   const [convertLoading, setConvertLoading] = useState(false);
@@ -212,7 +215,9 @@ export default function Dashboard() {
   };
 
   const openConvert = (bookingId) => {
+    const b = bookings.find((x) => x.id === bookingId);
     setConvertOpenId(bookingId);
+    setConvertPurpose(b?.purpose ?? '');
     setConvertFile(null);
     setConvertFileError(null);
     setConvertError(null);
@@ -221,6 +226,7 @@ export default function Dashboard() {
 
   const closeConvert = () => {
     setConvertOpenId(null);
+    setConvertPurpose('');
     setConvertFile(null);
     setConvertFileError(null);
     setConvertError(null);
@@ -251,7 +257,13 @@ export default function Dashboard() {
   };
 
   const handleConvertSubmit = async (bookingId) => {
-    if (!convertFile) {
+    const b = bookings.find((x) => x.id === bookingId);
+    if (b?.contentionChallenger) return;
+
+    const hasExistingAuthDoc = Boolean(
+      b?.authorizationDocUrl && String(b.authorizationDocUrl).trim().length > 0
+    );
+    if (!convertFile && !hasExistingAuthDoc) {
       setConvertFileError('Authorization document is required to convert to firm booking.');
       return;
     }
@@ -262,7 +274,10 @@ export default function Dashboard() {
 
     try {
       const formData = new FormData();
-      formData.append('authorizationDoc', convertFile);
+      formData.append('purpose', convertPurpose ?? '');
+      if (convertFile) {
+        formData.append('authorizationDoc', convertFile);
+      }
 
       const token = localStorage.getItem('token');
       const res = await fetch(`${BASE_URL}/bookings/${bookingId}/convert-to-firm`, {
@@ -284,7 +299,12 @@ export default function Dashboard() {
       }
 
       closeConvert();
-      await fetchData();
+      stashConvertFirmSuccess({
+        message: data.message || 'Booking converted to firm successfully. Awaiting staff approval.',
+        booking: data.booking,
+      });
+      await fetchData({ silent: true });
+      navigate('/bookings/new');
     } catch (err) {
       console.error('Error converting booking:', err);
       setConvertError('Failed to convert booking. Please try again.');
@@ -295,10 +315,10 @@ export default function Dashboard() {
 
   // Partition (displaced is terminal — show under Past, not Active)
   const activeBookings = bookings.filter(
-    (b) => !['cancelled', 'denied', 'expired', 'displaced'].includes(b.status)
+    (b) => !['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(b.status)
   );
   const pastBookings = bookings.filter((b) =>
-    ['cancelled', 'denied', 'expired', 'displaced'].includes(b.status)
+    ['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(b.status)
   );
 
   // Helper bound to current resource lists
@@ -438,6 +458,8 @@ export default function Dashboard() {
           onConvertFileChange={handleConvertFileChange}
           onConvertSubmit={handleConvertSubmit}
           onRemoveConvertFile={() => { setConvertFile(null); setConvertFileError(null); }}
+          convertPurpose={convertPurpose}
+          onConvertPurposeChange={setConvertPurpose}
           fileInputRef={fileInputRef}
           getName={getName}
         />
@@ -487,6 +509,8 @@ function ActiveTabContent({
   onConvertFileChange,
   onConvertSubmit,
   onRemoveConvertFile,
+  convertPurpose,
+  onConvertPurposeChange,
   fileInputRef,
   getName,
 }) {
@@ -543,6 +567,8 @@ function ActiveTabContent({
                 onConvertFileChange={onConvertFileChange}
                 onConvertSubmit={onConvertSubmit}
                 onRemoveConvertFile={onRemoveConvertFile}
+                convertPurpose={convertPurpose}
+                onConvertPurposeChange={onConvertPurposeChange}
                 fileInputRef={fileInputRef}
               />
             ))}

@@ -155,16 +155,16 @@ async function testMilestone8() {
     console.log('❌ Failed to filter by date range:', error.response?.data || error.message);
   }
 
-  console.log('\n--- Test 9: Verify Excluded Statuses (cancelled, denied, expired) ---');
+  console.log('\n--- Test 9: Verify Excluded Statuses (cancelled, denied, expired, displaced, completed) ---');
   try {
     const response = await axios.get(`${BASE_URL}/bookings/availability`);
-    const excludedStatuses = ['cancelled', 'denied', 'expired'];
+    const excludedStatuses = ['cancelled', 'denied', 'expired', 'displaced', 'completed'];
     const hasExcludedStatus = response.data.some(b => excludedStatuses.includes(b.status));
     
     if (!hasExcludedStatus) {
-      console.log('✅ Availability correctly excludes cancelled/denied/expired bookings');
+      console.log('✅ Availability correctly excludes terminal / past bookings');
     } else {
-      console.log('❌ Availability includes cancelled/denied/expired bookings');
+      console.log('❌ Availability includes excluded-status bookings');
     }
   } catch (error) {
     console.log('❌ Failed to verify excluded statuses:', error.response?.data || error.message);
@@ -242,7 +242,7 @@ async function testMilestone8() {
   console.log('  ✅ Filter by specific resourceId');
   console.log('  ✅ Filter by date range (startDate/endDate)');
   console.log('  ✅ Excludes sensitive data (userId, purpose, authorizationDocUrl)');
-  console.log('  ✅ Excludes cancelled/denied/expired bookings');
+  console.log('  ✅ Excludes cancelled/denied/expired/displaced/completed bookings');
   console.log('  ✅ Firm bookings get pending_approval status (not confirmed)');
   console.log('  ✅ Invalid parameters return 400 error');
   console.log('\nNote: UI tests require manual verification in browser.');

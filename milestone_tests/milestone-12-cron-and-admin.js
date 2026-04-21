@@ -306,6 +306,11 @@ async function testMilestone12() {
       } else {
         fail('Expiry job logic missing');
       }
+      if (content.includes('completed') && content.includes('approved') && content.includes('endTime')) {
+        pass('Completed status job present (approved firm past endTime)');
+      } else {
+        fail('Completed booking job logic missing');
+      }
       if (content.includes('notifyBookingExpiringSoon')) {
         pass('Warning email logic present (notifyBookingExpiringSoon)');
       } else {

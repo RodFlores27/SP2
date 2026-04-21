@@ -9,7 +9,18 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
+
+const httpLogStream = {
+  write(message) {
+    const m = typeof message === 'string' ? message : String(message);
+    process.stdout.write(m.endsWith('\n') ? `${m}\n` : `${m}\n\n`);
+  },
+};
+app.use(
+  morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
+    stream: httpLogStream,
+  })
+);
 app.use(express.json());
 
 // Swagger API Documentation

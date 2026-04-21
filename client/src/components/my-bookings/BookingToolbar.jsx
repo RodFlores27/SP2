@@ -16,6 +16,7 @@ const PAST_STATUS_OPTIONS = [
   { value: 'displaced', label: 'Displaced' },
   { value: 'cancelled', label: 'Cancelled' },
   { value: 'expired', label: 'Expired' },
+  { value: 'completed', label: 'Completed' },
 ];
 
 const RESOURCE_TYPE_OPTIONS = [

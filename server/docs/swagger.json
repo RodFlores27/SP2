@@ -1175,7 +1175,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Create a new booking",
-        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings cannot start within 24 hours of creation.",
+        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention plus expectedWillBeQueued matching the prior 409 when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings cannot start within 24 hours of creation.",
         "operationId": "createBooking",
         "security": [
           {
@@ -1258,6 +1258,11 @@
                     "enum": ["true", "false"],
                     "description": "Pencil: confirm contesting another pencil"
                   },
+                  "expectedWillBeQueued": {
+                    "type": "string",
+                    "enum": ["true", "false"],
+                    "description": "With confirmContention when overlaps exist: must match prior 409 `willBeQueued` (string booleans for multipart)"
+                  },
                   "authorizationDoc": {
                     "type": "string",
                     "format": "binary",
@@ -1328,7 +1333,7 @@
             }
           },
           "409": {
-            "description": "Conflict — firm overlaps, own pencil supersede confirmation, or pencil contention confirmation",
+            "description": "Conflict — firm overlaps, own pencil supersede confirmation, or pencil contention confirmation (includes willBeQueued when the booking would be enqueued on an existing open episode)",
             "content": {
               "application/json": {
                 "schema": {
@@ -1356,7 +1361,7 @@
             "description": "Filter by booking status",
             "schema": {
               "type": "string",
-              "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced"]
+              "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"]
             }
           },
           {
@@ -1585,7 +1590,7 @@
       "patch": {
         "tags": ["Bookings"],
         "summary": "Convert pencil booking to firm",
-        "description": "Converts a pencil booking to firm with required authorization document upload. Re-checks for conflicts before conversion. Sets status to 'pending_approval' awaiting staff review.",
+        "description": "Converts a pencil booking to firm. Send a new authorization file to upload, or omit the file when the pencil booking already has an authorization document on file (that document is kept). Optional multipart field `purpose` updates the booking purpose. Re-checks for conflicts before conversion. Sets status to `pending_approval` awaiting staff review.",
         "operationId": "convertToFirm",
         "security": [
           {
@@ -1605,17 +1610,20 @@
           }
         ],
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "required": ["authorizationDoc"],
                 "properties": {
                   "authorizationDoc": {
                     "type": "string",
                     "format": "binary",
-                    "description": "Authorization document (PDF, DOC, DOCX, JPG, or PNG, max 5MB)"
+                    "description": "Authorization document (PDF, DOC, DOCX, JPG, or PNG, max 5MB). Required only if the booking does not already have an authorization document."
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "description": "Optional purpose text for the firm request (updates the booking when sent)."
                   }
                 }
               }
@@ -2460,7 +2468,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced"],
+            "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"],
             "description": "Current booking status (pencil: penciled/contested/queued/displaced; firm: pending_approval/approved/denied/cancelled/expired)"
           },
           "startTime": {
@@ -2531,6 +2539,143 @@
             "type": "boolean",
             "description": "Whether the user may start a rebook from this attempt (false for displaced while displacing firm is still pending_approval or approved)"
           },
+          "contentionChallenger": {
+            "type": "boolean",
+            "description": "True when this booking is the active challenger on an open or awaiting_firm contention episode (DB status usually remains penciled)."
+          },
+          "challengerContentionPlan": {
+            "type": "object",
+            "nullable": true,
+            "description": "When contentionChallenger is true: open/awaiting_firm episode metadata plus overlapping pencil slots on the same resource within this booking's window, earliest first, with the current episode defender marked.",
+            "properties": {
+              "episodeId": {
+                "type": "integer"
+              },
+              "episodeStatus": {
+                "type": "string",
+                "enum": ["open", "awaiting_firm", "closed"]
+              },
+              "deadlineAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "currentDefenderBookingId": {
+                "type": "integer"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "startTime": { "type": "string", "format": "date-time" },
+                    "endTime": { "type": "string", "format": "date-time" },
+                    "status": { "type": "string" },
+                    "bookingType": { "type": "string", "enum": ["pencil", "firm"] },
+                    "isCurrentDefender": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "defenderContentionDetail": {
+            "type": "object",
+            "nullable": true,
+            "description": "When status is contested (list/detail): challenger and episode metadata for My Bookings.",
+            "properties": {
+              "episodeId": { "type": "integer" },
+              "episodeStatus": { "type": "string", "enum": ["open", "awaiting_firm", "closed"] },
+              "deadlineAt": { "type": "string", "format": "date-time", "nullable": true },
+              "challengedBy": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "bookingId": { "type": "integer" },
+                  "startTime": { "type": "string", "format": "date-time" },
+                  "endTime": { "type": "string", "format": "date-time" },
+                  "user": {
+                    "type": "object",
+                    "nullable": true,
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "email": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "queueContentionDetail": {
+            "type": "object",
+            "nullable": true,
+            "description": "When status is queued (list/detail): waitlist position, rows ahead, and active defender/challenger on the episode.",
+            "properties": {
+              "episodeId": { "type": "integer" },
+              "episodeStatus": { "type": "string" },
+              "deadlineAt": { "type": "string", "format": "date-time", "nullable": true },
+              "position": { "type": "integer" },
+              "queueLength": { "type": "integer" },
+              "aheadInQueue": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "position": { "type": "integer" },
+                    "bookingId": { "type": "integer" },
+                    "startTime": { "type": "string", "format": "date-time" },
+                    "endTime": { "type": "string", "format": "date-time" },
+                    "user": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "id": { "type": "integer" },
+                        "email": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              },
+              "activeDefender": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "bookingId": { "type": "integer" },
+                  "startTime": { "type": "string", "format": "date-time" },
+                  "endTime": { "type": "string", "format": "date-time" },
+                  "status": { "type": "string" },
+                  "bookingType": { "type": "string" },
+                  "user": {
+                    "type": "object",
+                    "nullable": true,
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "email": { "type": "string" }
+                    }
+                  }
+                }
+              },
+              "activeChallenger": {
+                "type": "object",
+                "nullable": true,
+                "properties": {
+                  "bookingId": { "type": "integer" },
+                  "startTime": { "type": "string", "format": "date-time" },
+                  "endTime": { "type": "string", "format": "date-time" },
+                  "status": { "type": "string" },
+                  "bookingType": { "type": "string" },
+                  "user": {
+                    "type": "object",
+                    "nullable": true,
+                    "properties": {
+                      "id": { "type": "integer" },
+                      "email": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
           "user": {
             "type": "object",
             "description": "User who created the booking (populated via association)",
@@ -2571,7 +2716,7 @@
                 },
                 "status": {
                   "type": "string",
-                  "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced"]
+                  "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"]
                 },
                 "startTime": {
                   "type": "string",
@@ -2648,7 +2793,7 @@
           "status": {
             "type": "string",
             "enum": ["penciled", "contested", "queued", "pending_approval", "approved"],
-            "description": "Booking status for calendar display (excludes terminal statuses including displaced, cancelled, denied, expired)"
+            "description": "Booking status for calendar display (excludes terminal statuses including displaced, cancelled, denied, expired, completed)"
           },
           "startTime": {
             "type": "string",
@@ -2662,7 +2807,7 @@
           },
           "contentionChallenger": {
             "type": "boolean",
-            "description": "True when this booking is the active challenger on an open contention episode for this resource (calendar UI treats it as contesting; DB status remains penciled)."
+            "description": "True when this booking is the challenger on an open ContentionEpisode and the episode defender is still a contested pencil (active timer). False when the defender is already a firm booking (pending_approval/approved) or the episode is awaiting_firm — calendar uses plain penciled styling in those cases."
           }
         }
       },
@@ -2718,6 +2863,10 @@
           "confirmContention": {
             "type": "boolean",
             "description": "Pencil booking: confirm starting automated contention against another user's pencil"
+          },
+          "expectedWillBeQueued": {
+            "type": "boolean",
+            "description": "Required with confirmContention when overlapping pencils exist: must match the `willBeQueued` value from the prior 409 response so the server can reject the create if contention changed (waitlist vs active challenger) under row locks."
           }
         }
       },
@@ -2792,6 +2941,47 @@
           "requiresContentionConfirmation": {
             "type": "boolean",
             "description": "When true, resubmit with confirmContention to start automated pencil contention"
+          },
+          "willBeQueued": {
+            "type": "boolean",
+            "description": "When requiresContentionConfirmation is true: if true, this slot would join the contention waitlist (queued) instead of becoming the active challenger on a new episode"
+          },
+          "previewBookingId": {
+            "type": "integer",
+            "description": "Display-only likely next Bookings.id (MAX+1) for confirmation UI; actual id is assigned at create and may differ if concurrent inserts occur"
+          },
+          "contentionWaitlist": {
+            "type": "array",
+            "description": "When willBeQueued is true: full open-episode line (defender, challenger, queued bookings by position) for waitlist UI; overlaps-with-new-slot conflicts alone omit non-overlapping queue peers",
+            "items": {
+              "type": "object",
+              "properties": {
+                "role": {
+                  "type": "string",
+                  "enum": ["defender", "challenger", "queued"]
+                },
+                "queuePosition": {
+                  "type": "integer",
+                  "description": "Set when role is queued (ContentionQueueItems.position)"
+                },
+                "id": { "type": "integer" },
+                "bookingType": { "type": "string" },
+                "status": { "type": "string" },
+                "startTime": { "type": "string", "format": "date-time" },
+                "endTime": { "type": "string", "format": "date-time" },
+                "user": {
+                  "type": "object",
+                  "properties": {
+                    "id": { "type": "integer" },
+                    "email": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "code": {
+            "type": "string",
+            "description": "Optional machine code (e.g. CONTESTATION_OUTCOME_CHANGED, PENCIL_OVERLAP_CHANGED, EXPECTED_WILL_BE_QUEUED_REQUIRED)"
           },
           "ownPencilConflicts": {
             "type": "array",

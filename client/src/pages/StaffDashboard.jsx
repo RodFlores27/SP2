@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/useAuth';
 import axiosInstance from '@/lib/axios';
+import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -173,9 +174,11 @@ export default function StaffDashboard() {
   const [activeTab, setActiveTab] = useState('approvals');
 
   const [pendingBookings, setPendingBookings] = useState([]);
+  const [approvedBookings, setApprovedBookings] = useState([]);
   const [contestedBookings, setContestedBookings] = useState([]);
   const [queuedPencilBookings, setQueuedPencilBookings] = useState([]);
   const [deniedRebookPending, setDeniedRebookPending] = useState([]);
+  const [approvedByFilter, setApprovedByFilter] = useState('');
   const [equipment, setEquipment] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -190,14 +193,23 @@ export default function StaffDashboard() {
     setLoading(true);
     setError(null);
     try {
-      const [pendingRes, contestedRes, queuedRes, deniedPendRes, resources] = await Promise.all([
+      const approvedParams = new URLSearchParams({ status: 'approved' });
+      if (approvedByFilter === 'me') {
+        approvedParams.set('approvedBy', 'me');
+      } else if (approvedByFilter) {
+        approvedParams.set('approvedByUserId', approvedByFilter);
+      }
+
+      const [pendingRes, approvedRes, contestedRes, queuedRes, deniedPendRes, resources] = await Promise.all([
         axiosInstance.get('/bookings?status=pending_approval'),
+        axiosInstance.get(`/bookings?${approvedParams.toString()}`),
         axiosInstance.get('/bookings?status=contested'),
         axiosInstance.get('/bookings?status=queued'),
         axiosInstance.get('/bookings?status=pending_approval&rebookSourceDenied=true'),
         fetchResources(),
       ]);
       setPendingBookings(pendingRes.data);
+      setApprovedBookings(approvedRes.data);
       setContestedBookings(contestedRes.data);
       setQueuedPencilBookings(queuedRes.data);
       setDeniedRebookPending(deniedPendRes.data);
@@ -209,7 +221,7 @@ export default function StaffDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [approvedByFilter]);
 
   useEffect(() => {
     fetchData();
@@ -245,6 +257,11 @@ export default function StaffDashboard() {
 
   const contentionWatchCount = contestedBookings.length + queuedPencilBookings.length;
   const deniedRebookQueueCount = deniedRebookPending.length;
+  const approverOptions = [...new Map(
+    approvedBookings
+      .filter((b) => b.approvedBy?.id)
+      .map((b) => [b.approvedBy.id, { id: b.approvedBy.id, email: b.approvedBy.email }])
+  ).values()].filter((opt) => opt.email !== user?.email);
 
   if (loading) {
     return (
@@ -331,6 +348,21 @@ export default function StaffDashboard() {
             </span>
           )}
         </button>
+        <button
+          onClick={() => setActiveTab('approved')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'approved'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Approved Bookings
+          {approvedBookings.length > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-emerald-600 text-white text-xs min-w-5 h-5 px-1">
+              {approvedBookings.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Pending Approvals Tab */}
@@ -405,6 +437,58 @@ export default function StaffDashboard() {
         </section>
       )}
 
+      {activeTab === 'approved' && (
+        <section className="space-y-4">
+          <Card className="border-muted">
+            <CardContent className="py-4 space-y-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-muted-foreground">
+                  Master list of approved firm bookings. Use filters for personal review or staff-level audits.
+                </p>
+                <div className="flex items-center gap-2">
+                  <label htmlFor="approved-by-filter" className="text-sm text-muted-foreground">
+                    Approved by
+                  </label>
+                  <select
+                    id="approved-by-filter"
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    value={approvedByFilter}
+                    onChange={(e) => setApprovedByFilter(e.target.value)}
+                  >
+                    <option value="">All staff</option>
+                    <option value="me">Me ({user?.email || 'current user'})</option>
+                    {approverOptions.map((opt) => (
+                      <option key={opt.id} value={String(opt.id)}>
+                        {opt.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          {approvedBookings.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No approved bookings in this view</p>
+                <p className="text-sm mt-1">Try changing filters or check again later.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {approvedBookings.map((booking) => (
+                <ApprovedBookingCard
+                  key={booking.id}
+                  booking={booking}
+                  resourceName={getResourceName(booking, equipment, rooms)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {activeTab === 'deniedRebooks' && (
         <section className="space-y-6">
           <p className="text-sm text-muted-foreground">
@@ -450,6 +534,51 @@ export default function StaffDashboard() {
   );
 }
 
+function ApprovedBookingCard({ booking, resourceName }) {
+  const approvedAt = booking.approvedAt ? format(new Date(booking.approvedAt), 'MMM d, yyyy h:mm a') : '—';
+  const approvedBy = booking.approvedBy?.email || 'Unknown';
+
+  return (
+    <Card className="border-emerald-200/60">
+      <CardContent className="pt-4 pb-4">
+        <div className="space-y-1.5 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-sm">#{booking.id}</span>
+            <span className="font-medium truncate">{resourceName}</span>
+            <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
+          </div>
+          <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <Users className="h-3.5 w-3.5 flex-shrink-0" />
+            <span className="truncate">{booking.user?.email}</span>
+          </div>
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+            <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
+          </div>
+          <div className="pt-1 text-sm">
+            <p>
+              <span className="font-medium">Approved by:</span>{' '}
+              <span className="text-muted-foreground">{approvedBy}</span>
+            </p>
+            <p>
+              <span className="font-medium">Approved at:</span>{' '}
+              <span className="text-muted-foreground">{approvedAt}</span>
+            </p>
+          </div>
+          {booking.staffRemark && (
+            <p className="text-sm">
+              <span className="font-medium">Staff remark:</span>{' '}
+              <span className="text-muted-foreground">{booking.staffRemark}</span>
+            </p>
+          )}
+          <AuthorizationDocButton url={booking.authorizationDocUrl} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ContentionSnapshotCard({ booking, resourceName }) {
   return (
     <Card className="border-orange-200/60">
@@ -465,10 +594,7 @@ function ContentionSnapshotCard({ booking, resourceName }) {
         </div>
         <div className="flex items-center gap-1 text-sm text-muted-foreground">
           <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>
-            {format(new Date(booking.startTime), 'MMM d, yyyy h:mm a')} &mdash;{' '}
-            {format(new Date(booking.endTime), 'MMM d, yyyy h:mm a')}
-          </span>
+          <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
         </div>
       </CardContent>
     </Card>
@@ -538,10 +664,7 @@ function ApprovalCard({
 
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>
-                {format(new Date(booking.startTime), 'MMM d, yyyy h:mm a')} &mdash;{' '}
-                {format(new Date(booking.endTime), 'MMM d, yyyy h:mm a')}
-              </span>
+              <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
             </div>
 
             {booking.purpose && (
@@ -621,8 +744,7 @@ function ApprovalCard({
                           Booking #{attempt.id} ({attempt.status?.replace('_', ' ')})
                         </p>
                         <p className="text-xs text-amber-700">
-                          {format(new Date(attempt.startTime), 'MMM d, yyyy h:mm a')} &mdash;{' '}
-                          {format(new Date(attempt.endTime), 'MMM d, yyyy h:mm a')}
+                          {formatBookingDateRange(attempt.startTime, attempt.endTime)}
                         </p>
                         {!!attempt.staffRemark && (
                           <p className="mt-1 text-sm text-amber-800">{attempt.staffRemark}</p>

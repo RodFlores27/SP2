@@ -27,7 +27,7 @@ export function formatStatusLabel(status) {
 }
 
 export function isCancellable(booking) {
-  if (['cancelled', 'denied', 'expired', 'displaced'].includes(booking.status)) return false;
+  if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) return false;
   if (
     booking.bookingType === 'firm' &&
     ['pending_approval', 'approved'].includes(booking.status)
@@ -38,10 +38,36 @@ export function isCancellable(booking) {
   return true;
 }
 
+/**
+ * When a firm booking can’t be cancelled, explains why (for disabled Cancel UI).
+ * Pencil bookings are not returned here (they use expiry rules, not the 24h firm window).
+ *
+ * @returns {'within_24h'|'started_or_past'|null}
+ */
+export function getFirmCancelBlockedReason(booking) {
+  if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) return null;
+  if (booking.bookingType !== 'firm') return null;
+  if (!['pending_approval', 'approved'].includes(booking.status)) return null;
+  if (isCancellable(booking)) return null;
+  const hoursUntilStart = (new Date(booking.startTime) - Date.now()) / (1000 * 60 * 60);
+  return hoursUntilStart > 0 ? 'within_24h' : 'started_or_past';
+}
+
+/** Human-readable explanation for firm cancel blocked reasons (tooltip / aria-label). */
+export function getFirmCancelBlockedMessage(reason) {
+  if (reason === 'within_24h') {
+    return 'Firm bookings can’t be cancelled when the start time is less than 24 hours away.';
+  }
+  if (reason === 'started_or_past') {
+    return 'The start time has passed; this booking can’t be cancelled here.';
+  }
+  return '';
+}
+
 export function isConvertible(booking) {
   return (
     booking.bookingType === 'pencil' &&
-    !['cancelled', 'denied', 'expired', 'displaced', 'queued'].includes(booking.status)
+    !['cancelled', 'denied', 'expired', 'displaced', 'completed', 'queued'].includes(booking.status)
   );
 }
 
@@ -58,7 +84,7 @@ export function guessFileType(url) {
 /** Active-tab status order (highest priority first). */
 const ACTIVE_STATUS_ORDER = ['contested', 'queued', 'pending_approval', 'penciled', 'approved'];
 /** Past-tab status order (denied first — staff decision, highest visibility). */
-const PAST_STATUS_ORDER = ['denied', 'displaced', 'cancelled', 'expired'];
+const PAST_STATUS_ORDER = ['denied', 'displaced', 'cancelled', 'expired', 'completed'];
 
 /** Group an array of bookings by status, returning ordered non-empty groups. */
 export function groupByStatus(bookings, statusOrder) {

@@ -1,4 +1,4 @@
-export function BookingStatusBadge({ status, bookingType }) {
+export function BookingStatusBadge({ status, bookingType, showChallengerBadge = false }) {
   const getStatusStyles = (s) => {
     switch (s) {
       case 'approved':
@@ -19,6 +19,8 @@ export function BookingStatusBadge({ status, bookingType }) {
         return 'bg-gray-100 text-gray-500 border-gray-200';
       case 'expired':
         return 'bg-gray-100 text-gray-400 border-gray-200';
+      case 'completed':
+        return 'bg-emerald-50 text-emerald-900 border-emerald-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -47,6 +49,11 @@ export function BookingStatusBadge({ status, bookingType }) {
       {bookingType && (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground border border-border">
           {formatType(bookingType)}
+        </span>
+      )}
+      {showChallengerBadge && (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-sky-300 bg-sky-100 text-sky-900">
+          Challenger
         </span>
       )}
     </div>

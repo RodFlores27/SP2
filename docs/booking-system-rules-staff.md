@@ -1,6 +1,6 @@
 # Booking system rules (staff and administrators)
 
-This document describes how reservations behave in the PTCF Room and Equipment system, in everyday language. It is meant for **facility staff**, **system administrators**, and anyone explaining the rules to users. For technical transition IDs and implementation detail, see [`booking-transition-catalog-seed.md`](booking-transition-catalog-seed.md).
+This document describes how reservations behave in the PTCF Room and Equipment system, in everyday language. It is meant for **facility staff**, **system administrators**, and anyone explaining the rules to users. **Pencil–pencil contention (defender, challenger, queue, timer):** read **Section 5** first. For technical transition IDs and implementation detail, see [`booking-transition-catalog-seed.md`](booking-transition-catalog-seed.md).
 
 ---
 
@@ -70,16 +70,26 @@ When two **different users** pencil the **same resource** for **overlapping time
 
 **Staff role here:** None, except general support and explaining the process. **Do not** treat pencil contention like a staff approval queue.
 
+**What users now see in My Bookings (for explanations/support):**
+
+- **Defender (`contested`)** and **queued** cards show a short summary first, with a **View details** toggle for deeper context.
+- **Active challenger** cards now show a dedicated top alert that combines:
+  - what is happening (automatic challenger flow and fairness timer),
+  - who they are currently contesting (overlap sequence / "battle plan"),
+  - the **current step deadline** for the holder being challenged.
+- On challenger cards, **Convert to Firm** is intentionally disabled until the overlap sequence clears.
+
 ---
 
 ## 6. Converting a pencil to firm
 
 - Only the **defender** (the contested pencil holder) may **convert to firm** during an open contest, not the challenger.
 - A booking that is only **Queued** cannot be converted until it is an active pencil in the right state; the app enforces this.
+- A booking flagged as **active challenger** shows **Convert to Firm** as disabled; the user must wait for current contention steps to resolve.
 - Conversion requires an **authorization document** upload (handled through the system).
-- When the defender converts, overlapping **challenger** and **queued** pencils that **overlap the new firm window** are **displaced** (see **Section 7**), not merely cancelled as an informal duplicate. Non-overlapping queued slots may be released back to normal pencils.
+- When the defender converts, the open contest is **closed** and the **challenger** and **waitlisted** pencils are returned to normal **penciled** flow (they may re-enter contention with each other if their slots still overlap). They are **not** marked **Displaced** at that moment.
 
-After conversion, the firm booking is **Pending approval** until staff act.
+After conversion, the firm booking is **Pending approval** until staff act. **If you approve** that firm, overlapping pencils (including former challenger and queue members in that window) are then **displaced**, same as for any other approved firm (**Section 7**). **If you deny** it, those users keep their pencils as active holds (unless something else applies, such as expiry).
 
 ---
 
@@ -87,8 +97,8 @@ After conversion, the firm booking is **Pending approval** until staff act.
 
 **Displacement** means a pencil (or queued slot) **loses the slot** because a **firm** booking **takes priority**:
 
-- When staff **approve** a firm booking, any **active pencil** (or queued item) that **overlaps** that firm’s time on the same resource is marked **Displaced** and linked to the firm booking that caused it.
-- The same displacement idea applies when a **defender converts** to firm: overlapping challenger/queue pencils are **displaced** toward the new firm row.
+- When staff **approve** a firm booking, any **active pencil** (or queued item) that **overlaps** that firm’s time on the same resource is marked **Displaced** and linked to the firm booking that caused it. This is the **only** moment those users are displaced for that firm—including when the firm started as a **defender convert-to-firm** from a contention episode.
+- Submitting or converting to a firm in **Pending approval** does **not** by itself displace other users’ pencils; it only requests the slot until you approve.
 
 **Displaced** is a **terminal** outcome for that pencil row (like cancelled or expired): it stops competing for the slot.
 
@@ -135,7 +145,7 @@ If an **approved firm** is cancelled, users whose bookings were **displaced** by
 | **Denied** | Firm request rejected by staff. |
 | **Cancelled** | User or staff cancelled an active booking. |
 | **Expired** | Pencil ran past its expiry time or lost via automated contention/expiry paths. |
-| **Displaced** | Pencil removed in favor of an overlapping **firm** (approved path or defender conversion). |
+| **Displaced** | Pencil removed in favor of an overlapping **approved** **firm** (includes firms that were converted from pencil and then approved). |
 
 ---
 
@@ -143,7 +153,7 @@ If an **approved firm** is cancelled, users whose bookings were **displaced** by
 
 1. **Approvals tab:** Work **firm** bookings in *Pending approval*. Check authorization documentation per facility policy.
 2. **Do not** expect to “resolve” pencil–pencil overlaps manually; explain the **timer** and **defender / challenger** roles if users ask.
-3. **Explain displacement** when users are bumped after your **approval** of someone else’s firm booking.
+3. **Explain displacement** when users are bumped: it happens on your **approval** of a firm (including one that came from **convert-to-firm** after a contest), not when the request is only pending.
 4. **24-hour rule:** Remind users they cannot **create** last-minute bookings or **cancel approved/pending firms** right before the slot.
 5. If the database is **re-seeded** or reset for demos, everyone may need to **log in again**; old sessions can stop working.
 
