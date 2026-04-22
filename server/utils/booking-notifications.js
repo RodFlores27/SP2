@@ -77,6 +77,7 @@ async function notifyBookingCreated(booking, resourceName) {
   } else {
     statusNote = `<p style="background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:12px;font-size:14px;color:#78350f;">
       ⏳ Your firm booking has been submitted and is <strong>pending staff approval</strong>.
+      Staff must approve it <strong>at least 24 hours before</strong> the scheduled start. If it is still pending inside that window, it will expire automatically.
     </p>`;
   }
 
@@ -170,21 +171,28 @@ async function notifyBookingCancelled(booking, resourceName, cancelledBy) {
 }
 
 /**
- * booking.expired — sent to the booking owner when a pencil booking auto-expires.
+ * booking.expired — auto-expired pencil (lifetime) or firm pending (missed staff approval deadline).
  */
 async function notifyBookingExpired(booking, resourceName) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
-  const html = baseEmailWrapper(
-    'Pencil Booking Expired',
-    `<p>Your pencil booking has <strong style="color:#dc2626;">expired</strong> because it was not converted to a firm booking in time.</p>
+  const isFirm = booking.bookingType === 'firm';
+  const title = isFirm ? 'Firm Request Expired' : 'Pencil Booking Expired';
+  const body = isFirm
+    ? `<p>Your <strong>firm</strong> booking request has <strong style="color:#dc2626;">expired</strong> because staff did not approve it at least <strong>24 hours before</strong> the scheduled start.</p>
     ${bookingDetailsBlock(booking, resourceName)}
     <p style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-size:14px;color:#991b1b;">
-      Pencil bookings must be converted to firm bookings within 3 days of creation. This booking has been automatically expired.
-    </p>
-    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">Create a new booking →</a></p>`
-  );
+      Submit a new request with enough lead time for staff review if you still need the slot.
+    </p>`
+    : `<p>Your pencil booking has <strong style="color:#dc2626;">expired</strong> because it was not converted to a firm booking in time.</p>
+    ${bookingDetailsBlock(booking, resourceName)}
+    <p style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-size:14px;color:#991b1b;">
+      Pencil bookings must be converted to firm bookings within 3 days of creation (and before other pencil expiry rules). This booking has been automatically expired.
+    </p>`;
+
+  const html = baseEmailWrapper(title, `${body}
+    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">Create a new booking →</a></p>`);
 
   await sendEmail({
     to: recipientEmail,

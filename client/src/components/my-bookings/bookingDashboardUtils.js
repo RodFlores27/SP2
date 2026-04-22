@@ -26,38 +26,39 @@ export function formatStatusLabel(status) {
     .join(' ');
 }
 
+/** Same 24h pre-start boundary as the server (lock window for create / firm cancel / firm approval deadline). */
+export function isWithinStartLockWindow(startTime, nowMs = Date.now()) {
+  const hoursUntilStart = (new Date(startTime).getTime() - nowMs) / (1000 * 60 * 60);
+  return hoursUntilStart <= 24;
+}
+
 export function isCancellable(booking) {
   if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) return false;
   if (
     booking.bookingType === 'firm' &&
     ['pending_approval', 'approved'].includes(booking.status)
   ) {
-    const hoursUntilStart = (new Date(booking.startTime) - new Date()) / (1000 * 60 * 60);
-    return hoursUntilStart > 24;
+    return new Date(booking.startTime) > new Date();
   }
   return true;
 }
 
 /**
  * When a firm booking can’t be cancelled, explains why (for disabled Cancel UI).
- * Pencil bookings are not returned here (they use expiry rules, not the 24h firm window).
+ * Pencil bookings are not returned here.
  *
- * @returns {'within_24h'|'started_or_past'|null}
+ * @returns {'started_or_past'|null}
  */
 export function getFirmCancelBlockedReason(booking) {
   if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) return null;
   if (booking.bookingType !== 'firm') return null;
   if (!['pending_approval', 'approved'].includes(booking.status)) return null;
   if (isCancellable(booking)) return null;
-  const hoursUntilStart = (new Date(booking.startTime) - Date.now()) / (1000 * 60 * 60);
-  return hoursUntilStart > 0 ? 'within_24h' : 'started_or_past';
+  return 'started_or_past';
 }
 
 /** Human-readable explanation for firm cancel blocked reasons (tooltip / aria-label). */
 export function getFirmCancelBlockedMessage(reason) {
-  if (reason === 'within_24h') {
-    return 'Firm bookings can’t be cancelled when the start time is less than 24 hours away.';
-  }
   if (reason === 'started_or_past') {
     return 'The start time has passed; this booking can’t be cancelled here.';
   }

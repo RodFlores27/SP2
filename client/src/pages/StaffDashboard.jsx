@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { BookingStatusBadge } from '@/components/BookingStatusBadge';
 import { AuthorizationDocButton } from '@/components/my-bookings/AuthorizationDocButton';
+import { isWithinStartLockWindow } from '@/components/my-bookings/bookingDashboardUtils';
 import {
   AlertTriangle,
   CalendarDays,
@@ -613,6 +614,10 @@ function ApprovalCard({
   actionLoading,
 }) {
   const isLoading = (action) => actionLoading === booking.id + action;
+  const firmApprovePastDeadline =
+    booking.bookingType === 'firm' &&
+    booking.status === 'pending_approval' &&
+    isWithinStartLockWindow(booking.startTime);
   const previousAttempts = getPreviousAttempts(booking);
   const rebookChanges = getRebookChangeItems(booking);
   const isRebookAttempt = Boolean(booking.rebookedFromBookingId);
@@ -755,6 +760,16 @@ function ApprovalCard({
                 )}
               </div>
             )}
+            {firmApprovePastDeadline && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+                <p className="font-medium">Approval deadline passed</p>
+                <p className="text-xs text-amber-900 mt-1">
+                  This start time is within 24 hours. Firm requests must be approved at least 24 hours before start;
+                  Approve is disabled. The request will show as expired after the next system check, or you can still
+                  Deny to close it out.
+                </p>
+              </div>
+            )}
             <div>
               <label className="text-sm font-medium block mb-1">
                 Staff Remark{' '}
@@ -773,7 +788,7 @@ function ApprovalCard({
                 size="sm"
                 className="bg-green-600 hover:bg-green-700 text-white"
                 onClick={onApprove}
-                disabled={isLoading('approve') || isLoading('deny')}
+                disabled={firmApprovePastDeadline || isLoading('approve') || isLoading('deny')}
               >
                 <CheckCircle className="h-4 w-4 mr-1" />
                 {isLoading('approve') ? 'Approving...' : 'Approve'}

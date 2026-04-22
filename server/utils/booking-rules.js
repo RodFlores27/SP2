@@ -20,7 +20,7 @@ function isWithinLockHours(startTime, now = new Date()) {
 function assertStartNotWithinLockHours(startTime, now = new Date()) {
   if (isWithinLockHours(startTime, now)) {
     const err = new Error(
-      'Bookings cannot be created or cancelled within 24 hours of the scheduled start time.'
+      'This schedule is within 24 hours of the start time. New bookings, firm convert-to-firm, and firm staff approval are not allowed in this window.'
     );
     err.code = 'BOOKING_LOCK_WINDOW';
     err.statusCode = 400;

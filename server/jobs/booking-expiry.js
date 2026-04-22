@@ -13,7 +13,10 @@ const {
   notifyBookingExpired,
   notifyBookingExpiringSoon
 } = require('../utils/booking-notifications');
+const { LOCK_HOURS, isWithinLockHours } = require('../utils/booking-rules');
 const contention = require('../services/contention.service');
+
+const MS_HOUR = 60 * 60 * 1000;
 
 const PENCIL_WARN_STATUSES = ['penciled', 'contested', 'queued'];
 
@@ -71,6 +74,54 @@ cron.schedule('*/15 * * * *', async () => {
     );
     if (completedFirms > 0) {
       console.log(`[cron:expire] Marked ${completedFirms} approved firm booking(s) as completed (past endTime)`);
+    }
+
+    const firmApprovalLockHorizon = new Date(now.getTime() + LOCK_HOURS * MS_HOUR);
+    const firmPendingPastApprovalDeadline = await Booking.findAll({
+      where: {
+        bookingType: 'firm',
+        status: 'pending_approval',
+        startTime: { [Op.lte]: firmApprovalLockHorizon }
+      },
+      include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+    });
+
+    if (firmPendingPastApprovalDeadline.length > 0) {
+      console.log(
+        `[cron:expire] Expiring ${firmPendingPastApprovalDeadline.length} firm pending_approval booking(s) (not approved before 24h pre-start deadline)`
+      );
+    }
+
+    for (const booking of firmPendingPastApprovalDeadline) {
+      await sequelize.transaction(async (t) => {
+        const b = await Booking.findByPk(booking.id, {
+          transaction: t,
+          lock: t.LOCK.UPDATE
+        });
+        if (!b || b.bookingType !== 'firm' || b.status !== 'pending_approval') return;
+        if (!isWithinLockHours(b.startTime, now)) return;
+
+        b.status = 'expired';
+        b.staffRemark =
+          b.staffRemark ||
+          'Expired: firm request was not approved at least 24 hours before the scheduled start';
+        await b.save({ transaction: t });
+
+        await contention.onAwaitingFirmEpisodeRejected(b, {
+          transaction: t,
+          Booking,
+          ContentionEpisode,
+          ContentionQueueItem
+        });
+      });
+
+      const forNotify = await Booking.findByPk(booking.id, {
+        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+      });
+      if (forNotify?.status === 'expired') {
+        const resourceName = await resolveResourceName(forNotify.resourceType, forNotify.resourceId);
+        notifyBookingExpired(forNotify, resourceName).catch(() => {});
+      }
     }
 
     const expired = await Booking.findAll({

@@ -99,6 +99,7 @@ export default function BookingForm() {
   const [docError, setDocError] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
   const [pendingContentionConfirmation, setPendingContentionConfirmation] = useState(null);
+  const [firmPencilOverlapDetailsOpen, setFirmPencilOverlapDetailsOpen] = useState(false);
 
   // Format ISO string to datetime-local value
   const toDatetimeLocal = (isoString) => {
@@ -129,6 +130,12 @@ export default function BookingForm() {
   const watchedResourceType = form.watch('resourceType');
   const watchedResourceId = form.watch('resourceId');
   const watchedBookingType = form.watch('bookingType');
+
+  useEffect(() => {
+    if (watchedBookingType !== 'firm') {
+      setFirmPencilOverlapDetailsOpen(false);
+    }
+  }, [watchedBookingType]);
 
   const selectedResourceName = useMemo(() => {
     if (!watchedResourceId) return 'Resource';
@@ -623,12 +630,26 @@ export default function BookingForm() {
                       <Button
                         size="sm"
                         variant="outline"
+                        type="button"
                         onClick={() => {
                           clearConvertFirmSuccessSession();
                           setSubmitSuccess(null);
                           setConflicts(null);
-                          form.reset();
+                          setSubmitError(null);
+                          setPendingConfirmation(null);
+                          setPendingContentionConfirmation(null);
                           setDocFile(null);
+                          setExistingDocUrl('');
+                          setDocError(null);
+                          form.reset({
+                            resourceType: '',
+                            resourceId: '',
+                            bookingType: 'pencil',
+                            startTime: '',
+                            endTime: '',
+                            purpose: '',
+                          });
+                          navigate('/bookings/new', { replace: true });
                         }}
                       >
                         Create Another Booking
@@ -938,12 +959,58 @@ export default function BookingForm() {
                         </button>
                       </div>
                       {field.value === 'firm' && (
-                        <div className="flex items-start gap-2 mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                          <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                          <p className="text-sm text-blue-700">
-                            Firm bookings cannot overlap other firm bookings. They may overlap pencil bookings —
-                            overlapping pencils are displaced only after staff approves your request.
-                          </p>
+                        <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-3">
+                          <div className="flex items-start gap-2.5">
+                            <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" aria-hidden />
+                            <div className="min-w-0 flex-1 space-y-2 text-sm text-blue-900">
+                              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+                                <p className="min-w-0 flex-1 text-blue-800">
+                                  Firm bookings cannot overlap other firm bookings. They can overlap pencil
+                                  bookings; what happens depends on whose pencil it is.
+                                </p>
+                                <button
+                                  type="button"
+                                  id="firm-pencil-overlap-details-trigger"
+                                  className="shrink-0 text-xs font-medium text-blue-700/90 underline decoration-blue-400/50 underline-offset-2 transition-colors hover:text-blue-900 hover:decoration-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 rounded-sm"
+                                  aria-expanded={firmPencilOverlapDetailsOpen}
+                                  aria-controls="firm-pencil-overlap-details"
+                                  onClick={() =>
+                                    setFirmPencilOverlapDetailsOpen((open) => !open)
+                                  }
+                                >
+                                  {firmPencilOverlapDetailsOpen ? 'Hide details' : 'Show details'}
+                                </button>
+                              </div>
+                              {firmPencilOverlapDetailsOpen && (
+                                <div
+                                  id="firm-pencil-overlap-details"
+                                  className="rounded-md border border-blue-100/80 bg-white/60 px-3 py-2.5"
+                                  role="region"
+                                  aria-labelledby="firm-pencil-overlap-details-trigger"
+                                >
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-950">
+                                    If overlapping pencils
+                                  </p>
+                                  <dl className="mt-2 space-y-2.5">
+                                    <div>
+                                      <dt className="font-medium text-blue-950">Your own pencils</dt>
+                                      <dd className="mt-0.5 text-blue-800">
+                                        Overlapping pencils are cancelled when your firm booking is submitted.
+                                      </dd>
+                                    </div>
+                                    <div>
+                                      <dt className="font-medium text-blue-950">Other users&apos; pencils</dt>
+                                      <dd className="mt-0.5 text-blue-800">
+                                        Their pencils remain but inactive. Once staff approves your request, those pencils will be displaced. If you
+                                        cancel, displaced users are notified
+                                        immediately, in which they can rebook.
+                                      </dd>
+                                    </div>
+                                  </dl>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       )}
                       <FormMessage />

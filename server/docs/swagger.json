@@ -1175,7 +1175,7 @@
       "post": {
         "tags": ["Bookings"],
         "summary": "Create a new booking",
-        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention plus expectedWillBeQueued matching the prior 409 when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings cannot start within 24 hours of creation.",
+        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention plus expectedWillBeQueued matching the prior 409 when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings cannot start within 24 hours of now. Firm pending requests must be staff-approved before that same 24-hour cutoff or they expire automatically.",
         "operationId": "createBooking",
         "security": [
           {
@@ -1492,7 +1492,7 @@
       "patch": {
         "tags": ["Bookings"],
         "summary": "Cancel a booking",
-        "description": "Cancels a booking. Users can cancel their own bookings (including approved bookings), staff can cancel any booking. Cannot cancel bookings within 24 hours of start time.",
+        "description": "Cancels a booking. Users can cancel their own bookings; staff can cancel any booking. Firm bookings in pending_approval or approved are cancellable anytime before start (including within 24 hours).",
         "operationId": "cancelBooking",
         "security": [
           {
@@ -1739,7 +1739,7 @@
       "patch": {
         "tags": ["Bookings"],
         "summary": "Approve a booking (Staff only)",
-        "description": "Approves a firm booking in pending_approval only. Overlapping pencil bookings become displaced (automated). Staff and system_admin only. Optional staff remark.",
+        "description": "Approves a firm booking in pending_approval only. Approve is rejected once the start time is within 24 hours (same lock as create/cancel/convert). Overlapping pencil bookings become displaced (automated). Staff and system_admin only. Optional staff remark.",
         "operationId": "approveBooking",
         "security": [
           {
@@ -1796,14 +1796,26 @@
             }
           },
           "400": {
-            "description": "Bad request - Cannot approve booking",
+            "description": "Bad request - Cannot approve booking (wrong status, or start within 24h / FIRM_APPROVAL_LOCK_WINDOW)",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
                 },
-                "example": {
-                  "error": "Cannot approve booking with status: approved. Only firm bookings in pending_approval can be approved."
+                "examples": {
+                  "wrongStatus": {
+                    "summary": "Not pending",
+                    "value": {
+                      "error": "Cannot approve booking with status: approved. Only firm bookings awaiting staff approval can be approved."
+                    }
+                  },
+                  "pastApprovalDeadline": {
+                    "summary": "Inside 24h pre-start",
+                    "value": {
+                      "error": "This firm booking can no longer be approved: the scheduled start is within 24 hours. Staff must approve at least 24 hours before start; otherwise the request expires automatically.",
+                      "code": "FIRM_APPROVAL_LOCK_WINDOW"
+                    }
+                  }
                 }
               }
             }
@@ -2808,6 +2820,22 @@
           "contentionChallenger": {
             "type": "boolean",
             "description": "True when this booking is the challenger on an open ContentionEpisode and the episode defender is still a contested pencil (active timer). False when the defender is already a firm booking (pending_approval/approved) or the episode is awaiting_firm — calendar uses plain penciled styling in those cases."
+          },
+          "contentionEpisodeId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "When this booking participates in an open contention episode (defender, challenger, or queued), the ContentionEpisode id. Omitted when not in an active episode."
+          },
+          "contentionRole": {
+            "type": "string",
+            "enum": ["defender", "challenger", "queued"],
+            "nullable": true,
+            "description": "Role within the contention episode for calendar ordering (defender = contested holder, challenger = active pencil challenger, queued = waitlist)."
+          },
+          "contentionQueuePosition": {
+            "type": "integer",
+            "nullable": true,
+            "description": "1-based waitlist position when contentionRole is queued; otherwise null or omitted."
           }
         }
       },

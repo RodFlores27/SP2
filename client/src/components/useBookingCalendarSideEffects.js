@@ -31,6 +31,13 @@ export function useBookingCalendarSideEffects({
   const monthTooltipHoverIdRef = useRef(null);
   const monthTooltipPendingPosRef = useRef({ x: 0, y: 0, text: '' });
 
+  const resolveBookingIdFromNode = (node) => {
+    if (!(node instanceof Element)) return null;
+    const withData = node.closest?.('[data-booking-id]');
+    const raw = withData?.getAttribute('data-booking-id');
+    return raw != null && raw !== '' ? raw : null;
+  };
+
   const armSlotSuppressAfterPointer = () => {
     suppressNextSlotSelectRef.current = true;
     if (suppressSlotSelectResetTimeoutRef.current != null) {
@@ -137,6 +144,8 @@ export function useBookingCalendarSideEffects({
     const onPointerDownCapture = (e) => {
       if (currentView !== 'month') return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const t = e.target;
+      if (t instanceof Element && t.closest?.('.ptcf-agg-expand-btn')) return;
 
       const { clientX, clientY } = e;
       if (typeof clientX !== 'number' || typeof clientY !== 'number') return;
@@ -195,22 +204,25 @@ export function useBookingCalendarSideEffects({
       setMonthBookingTooltip(null);
     };
 
+    const isRbcOverlayEvent = (el) =>
+      el instanceof Element && Boolean(el.closest('.rbc-overlay'));
+
+    const isCalendarEventNode = (el) =>
+      el instanceof Element && (host.contains(el) || isRbcOverlayEvent(el));
+
     const findEventUnderPoint = (clientX, clientY) => {
       const stack = document.elementsFromPoint(clientX, clientY);
       for (const node of stack) {
-        if (!(node instanceof Element) || !host.contains(node)) continue;
-        if (node.closest?.('.rbc-overlay')) return null;
+        if (!(node instanceof Element)) continue;
         const ev = node.classList.contains('rbc-event')
           ? node
           : node.closest?.('.rbc-event');
-        if (ev && host.contains(ev)) return ev;
+        if (ev && isCalendarEventNode(ev)) return ev;
       }
-      const topEl = document.elementFromPoint(clientX, clientY);
-      if (topEl instanceof Element && topEl.closest?.('.rbc-overlay')) return null;
 
-      const candidates = host.querySelectorAll('.rbc-event');
+      const candidates = document.querySelectorAll('.rbc-event');
       for (const ev of candidates) {
-        if (!(ev instanceof Element)) continue;
+        if (!(ev instanceof Element) || !isCalendarEventNode(ev)) continue;
         const r = ev.getBoundingClientRect();
         if (
           clientX >= r.left &&
@@ -233,7 +245,9 @@ export function useBookingCalendarSideEffects({
       }
 
       const shell = hit.closest?.('.rbc-ptcf-event-shell');
-      const rawId = shell?.getAttribute('data-booking-id');
+      const rawId =
+        shell?.getAttribute('data-booking-id') ??
+        resolveBookingIdFromNode(hit);
       const calEvent = rawId != null ? events.find((ev) => String(ev.id) === rawId) : null;
       const text = formatBookingHoverDetail(calEvent);
       if (!text || rawId == null || rawId === '') {
@@ -275,17 +289,17 @@ export function useBookingCalendarSideEffects({
       });
     };
 
-    const onLeave = () => clearTooltip();
+    const onDocPointerMove = (e) => {
+      scheduleUpdate(e);
+    };
 
-    host.addEventListener('pointermove', scheduleUpdate);
-    host.addEventListener('pointerleave', onLeave);
     host.addEventListener('scroll', clearTooltip, true);
+    document.addEventListener('pointermove', onDocPointerMove);
 
     return () => {
       if (monthTooltipRafRef.current != null) cancelAnimationFrame(monthTooltipRafRef.current);
-      host.removeEventListener('pointermove', scheduleUpdate);
-      host.removeEventListener('pointerleave', onLeave);
       host.removeEventListener('scroll', clearTooltip, true);
+      document.removeEventListener('pointermove', onDocPointerMove);
       clearTooltip();
     };
   }, [currentView, events]);

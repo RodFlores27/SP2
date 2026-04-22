@@ -489,7 +489,7 @@ const createBooking = async (req, res) => {
       if (otherPencilOverlaps.length > 0 && !confirmContention) {
         const openEpForSlot = await contention.findOpenEpisodeOverlappingSlot(
           { resourceType, resourceId, startTime: start, endTime: end },
-          { transaction: null, ContentionEpisode, Booking }
+          { transaction: null, ContentionEpisode, Booking, ContentionQueueItem }
         );
         const willBeQueued = Boolean(openEpForSlot);
         const contentionWaitlist = willBeQueued
@@ -589,7 +589,7 @@ const createBooking = async (req, res) => {
 
           const openEpLocked = await contention.findOpenEpisodeOverlappingSlot(
             { resourceType, resourceId, startTime: start, endTime: end },
-            { transaction: t, ContentionEpisode, Booking }
+            { transaction: t, ContentionEpisode, Booking, ContentionQueueItem }
           );
           const actualWillBeQueued = Boolean(openEpLocked);
           if (expectedWillBeQueued !== actualWillBeQueued) {
@@ -1002,10 +1002,10 @@ const cancelBooking = async (req, res) => {
     if (
       booking.bookingType === 'firm' &&
       ['pending_approval', 'approved'].includes(booking.status) &&
-      isWithinLockHours(booking.startTime)
+      new Date(booking.startTime) <= new Date()
     ) {
       return res.status(400).json({
-        error: 'Firm bookings cannot be cancelled within 24 hours of the scheduled start time.'
+        error: 'Firm bookings cannot be cancelled once the scheduled start time has begun or passed.'
       });
     }
 
@@ -1079,6 +1079,15 @@ const convertToFirm = async (req, res) => {
       return res.status(400).json({
         error: `Cannot convert ${booking.status} booking to firm`
       });
+    }
+
+    try {
+      assertStartNotWithinLockHours(booking.startTime);
+    } catch (lockErr) {
+      if (lockErr.statusCode) {
+        return res.status(lockErr.statusCode).json({ error: lockErr.message, code: lockErr.code });
+      }
+      throw lockErr;
     }
 
     if (booking.status === 'queued') {
@@ -1219,7 +1228,7 @@ const approveBooking = async (req, res) => {
     const approverUserId = req.user.id;
 
     const booking = await Booking.findByPk(id, {
-      attributes: ['id', 'status', 'bookingType']
+      attributes: ['id', 'status', 'bookingType', 'startTime']
     });
 
     if (!booking) {
@@ -1229,6 +1238,14 @@ const approveBooking = async (req, res) => {
     if (booking.bookingType !== 'firm' || booking.status !== 'pending_approval') {
       return res.status(400).json({
         error: `Cannot approve booking with status: ${booking.status}. Only firm bookings awaiting staff approval can be approved.`
+      });
+    }
+
+    if (isWithinLockHours(booking.startTime)) {
+      return res.status(400).json({
+        error:
+          'This firm booking can no longer be approved: the scheduled start is within 24 hours. Staff must approve at least 24 hours before start; otherwise the request expires automatically.',
+        code: 'FIRM_APPROVAL_LOCK_WINDOW'
       });
     }
 
@@ -1429,6 +1446,7 @@ const getAvailability = async (req, res) => {
     });
 
     const challengerIdSet = new Set();
+    const activeEpisodes = [];
     if (bookings.length > 0) {
       // Calendar "contesting" color only while the contention timer is active (open).
       // awaiting_firm freezes the line — challenger stays a normal grey pencil until approve/deny/cancel.
@@ -1452,7 +1470,7 @@ const getAvailability = async (req, res) => {
 
       const episodes = await ContentionEpisode.findAll({
         where: episodeWhere,
-        attributes: ['challengerBookingId'],
+        attributes: ['id', 'challengerBookingId', 'defenderBookingId'],
         include: [
           {
             model: Booking,
@@ -1473,15 +1491,54 @@ const getAvailability = async (req, res) => {
         ) {
           continue;
         }
+        activeEpisodes.push(ep);
         challengerIdSet.add(ep.challengerBookingId);
       }
     }
 
+    const episodeIds = activeEpisodes.map((e) => e.id);
+    const queueRows =
+      episodeIds.length > 0
+        ? await ContentionQueueItem.findAll({
+            where: { episodeId: { [Op.in]: episodeIds } },
+            attributes: ['episodeId', 'bookingId', 'position']
+          })
+        : [];
+
+    const contentionByBookingId = new Map();
+    for (const ep of activeEpisodes) {
+      contentionByBookingId.set(ep.defenderBookingId, {
+        contentionEpisodeId: ep.id,
+        contentionRole: 'defender',
+        contentionQueuePosition: null
+      });
+      contentionByBookingId.set(ep.challengerBookingId, {
+        contentionEpisodeId: ep.id,
+        contentionRole: 'challenger',
+        contentionQueuePosition: null
+      });
+    }
+    for (const q of queueRows) {
+      contentionByBookingId.set(q.bookingId, {
+        contentionEpisodeId: q.episodeId,
+        contentionRole: 'queued',
+        contentionQueuePosition: q.position
+      });
+    }
+
     const payload = bookings.map((b) => {
       const row = b.get({ plain: true });
+      const meta = contentionByBookingId.get(b.id);
       return {
         ...row,
-        contentionChallenger: challengerIdSet.has(b.id)
+        contentionChallenger: challengerIdSet.has(b.id),
+        ...(meta
+          ? {
+              contentionEpisodeId: meta.contentionEpisodeId,
+              contentionRole: meta.contentionRole,
+              contentionQueuePosition: meta.contentionQueuePosition
+            }
+          : {})
       };
     });
 

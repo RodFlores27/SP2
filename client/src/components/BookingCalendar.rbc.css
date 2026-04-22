@@ -119,6 +119,13 @@
 [data-selectable='true'] .rbc-month-view .rbc-month-row .rbc-row-content .rbc-show-more {
   pointer-events: auto;
 }
+/* Month contention group: expand control must receive clicks above selectable day cells */
+[data-selectable='true'] .rbc-month-view .ptcf-agg-expand-btn {
+  pointer-events: auto;
+}
+.rbc-month-view .ptcf-agg-expand-btn {
+  pointer-events: auto;
+}
 [data-selectable='true'] .rbc-month-view .rbc-day-bg {
   cursor: pointer;
 }

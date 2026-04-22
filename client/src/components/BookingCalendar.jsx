@@ -1,10 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import {
+  useState,
+  useEffect,
+  useLayoutEffect,
+  useCallback,
+  useRef,
+  createContext,
+  useContext,
+} from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, isToday } from 'date-fns';
 import { enUS } from 'date-fns/locale';
+import { Layers2 } from 'lucide-react';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '@/components/BookingCalendar.rbc.css';
-import { suppressNativeEventTooltip } from '@/components/bookingCalendarUtils';
+import {
+  suppressNativeEventTooltip,
+  CALENDAR_STATUS_STYLES,
+  CALENDAR_STATUS_PRIORITY,
+  toCalendarStatus,
+  buildAggregateMemberRows,
+} from '@/components/bookingCalendarUtils';
 import { formatCalendarEventTimeRange } from '@/lib/formatBookingDateRange';
 import { useBookingCalendarSideEffects } from '@/components/useBookingCalendarSideEffects';
 
@@ -18,53 +33,269 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-const STATUS_STYLES = {
-  approved: {
-    backgroundColor: '#22c55e',
-    borderColor: '#16a34a',
-    color: '#fff',
-  },
-  pending_approval: {
-    backgroundColor: '#eab308',
-    borderColor: '#ca8a04',
-    color: '#000',
-    borderStyle: 'dashed',
-  },
-  penciled: {
-    backgroundColor: '#d1d5db',
-    borderColor: '#9ca3af',
-    color: '#374151',
-  },
-  /** Active challenger in an open contention episode (DB status is still penciled). */
-  contesting: {
-    backgroundColor: '#0ea5e9',
-    borderColor: '#0284c7',
-    color: '#fff',
-  },
-  contested: {
-    backgroundColor: '#fb923c',
-    borderColor: '#ea580c',
-    color: '#fff',
-  },
-  /** Match dashboard queued (violet-100 / violet-800) — distinct from contesting blue. */
-  queued: {
-    backgroundColor: '#ede9fe',
-    borderColor: '#a78bfa',
-    color: '#5b21b6',
-  },
-  completed: {
-    backgroundColor: '#a7f3d0',
-    borderColor: '#34d399',
-    color: '#064e3b',
-  },
-  displaced: {
-    backgroundColor: '#94a3b8',
-    borderColor: '#64748b',
-    color: '#fff',
-  },
-};
-
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+
+const BookingCalendarUiContext = createContext(null);
+
+function ContentionOverlapFlyout({ panel, onClose }) {
+  const panelRef = useRef(null);
+  const [placement, setPlacement] = useState(null);
+
+  useLayoutEffect(() => {
+    if (panel == null) return undefined;
+
+    const margin = 6;
+    const pad = 8;
+
+    const place = () => {
+      const el = panelRef.current;
+      if (!el) return;
+
+      const { left: triggerLeft, triggerTop, triggerBottom } = panel;
+      const rect = el.getBoundingClientRect();
+      const h = rect.height;
+      const w = rect.width;
+      const vh = window.innerHeight;
+      const vw = window.innerWidth;
+
+      let top = triggerBottom + margin;
+      if (top + h > vh - pad) {
+        const aboveTop = triggerTop - h - margin;
+        if (aboveTop >= pad) {
+          top = aboveTop;
+        } else {
+          top = Math.max(pad, vh - pad - h);
+        }
+      }
+
+      const leftPos = Math.min(Math.max(pad, triggerLeft), vw - w - pad);
+
+      setPlacement({ left: leftPos, top });
+    };
+
+    place();
+    window.addEventListener('resize', place);
+    return () => window.removeEventListener('resize', place);
+  }, [panel]);
+
+  if (panel == null) return null;
+
+  const { resourceName, members, left: triggerLeft, triggerBottom } = panel;
+  const styleLeft = placement?.left ?? triggerLeft;
+  const styleTop = placement?.top ?? triggerBottom + 6;
+
+  return (
+    <div
+      ref={panelRef}
+      className="ptcf-contention-overlap-panel fixed z-[110] w-[min(22rem,calc(100vw-1rem))] max-h-[min(24rem,calc(100vh-1rem))] flex flex-col rounded-md border border-border bg-popover p-3 text-popover-foreground shadow-lg"
+      style={{
+        left: styleLeft,
+        top: styleTop,
+      }}
+      role="dialog"
+      aria-label="Contention overlaps"
+    >
+      <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border pb-2 mb-2">
+        <div>
+          <p className="text-xs font-semibold text-foreground">Active overlaps</p>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            {resourceName ? `${resourceName} · queue order` : 'Queue order'}
+          </p>
+        </div>
+        <button
+          type="button"
+          className="text-[11px] text-muted-foreground hover:text-foreground shrink-0"
+          onClick={onClose}
+        >
+          Close
+        </button>
+      </div>
+      <ul className="min-h-0 max-h-64 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden pr-0.5">
+        {members.map((row, idx) => {
+          const st = CALENDAR_STATUS_STYLES[row.calendarStatus] || CALENDAR_STATUS_STYLES.penciled;
+          return (
+            <li
+              key={`${row.bookingId}-${idx}`}
+              className="flex gap-2 rounded border border-border/80 bg-muted/30 px-2 py-1.5 text-[11px] leading-snug"
+            >
+              <span
+                className="mt-0.5 h-3 w-3 shrink-0 rounded-sm border-2"
+                style={{
+                  backgroundColor: st.backgroundColor,
+                  borderColor: st.borderColor,
+                }}
+                aria-hidden
+              />
+              <div className="min-w-0 flex-1">
+                <div className="font-medium text-foreground">
+                  #{row.bookingId}{' '}
+                  <span className="font-normal text-muted-foreground">· {row.roleLabel}</span>
+                </div>
+                <div className="text-muted-foreground">{row.timeRange}</div>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
+function BookingEventLabel({ event, title }) {
+  const ui = useContext(BookingCalendarUiContext);
+  const id = event?.id;
+  const members = event?.resource?.aggregateMembers;
+  const isAgg = Array.isArray(members) && members.length > 0;
+  const showExpand = isAgg && ui?.currentView === 'month';
+
+  return (
+    <span
+      className="inline-flex max-w-full min-w-0 items-center gap-0.5"
+      {...(id != null ? { 'data-booking-id': String(id) } : {})}
+    >
+      <span className="min-w-0 truncate">{title}</span>
+      {showExpand && (
+        <button
+          type="button"
+          className="ptcf-agg-expand-btn inline-flex shrink-0 items-center justify-center rounded p-0.5 text-current hover:bg-black/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+          aria-label="Show or hide overlapping contention bookings in queue order"
+          aria-expanded={ui.overlapAggregateKey === String(id)}
+          title="Show or hide overlaps (queue order)"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            const rect = e.currentTarget.getBoundingClientRect();
+            ui.toggleOverlapPanel({
+              aggregateKey: String(id),
+              left: rect.left,
+              triggerTop: rect.top,
+              triggerBottom: rect.bottom,
+              resourceName: event.resource?.resourceName ?? '',
+              members,
+            });
+          }}
+        >
+          <Layers2 className="h-3 w-3" aria-hidden />
+        </button>
+      )}
+    </span>
+  );
+}
+
+function toBaseCalendarEvent(booking, resourceName, resourceStatus) {
+  const timeRange = formatCalendarEventTimeRange(booking.startTime, booking.endTime);
+  const title = `#${booking.id} ${timeRange} [${resourceName}]`;
+  return {
+    id: booking.id,
+    title,
+    start: new Date(booking.startTime),
+    end: new Date(booking.endTime),
+    resource: {
+      ...booking,
+      resourceName,
+      resourceStatus,
+    },
+  };
+}
+
+function groupContendedMonthEvents(events) {
+  const byResource = new Map();
+  for (const ev of events) {
+    const key = `${ev.resource.resourceType}:${ev.resource.resourceId}`;
+    if (!byResource.has(key)) byResource.set(key, []);
+    byResource.get(key).push(ev);
+  }
+
+  const output = [];
+  for (const resourceEvents of byResource.values()) {
+    const sorted = [...resourceEvents].sort(
+      (a, b) => a.start - b.start || a.end - b.end || Number(a.id) - Number(b.id)
+    );
+
+    /** @type {Array<Array<any>>} */
+    const clusters = [];
+    let currentCluster = [];
+    let currentClusterEnd = null;
+    for (const ev of sorted) {
+      if (!currentCluster.length) {
+        currentCluster = [ev];
+        currentClusterEnd = ev.end;
+        continue;
+      }
+      if (ev.start < currentClusterEnd) {
+        currentCluster.push(ev);
+        if (ev.end > currentClusterEnd) currentClusterEnd = ev.end;
+      } else {
+        clusters.push(currentCluster);
+        currentCluster = [ev];
+        currentClusterEnd = ev.end;
+      }
+    }
+    if (currentCluster.length) clusters.push(currentCluster);
+
+    for (const cluster of clusters) {
+      if (cluster.length < 2) {
+        output.push(cluster[0]);
+        continue;
+      }
+
+      const participants = cluster.filter((ev) => {
+        const st = toCalendarStatus(ev.resource);
+        return st === 'contested' || st === 'contesting' || st === 'queued';
+      });
+
+      // Aggregate only contention-heavy overlaps; keep other overlaps as individual events.
+      if (participants.length < 2) {
+        output.push(...cluster);
+        continue;
+      }
+
+      const challengerCount = cluster.filter((ev) => toCalendarStatus(ev.resource) === 'contesting').length;
+      const queuedCount = cluster.filter((ev) => toCalendarStatus(ev.resource) === 'queued').length;
+      const contestedCount = cluster.filter((ev) => toCalendarStatus(ev.resource) === 'contested').length;
+      const plainPencilCount = cluster.filter((ev) => {
+        const r = ev.resource;
+        return r.status === 'penciled' && !r.contentionChallenger;
+      }).length;
+
+      const representative = [...cluster].sort((a, b) => {
+        const pa = CALENDAR_STATUS_PRIORITY[toCalendarStatus(a.resource)] ?? 99;
+        const pb = CALENDAR_STATUS_PRIORITY[toCalendarStatus(b.resource)] ?? 99;
+        return pa - pb || a.start - b.start || Number(a.id) - Number(b.id);
+      })[0];
+
+      const clusterStart = new Date(Math.min(...cluster.map((ev) => ev.start.getTime())));
+      const clusterEnd = new Date(Math.max(...cluster.map((ev) => ev.end.getTime())));
+      const title = `${formatCalendarEventTimeRange(clusterStart, clusterEnd)} [${
+        representative.resource.resourceName
+      }] • Contention (${contestedCount}/${challengerCount}/${queuedCount})`;
+
+      const aggregateMembers = buildAggregateMemberRows(cluster);
+
+      output.push({
+        id: `agg-${representative.resource.resourceType}-${representative.resource.resourceId}-${clusterStart.getTime()}-${clusterEnd.getTime()}`,
+        title,
+        start: clusterStart,
+        end: clusterEnd,
+        resource: {
+          ...representative.resource,
+          aggregateSummary: {
+            total: cluster.length,
+            contestedCount,
+            challengerCount,
+            queuedCount,
+            plainPencilCount,
+          },
+          aggregateMembers,
+        },
+      });
+    }
+  }
+
+  return output.sort((a, b) => a.start - b.start || a.end - b.end || String(a.id).localeCompare(String(b.id)));
+}
 
 function recordsById(list) {
   return list.reduce((acc, item) => {
@@ -113,7 +344,31 @@ export function BookingCalendar({
   const [error, setError] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState('month');
+  const [overlapPanel, setOverlapPanel] = useState(null);
   const calendarHostRef = useRef(null);
+
+  const closeOverlapPanel = useCallback(() => setOverlapPanel(null), []);
+  const toggleOverlapPanel = useCallback((payload) => {
+    setOverlapPanel((prev) => {
+      if (prev && prev.aggregateKey === payload.aggregateKey) {
+        return null;
+      }
+      return payload;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (overlapPanel == null) return undefined;
+    const onDocMouseDown = (e) => {
+      const t = e.target;
+      if (!(t instanceof Element)) return;
+      if (t.closest?.('.ptcf-contention-overlap-panel')) return;
+      if (t.closest?.('.ptcf-agg-expand-btn')) return;
+      closeOverlapPanel();
+    };
+    document.addEventListener('mousedown', onDocMouseDown);
+    return () => document.removeEventListener('mousedown', onDocMouseDown);
+  }, [overlapPanel, closeOverlapPanel]);
 
   const {
     monthBookingTooltip,
@@ -176,7 +431,7 @@ export function BookingCalendar({
         }
       }
 
-      const calendarEvents = bookings.map((booking) => {
+      const baseEvents = bookings.map((booking) => {
         const resourceData =
           booking.resourceType === 'equipment'
             ? equipmentMap[booking.resourceId]
@@ -184,23 +439,11 @@ export function BookingCalendar({
         const resourceName =
           resourceData?.name || `${booking.resourceType} #${booking.resourceId}`;
         const resourceStatus = resourceData?.status || 'unknown';
-
-        const timeRange = formatCalendarEventTimeRange(booking.startTime, booking.endTime);
-        const title = `#${booking.id} ${timeRange} [${resourceName}]`;
-
-        return {
-          id: booking.id,
-          title,
-          start: new Date(booking.startTime),
-          end: new Date(booking.endTime),
-          resource: {
-            ...booking,
-            resourceName,
-            resourceStatus,
-          },
-        };
+        return toBaseCalendarEvent(booking, resourceName, resourceStatus);
       });
 
+      const calendarEvents =
+        currentView === 'month' ? groupContendedMonthEvents(baseEvents) : baseEvents;
       setEvents(calendarEvents);
     } catch (err) {
       console.error('Error fetching bookings:', err);
@@ -208,7 +451,7 @@ export function BookingCalendar({
     } finally {
       setLoading(false);
     }
-  }, [resourceType, resourceId]);
+  }, [resourceType, resourceId, currentView]);
 
   useEffect(() => {
     fetchBookings(currentDate);
@@ -220,6 +463,7 @@ export function BookingCalendar({
 
   const handleViewChange = (view) => {
     setCurrentView(view);
+    closeOverlapPanel();
   };
 
   const eventStyleGetter = (event) => {
@@ -227,7 +471,7 @@ export function BookingCalendar({
     const rawStatus = b?.status || 'penciled';
     const calendarStatus =
       rawStatus === 'penciled' && b?.contentionChallenger ? 'contesting' : rawStatus;
-    const styles = STATUS_STYLES[calendarStatus] || STATUS_STYLES.penciled;
+    const styles = CALENDAR_STATUS_STYLES[calendarStatus] || CALENDAR_STATUS_STYLES.penciled;
 
     return {
       style: {
@@ -276,95 +520,102 @@ export function BookingCalendar({
     );
   }
 
+  const uiContextValue = {
+    currentView,
+    toggleOverlapPanel,
+    closeOverlapPanel,
+    overlapAggregateKey: overlapPanel?.aggregateKey ?? null,
+  };
+
   return (
-    <div className="relative">
-      {loading && (
-        <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      )}
-
-      <div className="mb-4 flex flex-wrap gap-4 text-sm">
-        <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded" style={{ backgroundColor: '#22c55e' }}></span>
-          <span>Approved</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className="w-4 h-4 rounded border-2 border-dashed"
-            style={{ backgroundColor: '#eab308', borderColor: '#ca8a04' }}
-          ></span>
-          <span>Pending Approval</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#d1d5db' }}></span>
-          <span>Penciled</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#0ea5e9' }}></span>
-          <span>Contesting (challenger)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#fb923c' }}></span>
-          <span>Contested (defender)</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span
-            className="w-4 h-4 rounded border-2 opacity-70"
-            style={{ backgroundColor: '#ede9fe', borderColor: '#a78bfa' }}
-          ></span>
-          <span>Queued</span>
-        </div>
-      </div>
-
-      <div
-        ref={calendarHostRef}
-        data-selectable={onSelectSlot ? 'true' : undefined}
-        aria-describedby={ariaDescribedBy || undefined}
-      >
-        {monthBookingTooltip && (
-          <div
-            role="tooltip"
-            className="pointer-events-none fixed z-[100] max-w-md rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md whitespace-pre-line"
-            style={{
-              left: Math.min(
-                monthBookingTooltip.x + 14,
-                typeof window !== 'undefined' ? window.innerWidth - 340 : monthBookingTooltip.x
-              ),
-              top: monthBookingTooltip.y + 14,
-            }}
-          >
-            {monthBookingTooltip.text}
+    <BookingCalendarUiContext.Provider value={uiContextValue}>
+      <div className="relative">
+        {loading && (
+          <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         )}
-        <Calendar
-          localizer={localizer}
-          events={events}
-          date={currentDate}
-          view={currentView}
-          startAccessor="start"
-          endAccessor="end"
-          style={{ height }}
-          eventPropGetter={eventStyleGetter}
-          onNavigate={handleNavigate}
-          onView={handleViewChange}
-          onSelectEvent={handleSelectEvent}
-          onSelectSlot={handleSelectSlot}
-          onShowMore={handleShowMore}
-          selectable={!!onSelectSlot}
-          views={['month', 'week', 'day', 'agenda']}
-          components={{
-            eventWrapper: BookingEventShellWrapper,
-            month: {
-              dateHeader: MonthDateHeader,
-            },
-          }}
-          defaultView="month"
-          popup
-          tooltipAccessor={suppressNativeEventTooltip}
-        />
+
+        <div className="mb-4 flex flex-wrap gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="w-4 h-4 rounded" style={{ backgroundColor: '#22c55e' }}></span>
+            <span>Approved</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className="w-4 h-4 rounded border-2 border-dashed"
+              style={{ backgroundColor: '#eab308', borderColor: '#ca8a04' }}
+            ></span>
+            <span>Pending Approval</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#d1d5db' }}></span>
+            <span>Penciled</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className="w-4 h-4 rounded border-2 opacity-80"
+              style={{ backgroundColor: '#fb923c', borderColor: '#ea580c' }}
+            />
+            <span>Contention group</span>
+          </div>
+        </div>
+
+        <div
+          ref={calendarHostRef}
+          data-selectable={onSelectSlot ? 'true' : undefined}
+          aria-describedby={ariaDescribedBy || undefined}
+        >
+          {monthBookingTooltip && (
+            <div
+              role="tooltip"
+              className="pointer-events-none fixed z-[100] max-w-md rounded-md border border-border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-md whitespace-pre-line"
+              style={{
+                left: Math.min(
+                  monthBookingTooltip.x + 14,
+                  typeof window !== 'undefined' ? window.innerWidth - 340 : monthBookingTooltip.x
+                ),
+                top: monthBookingTooltip.y + 14,
+              }}
+            >
+              {monthBookingTooltip.text}
+            </div>
+          )}
+          <ContentionOverlapFlyout
+            key={overlapPanel ? overlapPanel.aggregateKey : 'closed'}
+            panel={overlapPanel}
+            onClose={closeOverlapPanel}
+          />
+          <Calendar
+            localizer={localizer}
+            events={events}
+            date={currentDate}
+            view={currentView}
+            startAccessor="start"
+            endAccessor="end"
+            style={{ height }}
+            eventPropGetter={eventStyleGetter}
+            onNavigate={handleNavigate}
+            onView={handleViewChange}
+            onSelectEvent={handleSelectEvent}
+            onSelectSlot={handleSelectSlot}
+            onShowMore={handleShowMore}
+            selectable={!!onSelectSlot}
+            views={['month', 'week', 'day', 'agenda']}
+            components={{
+              event: BookingEventLabel,
+              eventWrapper: BookingEventShellWrapper,
+              month: {
+                dateHeader: MonthDateHeader,
+              },
+            }}
+            defaultView="month"
+            popup
+            tooltipAccessor={suppressNativeEventTooltip}
+          />
+        </div>
       </div>
-    </div>
+    </BookingCalendarUiContext.Provider>
   );
 }
 

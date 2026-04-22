@@ -25,15 +25,35 @@ function pickDefenderBooking(overlapPencils) {
   )[0];
 }
 
+/**
+ * Find an open/awaiting_firm episode on this resource whose active pair *or* any queued booking
+ * overlaps the proposed slot. (Queued-only overlap must still join the existing episode, not open
+ * a new one with a queued row as defender.)
+ */
 async function findOpenEpisodeOverlappingSlot(
   { resourceType, resourceId, startTime, endTime },
-  { transaction, ContentionEpisode, Booking }
+  { transaction, ContentionEpisode, Booking, ContentionQueueItem }
 ) {
+  const queueInclude =
+    ContentionQueueItem != null
+      ? [
+          {
+            model: ContentionQueueItem,
+            as: 'queueItems',
+            required: false,
+            // Avoid one huge JOIN + FOR UPDATE edge cases on Postgres; episode rows stay locked above.
+            separate: true,
+            include: [{ model: Booking, as: 'booking', required: true }]
+          }
+        ]
+      : [];
+
   const episodes = await ContentionEpisode.findAll({
     where: { resourceType, resourceId, status: { [Op.in]: EPISODE_LOCK_STATUSES } },
     include: [
       { model: Booking, as: 'defenderBooking', required: true },
-      { model: Booking, as: 'challengerBooking', required: true }
+      { model: Booking, as: 'challengerBooking', required: true },
+      ...queueInclude
     ],
     transaction,
     // Serialize with other writers creating/closing episodes for this resource (contention confirm race).
@@ -49,6 +69,15 @@ async function findOpenEpisodeOverlappingSlot(
     const od = intervalsOverlap(d.startTime, d.endTime, s, e);
     const oc = intervalsOverlap(c.startTime, c.endTime, s, e);
     if (od || oc) return ep;
+
+    if (ContentionQueueItem && ep.queueItems?.length) {
+      for (const qi of ep.queueItems) {
+        const qb = qi.booking;
+        if (qb && intervalsOverlap(qb.startTime, qb.endTime, s, e)) {
+          return ep;
+        }
+      }
+    }
   }
   return null;
 }
@@ -352,7 +381,7 @@ async function tryAttachPencilToContention(
       startTime: pencilBooking.startTime,
       endTime: pencilBooking.endTime
     },
-    { transaction, ContentionEpisode, Booking }
+    { transaction, ContentionEpisode, Booking, ContentionQueueItem }
   );
 
   if (openEp) {
@@ -987,13 +1016,18 @@ async function onFirmBookingApproved(
 }
 
 /**
- * Staff denied a pending firm that was freezing a contention line (awaiting_firm episode).
+ * Staff denied a pending firm, or the firm auto-expired for missing the approval deadline,
+ * when that firm was freezing a contention line (awaiting_firm episode).
  */
 async function onAwaitingFirmEpisodeRejected(
   deniedBooking,
   { transaction, Booking, ContentionEpisode, ContentionQueueItem }
 ) {
-  if (!deniedBooking || deniedBooking.bookingType !== 'firm' || deniedBooking.status !== 'denied') {
+  if (
+    !deniedBooking ||
+    deniedBooking.bookingType !== 'firm' ||
+    !['denied', 'expired'].includes(deniedBooking.status)
+  ) {
     return;
   }
 

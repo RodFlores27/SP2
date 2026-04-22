@@ -12,6 +12,12 @@ module.exports = {
       date.setHours(hours, minutes, 0, 0);
       return date;
     };
+
+    const computePencilExpiry = (issuedAt, startTime) => {
+      const byLifetime = new Date(issuedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
+      const byLockWindow = new Date(new Date(startTime).getTime() - 24 * 60 * 60 * 1000);
+      return byLifetime < byLockWindow ? byLifetime : byLockWindow;
+    };
     
     const tomorrow = createDateAtTime(1, 9, 0); // 9:00 AM tomorrow
     const twoDaysLater = createDateAtTime(2, 9, 0); // 9:00 AM
@@ -73,7 +79,9 @@ module.exports = {
         endTime: new Date(tomorrow.getTime() + 2 * 60 * 60 * 1000),
         purpose: 'Research experiment for plant tissue culture',
         authorizationDocUrl: null,
-        expiryAt: new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000),
+        approvedByUserId: null,
+        approvedAt: null,
+        expiryAt: computePencilExpiry(now, tomorrow),
         createdAt: now,
         updatedAt: now
       },
@@ -87,6 +95,8 @@ module.exports = {
         endTime: new Date(twoDaysLater.getTime() + 4 * 60 * 60 * 1000),
         purpose: 'Lab session for CMSC 190 students',
         authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+        approvedByUserId: adminId,
+        approvedAt: new Date(now.getTime() - 2 * 60 * 60 * 1000),
         expiryAt: null,
         createdAt: now,
         updatedAt: now
@@ -101,7 +111,9 @@ module.exports = {
         endTime: new Date(threeDaysLater.getTime() + 3 * 60 * 60 * 1000),
         purpose: 'Testing new culture medium',
         authorizationDocUrl: null,
-        expiryAt: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000),
+        approvedByUserId: null,
+        approvedAt: null,
+        expiryAt: computePencilExpiry(now, threeDaysLater),
         createdAt: now,
         updatedAt: now
       },
@@ -110,12 +122,14 @@ module.exports = {
         resourceType: 'equipment',
         resourceId: autoclaveId,
         bookingType: 'pencil',
-        status: 'contested',
+        status: 'penciled',
         startTime: new Date(threeDaysLater.getTime() + 1 * 60 * 60 * 1000),
         endTime: new Date(threeDaysLater.getTime() + 4 * 60 * 60 * 1000),
         purpose: 'Equipment calibration and testing',
         authorizationDocUrl: null,
-        expiryAt: new Date(now.getTime() + 6 * 24 * 60 * 60 * 1000),
+        approvedByUserId: null,
+        approvedAt: null,
+        expiryAt: computePencilExpiry(now, new Date(threeDaysLater.getTime() + 1 * 60 * 60 * 1000)),
         createdAt: now,
         updatedAt: now
       },
@@ -129,6 +143,8 @@ module.exports = {
         endTime: new Date(fourDaysLater.getTime() + 6 * 60 * 60 * 1000),
         purpose: 'Workshop on tissue culture techniques',
         authorizationDocUrl: 'https://res.cloudinary.com/demo/authorization.pdf',
+        approvedByUserId: adminId,
+        approvedAt: new Date(now.getTime() - 90 * 60 * 1000),
         expiryAt: null,
         createdAt: now,
         updatedAt: now
@@ -143,7 +159,9 @@ module.exports = {
         endTime: new Date(fiveDaysLater.getTime() + 2 * 60 * 60 * 1000),
         purpose: 'Thesis defense preparation',
         authorizationDocUrl: null,
-        expiryAt: new Date(now.getTime() + 8 * 24 * 60 * 60 * 1000),
+        approvedByUserId: null,
+        approvedAt: null,
+        expiryAt: computePencilExpiry(now, fiveDaysLater),
         createdAt: now,
         updatedAt: now
       },
@@ -157,6 +175,8 @@ module.exports = {
         endTime: new Date(sixDaysLater.getTime() + 3 * 60 * 60 * 1000),
         purpose: 'Sterilized incubation run — awaiting staff approval',
         authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+        approvedByUserId: null,
+        approvedAt: null,
         expiryAt: null,
         createdAt: now,
         updatedAt: now
@@ -171,7 +191,9 @@ module.exports = {
         endTime: new Date(sevenDaysLater.getTime() + 2 * 60 * 60 * 1000),
         purpose: 'Faculty pilot study — growth chamber time block',
         authorizationDocUrl: null,
-        expiryAt: new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000),
+        approvedByUserId: null,
+        approvedAt: null,
+        expiryAt: computePencilExpiry(now, sevenDaysLater),
         createdAt: now,
         updatedAt: now
       }
@@ -181,11 +203,13 @@ module.exports = {
       const inserted = await queryInterface.sequelize.query(
         `INSERT INTO "Bookings" (
           "userId", "resourceType", "resourceId", "bookingType", "status",
-          "startTime", "endTime", "purpose", "authorizationDocUrl", "expiryAt",
+          "startTime", "endTime", "purpose", "authorizationDocUrl",
+          "approvedByUserId", "approvedAt", "expiryAt",
           "createdAt", "updatedAt", "bookingThreadId"
         ) VALUES (
           :userId, :resourceType, :resourceId, :bookingType, :status,
-          :startTime, :endTime, :purpose, :authorizationDocUrl, :expiryAt,
+          :startTime, :endTime, :purpose, :authorizationDocUrl,
+          :approvedByUserId, :approvedAt, :expiryAt,
           :createdAt, :updatedAt, 0
         ) RETURNING id`,
         {
