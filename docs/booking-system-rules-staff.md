@@ -58,7 +58,7 @@ When two **different users** pencil the **same resource** for **overlapping time
 
 - **Defender** — The pencil that was **first in line** for that overlap (the one being “challenged”).
 - **Challenger** — The **newer** overlapping pencil that triggered the contest.
-- **Contested** — The defender’s booking is marked this way while the episode is open.
+- **Defender status (`contested`)** — The defender’s booking carries this status while the episode is open.
 - **Queued** — Additional overlapping pencils will wait **in line** had they agree to enter contention versus a booking that's under a contention. The booking which they contest may be a defender, a challenger, or another queued booking.
 
 **Timer:**
@@ -76,7 +76,7 @@ When two **different users** pencil the **same resource** for **overlapping time
 - **Defender (`contested`)** and **queued** cards show a short summary first, with a **View details** toggle for deeper context.
 - **Active challenger** cards now show a dedicated top alert that combines:
   - what is happening (automatic challenger flow and fairness timer),
-  - who they are currently contesting,
+  - who they are currently challenging,
   - the **current step deadline** for the holder being challenged,
   - and the overall overlap sequence.
 - On challenger cards, **Convert to Firm** is intentionally disabled until the overlap sequence clears. This is to prevent challengers from overtaking by converting to firm, allowing defenders to exert their authority of the slot because they issued first.
@@ -88,7 +88,7 @@ When two **different users** pencil the **same resource** for **overlapping time
 - With/out contentions:
   - Conversion requires an **authorization document** upload (handled through the system).
 - With contentions:
-  - Only the **defender** (the contested pencil holder) may **convert to firm** during an open contest, not the challenger.
+  - Only the **defender** (the `contested` pencil holder) may **convert to firm** during an open contest, not the challenger.
   - A booking that is only **Queued** cannot be converted until it is an active pencil in the right state; the app enforces this.
   - A booking flagged as **active challenger** shows **Convert to Firm** as disabled; the user must wait for current contention steps to resolve.
   - When the defender converts, the open contest is **closed** and the **challenger** and **waitlisted** pencils are returned to normal **penciled** flow (they may re-enter contention with each other if their slots still overlap). They are **not** marked **Displaced** at that moment.
@@ -123,7 +123,7 @@ After conversion, the firm booking is **Pending approval** until staff act. **If
 - Only for **Firm** + **Pending approval**.
 - Denied firm bookings do not displace pencils.
 
-**Important:** **Deny** does **not** apply to pencil **Contested** state as a workflow. Contested pencils are **not** firm requests awaiting your deny action.
+**Important:** **Deny** does **not** apply to pencil **defender** state (`contested`) as a workflow. Defender pencils are **not** firm requests awaiting your deny action.
 
 ---
 
@@ -142,8 +142,8 @@ If an **approved firm** is cancelled, users whose bookings were **displaced** by
 | Status                         | Short explanation                                                                                                                                                       |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Penciled**                   | Active soft hold; subject to expiry and overlap rules.                                                                                                                  |
-| **Contested**                  | Pencil is the **defender** in an open automated contest.                                                                                                                |
-| **Contesting** (calendar hint) | Same as penciled for the database, but the calendar highlights the **challenger** for clarity.                                                                          |
+| **Defender** (`contested`)     | Pencil is the **defender** in an open automated contest.                                                                                                                |
+| **Challenger** (calendar hint) | Same as penciled for the database, but the calendar highlights the **challenger** for clarity.                                                                          |
 | **Queued**                     | Waiting behind others in the same contention group.                                                                                                                     |
 | **Pending approval**           | Firm request submitted; **staff** must approve or deny with optional remark.                                                                                            |
 | **Approved**                   | Firm booking is confirmed for scheduling.                                                                                                                               |

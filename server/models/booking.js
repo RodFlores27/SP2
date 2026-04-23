@@ -6,7 +6,11 @@ const TERMINAL_STATUSES = ['cancelled', 'denied', 'expired', 'displaced', 'compl
 /** Firm bookings that block other bookings from overlapping this window. */
 const FIRM_BLOCKING_STATUSES = ['pending_approval', 'approved'];
 
-const ACTIVE_PENCIL_STATUSES = ['penciled', 'contested', 'queued'];
+/** Active pencil bookings - now only 'penciled' since contention state is tracked separately via contentionRole. */
+const ACTIVE_PENCIL_STATUSES = ['penciled'];
+
+/** Contention roles for pencil bookings. */
+const CONTENTION_ROLES = ['defender', 'challenger', 'queued'];
 
 module.exports = (sequelize, DataTypes) => {
   class Booking extends Model {
@@ -40,6 +44,14 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'displacedByBookingId',
         as: 'displacedBookings'
       });
+      Booking.belongsTo(models.Booking, {
+        foreignKey: 'challengingBookingId',
+        as: 'challengingBooking'
+      });
+      Booking.hasOne(models.Booking, {
+        foreignKey: 'challengingBookingId',
+        as: 'challengedByBooking'
+      });
     }
 
     isActive() {
@@ -54,6 +66,33 @@ module.exports = (sequelize, DataTypes) => {
       
       return (this.startTime < otherBooking.endTime) && 
              (this.endTime > otherBooking.startTime);
+    }
+
+    /** Check if this booking is the defender in an active contention. */
+    isDefender() {
+      return this.contentionRole === 'defender';
+    }
+
+    /** Check if this booking is the challenger in an active contention. */
+    isChallenger() {
+      return this.contentionRole === 'challenger';
+    }
+
+    /** Check if this booking is queued waiting for contention. */
+    isQueued() {
+      return this.contentionRole === 'queued';
+    }
+
+    /** Check if this booking is in any contention (defender, challenger, or queued). */
+    isInContention() {
+      return this.contentionRole != null;
+    }
+
+    /** Check if this booking is a free pencil (not in any contention). */
+    isFreePencil() {
+      return this.bookingType === 'pencil' && 
+             this.status === 'penciled' && 
+             this.contentionRole == null;
     }
 
     /**
@@ -105,7 +144,7 @@ module.exports = (sequelize, DataTypes) => {
       });
     }
 
-    /** Active pencil bookings overlapping the interval (penciled / contested / queued). */
+    /** Active pencil bookings overlapping the interval. */
     static async findActivePencilOverlaps(
       resourceType,
       resourceId,
@@ -142,11 +181,115 @@ module.exports = (sequelize, DataTypes) => {
         transaction
       });
     }
+
+    /**
+     * Find all bookings in a contention group.
+     * @param {number} groupId - The contention group ID
+     * @param {object} options - Query options including transaction
+     * @returns {Promise<Booking[]>} - Bookings in the group ordered by role/position
+     */
+    static async findContentionGroupMembers(groupId, options = {}) {
+      const { transaction } = options;
+      if (!groupId) return [];
+      
+      return Booking.findAll({
+        where: {
+          contentionGroupId: groupId,
+          status: { [Op.in]: ACTIVE_PENCIL_STATUSES }
+        },
+        order: [
+          [sequelize.literal(`CASE "contentionRole" 
+            WHEN 'defender' THEN 0 
+            WHEN 'challenger' THEN 1 
+            WHEN 'queued' THEN 2 
+            ELSE 3 END`), 'ASC'],
+          ['queuePosition', 'ASC'],
+          ['createdAt', 'ASC']
+        ],
+        transaction
+      });
+    }
+
+    /**
+     * Find the defender booking in a contention group.
+     * @param {number} groupId - The contention group ID
+     * @param {object} options - Query options
+     * @returns {Promise<Booking|null>}
+     */
+    static async findGroupDefender(groupId, options = {}) {
+      const { transaction } = options;
+      if (!groupId) return null;
+      
+      return Booking.findOne({
+        where: {
+          contentionGroupId: groupId,
+          contentionRole: 'defender',
+          status: { [Op.in]: ACTIVE_PENCIL_STATUSES }
+        },
+        transaction
+      });
+    }
+
+    /**
+     * Find the challenger booking in a contention group.
+     * @param {number} groupId - The contention group ID
+     * @param {object} options - Query options
+     * @returns {Promise<Booking|null>}
+     */
+    static async findGroupChallenger(groupId, options = {}) {
+      const { transaction } = options;
+      if (!groupId) return null;
+      
+      return Booking.findOne({
+        where: {
+          contentionGroupId: groupId,
+          contentionRole: 'challenger',
+          status: { [Op.in]: ACTIVE_PENCIL_STATUSES }
+        },
+        transaction
+      });
+    }
+
+    /**
+     * Find queued bookings in a contention group, ordered by position.
+     * @param {number} groupId - The contention group ID
+     * @param {object} options - Query options
+     * @returns {Promise<Booking[]>}
+     */
+    static async findGroupQueue(groupId, options = {}) {
+      const { transaction } = options;
+      if (!groupId) return [];
+      
+      return Booking.findAll({
+        where: {
+          contentionGroupId: groupId,
+          contentionRole: 'queued',
+          status: { [Op.in]: ACTIVE_PENCIL_STATUSES }
+        },
+        order: [['queuePosition', 'ASC'], ['createdAt', 'ASC']],
+        transaction
+      });
+    }
+
+    /**
+     * Clear contention state from a booking.
+     * @param {object} options - Query options including transaction
+     */
+    async clearContentionState(options = {}) {
+      const { transaction } = options;
+      this.contentionGroupId = null;
+      this.contentionRole = null;
+      this.contentionDeadlineAt = null;
+      this.challengingBookingId = null;
+      this.queuePosition = null;
+      await this.save({ transaction });
+    }
   }
 
   Booking.TERMINAL_STATUSES = TERMINAL_STATUSES;
   Booking.FIRM_BLOCKING_STATUSES = FIRM_BLOCKING_STATUSES;
   Booking.ACTIVE_PENCIL_STATUSES = ACTIVE_PENCIL_STATUSES;
+  Booking.CONTENTION_ROLES = CONTENTION_ROLES;
 
   Booking.init({
     userId: {
@@ -169,8 +312,8 @@ module.exports = (sequelize, DataTypes) => {
     status: {
       type: DataTypes.ENUM(
         'penciled',
-        'contested',
-        'queued',
+        'contested',  // DEPRECATED: kept for backward compatibility, use contentionRole='defender' instead
+        'queued',     // DEPRECATED: kept for backward compatibility, use contentionRole='queued' instead
         'pending_approval',
         'approved',
         'denied',
@@ -235,6 +378,26 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
     displacedByBookingId: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    contentionGroupId: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    contentionRole: {
+      type: DataTypes.ENUM('defender', 'challenger', 'queued'),
+      allowNull: true
+    },
+    contentionDeadlineAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    challengingBookingId: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    queuePosition: {
       type: DataTypes.INTEGER,
       allowNull: true
     }

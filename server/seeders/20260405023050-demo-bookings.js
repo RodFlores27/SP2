@@ -106,7 +106,7 @@ module.exports = {
         resourceType: 'equipment',
         resourceId: autoclaveId,
         bookingType: 'pencil',
-        status: 'contested',
+        status: 'penciled',
         startTime: threeDaysLater,
         endTime: new Date(threeDaysLater.getTime() + 3 * 60 * 60 * 1000),
         purpose: 'Testing new culture medium',

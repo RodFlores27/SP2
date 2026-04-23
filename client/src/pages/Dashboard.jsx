@@ -15,6 +15,7 @@ import {
   groupByStatus,
   filterBookings,
   formatStatusLabel,
+  isCancellable,
   ACTIVE_STATUS_ORDER,
   PAST_STATUS_ORDER,
 } from '@/components/my-bookings/bookingDashboardUtils';
@@ -31,6 +32,8 @@ import { stashConvertFirmSuccess } from '@/lib/convertFirmSuccessSession';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const DASHBOARD_POLL_INTERVAL_MS = 30 * 1000;
+const DEV_BOOKING_UNDO_ENABLED = import.meta.env.DEV;
+const DEV_LAST_UNDONE_BOOKING_KEY = 'dev-last-undone-booking';
 
 const ACCEPTED_FILE_TYPES = [
   'application/pdf',
@@ -83,6 +86,33 @@ function buildRebookLink(booking) {
   return `/bookings/new?${params.toString()}`;
 }
 
+function getLatestUndoableBooking(bookings) {
+  if (!Array.isArray(bookings) || bookings.length === 0) return null;
+
+  const sorted = [...bookings].sort((a, b) => {
+    const aTime = new Date(a.createdAt).getTime();
+    const bTime = new Date(b.createdAt).getTime();
+    if (aTime !== bTime) return bTime - aTime;
+    return b.id - a.id;
+  });
+
+  return sorted.find((booking) => isCancellable(booking)) ?? null;
+}
+
+function buildRedoPayloadFromUndoneBooking(booking) {
+  if (!booking) return null;
+  return {
+    resourceType: booking.resourceType,
+    resourceId: booking.resourceId,
+    bookingType: booking.bookingType,
+    startTime: booking.startTime,
+    endTime: booking.endTime,
+    purpose: booking.purpose || '',
+    authorizationDocUrl: booking.authorizationDocUrl || null,
+    rebookedFromBookingId: booking.id,
+  };
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -100,6 +130,13 @@ export default function Dashboard() {
   const [cancelDialog, setCancelDialog] = useState({ open: false, bookingId: null });
   const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState(null);
+  const [devUndoLoading, setDevUndoLoading] = useState(false);
+  const [devUndoMessage, setDevUndoMessage] = useState(null);
+  const [devUndoError, setDevUndoError] = useState(null);
+  const [devRedoLoading, setDevRedoLoading] = useState(false);
+  const [devRedoMessage, setDevRedoMessage] = useState(null);
+  const [devRedoError, setDevRedoError] = useState(null);
+  const [devLastUndoneBooking, setDevLastUndoneBooking] = useState(null);
 
   const [convertOpenId, setConvertOpenId] = useState(null);
   const [convertPurpose, setConvertPurpose] = useState('');
@@ -197,6 +234,20 @@ export default function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!DEV_BOOKING_UNDO_ENABLED) return;
+    try {
+      const raw = window.sessionStorage.getItem(DEV_LAST_UNDONE_BOOKING_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed.id === 'number') {
+        setDevLastUndoneBooking(parsed);
+      }
+    } catch {
+      // ignore malformed dev session cache
+    }
+  }, []);
+
   const handleCancelConfirm = async () => {
     if (!cancelDialog.bookingId) return;
     setCancelLoading(true);
@@ -211,6 +262,77 @@ export default function Dashboard() {
       setCancelDialog({ open: false, bookingId: null });
     } finally {
       setCancelLoading(false);
+    }
+  };
+
+  const handleDevUndoLatestTransition = async () => {
+    if (!DEV_BOOKING_UNDO_ENABLED) return;
+    setDevUndoError(null);
+    setDevUndoMessage(null);
+    setDevRedoError(null);
+    setDevRedoMessage(null);
+
+    const latestUndoable = getLatestUndoableBooking(bookings);
+    if (!latestUndoable) {
+      setDevUndoError('No undoable booking transition found.');
+      return;
+    }
+
+    setDevUndoLoading(true);
+    try {
+      await axiosInstance.patch(`/bookings/${latestUndoable.id}/cancel`);
+      setDevUndoMessage(
+        `Undid latest transition by cancelling booking #${latestUndoable.id}.`
+      );
+      setDevLastUndoneBooking(latestUndoable);
+      window.sessionStorage.setItem(
+        DEV_LAST_UNDONE_BOOKING_KEY,
+        JSON.stringify(latestUndoable)
+      );
+      await fetchData({ silent: true });
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to undo latest booking transition.';
+      setDevUndoError(msg);
+    } finally {
+      setDevUndoLoading(false);
+    }
+  };
+
+  const handleDevRedoLastUndo = async () => {
+    if (!DEV_BOOKING_UNDO_ENABLED) return;
+    setDevRedoError(null);
+    setDevRedoMessage(null);
+    setDevUndoError(null);
+    setDevUndoMessage(null);
+
+    if (!devLastUndoneBooking) {
+      setDevRedoError('No booking undo found to redo.');
+      return;
+    }
+
+    const payload = buildRedoPayloadFromUndoneBooking(devLastUndoneBooking);
+    if (!payload) {
+      setDevRedoError('Redo payload is invalid.');
+      return;
+    }
+
+    setDevRedoLoading(true);
+    try {
+      const res = await axiosInstance.post('/bookings', payload);
+      const createdId = res?.data?.booking?.id;
+      setDevRedoMessage(
+        createdId
+          ? `Redid last undo by recreating booking #${createdId}.`
+          : 'Redid last undo by recreating the booking.'
+      );
+      setDevLastUndoneBooking(null);
+      window.sessionStorage.removeItem(DEV_LAST_UNDONE_BOOKING_KEY);
+      await fetchData({ silent: true });
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Failed to redo last undo.';
+      setDevRedoError(msg);
+    } finally {
+      setDevRedoLoading(false);
     }
   };
 
@@ -357,6 +479,26 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2">
+          {DEV_BOOKING_UNDO_ENABLED && (
+            <>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDevUndoLatestTransition}
+                disabled={loading || devUndoLoading || devRedoLoading}
+              >
+                {devUndoLoading ? 'Undoing...' : 'Undo Latest Transition (Dev)'}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDevRedoLastUndo}
+                disabled={loading || devUndoLoading || devRedoLoading || !devLastUndoneBooking}
+              >
+                {devRedoLoading ? 'Redoing...' : 'Redo Last Undo (Dev)'}
+              </Button>
+            </>
+          )}
           <Button variant="outline" size="sm" onClick={fetchData} disabled={loading}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Refresh
@@ -375,6 +517,64 @@ export default function Dashboard() {
         <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
+        </div>
+      )}
+
+      {DEV_BOOKING_UNDO_ENABLED && devUndoMessage && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+          <span className="flex-1">{devUndoMessage}</span>
+          <button
+            type="button"
+            onClick={() => setDevUndoMessage(null)}
+            className="ml-auto text-emerald-700 hover:text-emerald-900"
+            aria-label="Dismiss undo success message"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {DEV_BOOKING_UNDO_ENABLED && devUndoError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <span className="flex-1">{devUndoError}</span>
+          <button
+            type="button"
+            onClick={() => setDevUndoError(null)}
+            className="ml-auto text-red-600 hover:text-red-800"
+            aria-label="Dismiss undo error message"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {DEV_BOOKING_UNDO_ENABLED && devRedoMessage && (
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+          <span className="flex-1">{devRedoMessage}</span>
+          <button
+            type="button"
+            onClick={() => setDevRedoMessage(null)}
+            className="ml-auto text-emerald-700 hover:text-emerald-900"
+            aria-label="Dismiss redo success message"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {DEV_BOOKING_UNDO_ENABLED && devRedoError && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <span className="flex-1">{devRedoError}</span>
+          <button
+            type="button"
+            onClick={() => setDevRedoError(null)}
+            className="ml-auto text-red-600 hover:text-red-800"
+            aria-label="Dismiss redo error message"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
 

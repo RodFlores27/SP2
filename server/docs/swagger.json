@@ -1256,7 +1256,7 @@
                   "confirmContention": {
                     "type": "string",
                     "enum": ["true", "false"],
-                    "description": "Pencil: confirm contesting another pencil"
+                    "description": "Pencil: confirm challenging another pencil"
                   },
                   "expectedWillBeQueued": {
                     "type": "string",
@@ -2594,7 +2594,7 @@
           "defenderContentionDetail": {
             "type": "object",
             "nullable": true,
-            "description": "When status is contested (list/detail): challenger and episode metadata for My Bookings.",
+            "description": "When contentionRole is 'defender': challenger and contention group metadata for My Bookings.",
             "properties": {
               "episodeId": { "type": "integer" },
               "episodeStatus": { "type": "string", "enum": ["open", "awaiting_firm", "closed"] },
@@ -2621,7 +2621,7 @@
           "queueContentionDetail": {
             "type": "object",
             "nullable": true,
-            "description": "When status is queued (list/detail): waitlist position, rows ahead, and active defender/challenger on the episode.",
+            "description": "When contentionRole is 'queued': waitlist position, rows ahead, and active defender/challenger in the contention group.",
             "properties": {
               "episodeId": { "type": "integer" },
               "episodeStatus": { "type": "string" },
@@ -2819,7 +2819,7 @@
           },
           "contentionChallenger": {
             "type": "boolean",
-            "description": "True when this booking is the challenger on an open ContentionEpisode and the episode defender is still a contested pencil (active timer). False when the defender is already a firm booking (pending_approval/approved) or the episode is awaiting_firm — calendar uses plain penciled styling in those cases."
+            "description": "True when this booking has contentionRole='challenger' and is actively challenging a defender (active timer). False otherwise."
           },
           "contentionEpisodeId": {
             "type": "integer",
@@ -2830,7 +2830,7 @@
             "type": "string",
             "enum": ["defender", "challenger", "queued"],
             "nullable": true,
-            "description": "Role within the contention episode for calendar ordering (defender = contested holder, challenger = active pencil challenger, queued = waitlist)."
+            "description": "Role within the contention group for calendar ordering (defender = challenged holder, challenger = active pencil challenger, queued = waitlist)."
           },
           "contentionQueuePosition": {
             "type": "integer",

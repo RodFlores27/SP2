@@ -241,48 +241,61 @@ function groupContendedMonthEvents(events) {
         continue;
       }
 
+      // Contention participants: only bookings that are actual group members
+      // (defender, challenger, or queued). Firm bookings, approved bookings,
+      // and free pencils that merely share the same time slot are NOT members
+      // and must remain as individual events on the calendar.
       const participants = cluster.filter((ev) => {
         const st = toCalendarStatus(ev.resource);
         return st === 'contested' || st === 'contesting' || st === 'queued';
       });
+      const nonParticipants = cluster.filter((ev) => {
+        const st = toCalendarStatus(ev.resource);
+        return st !== 'contested' && st !== 'contesting' && st !== 'queued';
+      });
 
-      // Aggregate only contention-heavy overlaps; keep other overlaps as individual events.
+      // If fewer than 2 group members, no aggregate block — all events individual.
       if (participants.length < 2) {
         output.push(...cluster);
         continue;
       }
 
-      const challengerCount = cluster.filter((ev) => toCalendarStatus(ev.resource) === 'contesting').length;
-      const queuedCount = cluster.filter((ev) => toCalendarStatus(ev.resource) === 'queued').length;
-      const contestedCount = cluster.filter((ev) => toCalendarStatus(ev.resource) === 'contested').length;
-      const plainPencilCount = cluster.filter((ev) => {
+      // Non-members always render as their own separate calendar events.
+      output.push(...nonParticipants);
+
+      // Build the aggregate block from participants only.
+      const challengerCount = participants.filter((ev) => toCalendarStatus(ev.resource) === 'contesting').length;
+      const queuedCount = participants.filter((ev) => toCalendarStatus(ev.resource) === 'queued').length;
+      const contestedCount = participants.filter((ev) => toCalendarStatus(ev.resource) === 'contested').length;
+      const plainPencilCount = participants.filter((ev) => {
         const r = ev.resource;
-        return r.status === 'penciled' && !r.contentionChallenger;
+        return r.status === 'penciled' && !r.contentionRole && !r.contentionChallenger;
       }).length;
 
-      const representative = [...cluster].sort((a, b) => {
+      const representative = [...participants].sort((a, b) => {
         const pa = CALENDAR_STATUS_PRIORITY[toCalendarStatus(a.resource)] ?? 99;
         const pb = CALENDAR_STATUS_PRIORITY[toCalendarStatus(b.resource)] ?? 99;
         return pa - pb || a.start - b.start || Number(a.id) - Number(b.id);
       })[0];
 
-      const clusterStart = new Date(Math.min(...cluster.map((ev) => ev.start.getTime())));
-      const clusterEnd = new Date(Math.max(...cluster.map((ev) => ev.end.getTime())));
-      const title = `${formatCalendarEventTimeRange(clusterStart, clusterEnd)} [${
+      // Time range spans only the participants, not non-member overlapping bookings.
+      const participantStart = new Date(Math.min(...participants.map((ev) => ev.start.getTime())));
+      const participantEnd = new Date(Math.max(...participants.map((ev) => ev.end.getTime())));
+      const title = `${formatCalendarEventTimeRange(participantStart, participantEnd)} [${
         representative.resource.resourceName
       }] • Contention (${contestedCount}/${challengerCount}/${queuedCount})`;
 
-      const aggregateMembers = buildAggregateMemberRows(cluster);
+      const aggregateMembers = buildAggregateMemberRows(participants);
 
       output.push({
-        id: `agg-${representative.resource.resourceType}-${representative.resource.resourceId}-${clusterStart.getTime()}-${clusterEnd.getTime()}`,
+        id: `agg-${representative.resource.resourceType}-${representative.resource.resourceId}-${participantStart.getTime()}-${participantEnd.getTime()}`,
         title,
-        start: clusterStart,
-        end: clusterEnd,
+        start: participantStart,
+        end: participantEnd,
         resource: {
           ...representative.resource,
           aggregateSummary: {
-            total: cluster.length,
+            total: participants.length,
             contestedCount,
             challengerCount,
             queuedCount,
@@ -468,9 +481,7 @@ export function BookingCalendar({
 
   const eventStyleGetter = (event) => {
     const b = event.resource;
-    const rawStatus = b?.status || 'penciled';
-    const calendarStatus =
-      rawStatus === 'penciled' && b?.contentionChallenger ? 'contesting' : rawStatus;
+    const calendarStatus = toCalendarStatus(b);
     const styles = CALENDAR_STATUS_STYLES[calendarStatus] || CALENDAR_STATUS_STYLES.penciled;
 
     return {

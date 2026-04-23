@@ -62,22 +62,41 @@ export const CALENDAR_STATUS_PRIORITY = {
 
 export function toCalendarStatus(booking) {
   if (!booking) return 'penciled';
+  
+  // New model: derive visual status from contentionRole
+  if (booking.contentionRole === 'defender') return 'contested';
+  if (booking.contentionRole === 'challenger') return 'contesting';
+  if (booking.contentionRole === 'queued') return 'queued';
+  
+  // Legacy fallbacks for backward compatibility
   if (booking.status === 'penciled' && booking.contentionChallenger) return 'contesting';
+  if (booking.status === 'contested') return 'contested';
+  if (booking.status === 'queued') return 'queued';
+  
   return booking.status || 'penciled';
 }
 
 /**
- * Order rows in a contention overlap list: defender → challenger → other penciled (same window, not in episode yet)
+ * Order rows in a contention overlap list: defender → challenger → other penciled (same window, not in group)
  * → queued by position → everything else.
  */
 function overlapDisplaySortRank(resource) {
   if (!resource) return 99;
-  const st = resource.status;
-  if (st === 'contested' || resource.contentionRole === 'defender') return 0;
-  if (st === 'penciled' && resource.contentionChallenger) return 1;
+  
+  // New model: use contentionRole for ordering
+  if (resource.contentionRole === 'defender') return 0;
   if (resource.contentionRole === 'challenger') return 1;
-  if (st === 'penciled' && !resource.contentionChallenger && resource.contentionRole !== 'queued') return 2;
-  if (st === 'queued' || resource.contentionRole === 'queued') return 3;
+  if (resource.contentionRole === 'queued') return 3;
+  
+  // Legacy fallbacks
+  const st = resource.status;
+  if (st === 'contested') return 0;
+  if (st === 'penciled' && resource.contentionChallenger) return 1;
+  if (st === 'queued') return 3;
+  
+  // Free pencils (not in any contention)
+  if (st === 'penciled') return 2;
+  
   return 4;
 }
 

@@ -5,9 +5,7 @@ const {
   User,
   Equipment,
   Room,
-  sequelize,
-  ContentionEpisode,
-  ContentionQueueItem
+  sequelize
 } = require('../models');
 const {
   notifyBookingExpired,
@@ -17,8 +15,6 @@ const { LOCK_HOURS, isWithinLockHours } = require('../utils/booking-rules');
 const contention = require('../services/contention.service');
 
 const MS_HOUR = 60 * 60 * 1000;
-
-const PENCIL_WARN_STATUSES = ['penciled', 'contested', 'queued'];
 
 async function resolveResourceName(resourceType, resourceId) {
   try {
@@ -43,24 +39,29 @@ cron.schedule('*/15 * * * *', async () => {
   try {
     const now = new Date();
 
-    await contention.resolveChallengerExpiredDuringContention(now, {
+    const defenderDeadlineResults = await contention.resolveDueContentionDeadlines(now, {
       sequelize,
-      Booking,
-      ContentionEpisode,
-      ContentionQueueItem
+      Booking
     });
-    await contention.resolveDefenderExpiredDuringContention(now, {
+    if (defenderDeadlineResults.length > 0) {
+      console.log(`[cron:expire] Processed ${defenderDeadlineResults.length} defender deadline(s)`);
+    }
+
+    const challengerExpiryResults = await contention.resolveExpiredChallengers(now, {
       sequelize,
-      Booking,
-      ContentionEpisode,
-      ContentionQueueItem
+      Booking
     });
-    await contention.resolveDueContentionEpisodes(now, {
+    if (challengerExpiryResults.length > 0) {
+      console.log(`[cron:expire] Processed ${challengerExpiryResults.length} expired challenger(s)`);
+    }
+
+    const defenderExpiryResults = await contention.resolveExpiredDefenders(now, {
       sequelize,
-      Booking,
-      ContentionEpisode,
-      ContentionQueueItem
+      Booking
     });
+    if (defenderExpiryResults.length > 0) {
+      console.log(`[cron:expire] Processed ${defenderExpiryResults.length} expired defender(s)`);
+    }
 
     const [completedFirms] = await Booking.update(
       { status: 'completed' },
@@ -101,18 +102,15 @@ cron.schedule('*/15 * * * *', async () => {
         if (!b || b.bookingType !== 'firm' || b.status !== 'pending_approval') return;
         if (!isWithinLockHours(b.startTime, now)) return;
 
+        if (b.contentionGroupId) {
+          await contention.onFirmDeniedOrCancelled(b, { transaction: t, Booking });
+        }
+
         b.status = 'expired';
         b.staffRemark =
           b.staffRemark ||
           'Expired: firm request was not approved at least 24 hours before the scheduled start';
         await b.save({ transaction: t });
-
-        await contention.onAwaitingFirmEpisodeRejected(b, {
-          transaction: t,
-          Booking,
-          ContentionEpisode,
-          ContentionQueueItem
-        });
       });
 
       const forNotify = await Booking.findByPk(booking.id, {
@@ -127,7 +125,8 @@ cron.schedule('*/15 * * * *', async () => {
     const expired = await Booking.findAll({
       where: {
         bookingType: 'pencil',
-        status: { [Op.in]: ['penciled', 'queued'] },
+        status: 'penciled',
+        contentionRole: null,
         expiryAt: { [Op.lte]: now }
       },
       include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
@@ -135,7 +134,7 @@ cron.schedule('*/15 * * * *', async () => {
 
     if (expired.length === 0) return;
 
-    console.log(`[cron:expire] Expiring ${expired.length} pencil booking(s)`);
+    console.log(`[cron:expire] Expiring ${expired.length} free pencil booking(s)`);
 
     for (const booking of expired) {
       await sequelize.transaction(async (t) => {
@@ -143,19 +142,7 @@ cron.schedule('*/15 * * * *', async () => {
           transaction: t,
           lock: t.LOCK.UPDATE
         });
-        if (!b || !['penciled', 'queued'].includes(b.status)) return;
-
-        await contention.onBookingCancelledMidContention(b, {
-          transaction: t,
-          Booking,
-          ContentionEpisode,
-          ContentionQueueItem
-        });
-
-        await ContentionQueueItem.destroy({
-          where: { bookingId: b.id },
-          transaction: t
-        });
+        if (!b || b.status !== 'penciled' || b.contentionRole != null) return;
 
         b.status = 'expired';
         b.staffRemark = b.staffRemark || 'Expired: pencil booking lifetime ended';
@@ -187,7 +174,7 @@ cron.schedule('0 0 * * *', async () => {
       Booking.findAll({
         where: {
           bookingType: 'pencil',
-          status: { [Op.in]: PENCIL_WARN_STATUSES },
+          status: 'penciled',
           expiryAt: { [Op.between]: [window48Start, window48End] }
         },
         include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
@@ -195,7 +182,7 @@ cron.schedule('0 0 * * *', async () => {
       Booking.findAll({
         where: {
           bookingType: 'pencil',
-          status: { [Op.in]: PENCIL_WARN_STATUSES },
+          status: 'penciled',
           expiryAt: { [Op.between]: [window24Start, window24End] }
         },
         include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]

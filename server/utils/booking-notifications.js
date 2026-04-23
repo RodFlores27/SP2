@@ -58,17 +58,17 @@ async function notifyBookingCreated(booking, resourceName) {
   if (!recipientEmail) return;
 
   const isPencil = booking.bookingType === 'pencil';
-  const isContested = booking.status === 'contested';
-  const isQueued = booking.status === 'queued';
+  const isDefender = booking.contentionRole === 'defender';
+  const isQueued = booking.contentionRole === 'queued';
 
   let statusNote = '';
   if (isQueued) {
     statusNote = `<p style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:6px;padding:12px;font-size:14px;color:#5b21b6;">
       ⏳ Your pencil booking is <strong>queued</strong> behind an earlier contention on this resource. You will be notified when your turn starts.
     </p>`;
-  } else if (isContested) {
+  } else if (isDefender) {
     statusNote = `<p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:12px;font-size:14px;color:#92400e;">
-      ⚠️ Your pencil booking is <strong>contested</strong>. Another user is challenging your slot. Convert to a firm booking before the contention deadline to keep the reservation.
+      ⚠️ Your pencil booking is being <strong>challenged</strong>. Another user is challenging your slot. Convert to a firm booking before the contention deadline to keep the reservation.
     </p>`;
   } else if (isPencil) {
     statusNote = `<p style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px;font-size:14px;color:#1e40af;">
@@ -233,15 +233,14 @@ async function notifyBookingExpiringSoon(booking, resourceName, hoursLeft) {
 
 /**
  * Pencil contention started — notify defender and challenger.
+ * @param {Object} params - { defender: Booking, challenger: Booking }
  */
-async function notifyContentionStarted(episode, resourceName) {
-  const deadlineStr = formatDateTime(episode.deadlineAt);
-  const defender = episode.defenderBooking;
-  const challenger = episode.challengerBooking;
+async function notifyContentionStarted({ defender, challenger }, resourceName) {
+  const deadlineStr = formatDateTime(defender.contentionDeadlineAt);
   if (!defender?.user?.email || !challenger?.user?.email) return;
 
   const defenderHtml = baseEmailWrapper(
-    'Your pencil booking is being contested',
+    'Your pencil booking is being challenged',
     `<p>Another user has placed an overlapping pencil booking for the same resource. A contention timer is running.</p>
     ${bookingDetailsBlock(defender, resourceName)}
     <p><strong>Resolve by:</strong> ${deadlineStr} (Asia/Manila)</p>
@@ -251,7 +250,7 @@ async function notifyContentionStarted(episode, resourceName) {
 
   const challengerHtml = baseEmailWrapper(
     'You started a pencil contention',
-    `<p>Your overlapping pencil booking is now active against the current holder. If they do not convert to firm in time, you will take the slot.</p>
+    `<p>Your overlapping pencil booking is now challenging the current holder. If they do not convert to firm in time, you will take the slot.</p>
     ${bookingDetailsBlock(challenger, resourceName)}
     <p><strong>Contention resolves by:</strong> ${deadlineStr} (Asia/Manila)</p>
     <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">View your booking →</a></p>`
@@ -259,7 +258,7 @@ async function notifyContentionStarted(episode, resourceName) {
 
   await sendEmail({
     to: defender.user.email,
-    subject: `[PTCF] Booking #${defender.id} — contested`,
+    subject: `[PTCF] Booking #${defender.id} — being challenged`,
     html: defenderHtml
   });
   await sendEmail({
@@ -278,7 +277,7 @@ async function notifyBookingQueuedForContention(booking, resourceName, position)
 
   const html = baseEmailWrapper(
     'You are in a contention queue',
-    `<p>Your pencil booking is <strong>queued</strong> (position <strong>${position}</strong>) until earlier contests on this resource finish.</p>
+    `<p>Your pencil booking is <strong>queued</strong> (position <strong>${position}</strong>) until earlier challenges on this resource finish.</p>
     ${bookingDetailsBlock(booking, resourceName)}
     <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">View your booking →</a></p>`
   );

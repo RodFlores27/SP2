@@ -3,9 +3,7 @@ const {
   User,
   Equipment,
   Room,
-  sequelize,
-  ContentionEpisode,
-  ContentionQueueItem
+  sequelize
 } = require('../models');
 const { Op } = require('sequelize');
 const { uploadToCloudinary } = require('../utils/cloudinary');
@@ -127,65 +125,40 @@ async function previewNextBookingId() {
 }
 
 /**
- * Ordered episode line for waitlist confirmation: defender, challenger, then queue rows by position.
- * Each row matches conflict-like shape plus role / queuePosition for UI.
+ * Build contention waitlist preview for confirmation UI.
+ * Uses the new contention model (directly on Booking).
  */
-async function buildContentionWaitlistPreview(episodeId) {
-  if (!episodeId) return null;
-  const ep = await ContentionEpisode.findByPk(episodeId, {
-    include: [
-      {
-        model: Booking,
-        as: 'defenderBooking',
-        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
-      },
-      {
-        model: Booking,
-        as: 'challengerBooking',
-        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
-      },
-      {
-        model: ContentionQueueItem,
-        as: 'queueItems',
-        separate: true,
-        order: [['position', 'ASC']],
-        include: [
-          {
-            model: Booking,
-            as: 'booking',
-            include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
-          }
-        ]
-      }
+async function buildContentionWaitlistPreview(groupId) {
+  if (!groupId) return null;
+
+  const groupMembers = await Booking.findAll({
+    where: {
+      contentionGroupId: groupId,
+      status: 'penciled'
+    },
+    include: [{ model: User, as: 'user', attributes: ['id', 'email'] }],
+    order: [
+      [sequelize.literal(`CASE "contentionRole" 
+        WHEN 'defender' THEN 0 
+        WHEN 'challenger' THEN 1 
+        WHEN 'queued' THEN 2 
+        ELSE 3 END`), 'ASC'],
+      ['queuePosition', 'ASC']
     ]
   });
-  if (!ep || !['open', 'awaiting_firm'].includes(ep.status)) return null;
 
-  const toRow = (booking, role, queuePosition = undefined) => {
-    if (!booking) return null;
-    const u = booking.user;
-    return {
-      role,
-      ...(queuePosition != null ? { queuePosition } : {}),
-      id: booking.id,
-      bookingType: booking.bookingType,
-      status: booking.status,
-      startTime: booking.startTime,
-      endTime: booking.endTime,
-      user: u ? { id: u.id, email: u.email } : undefined
-    };
-  };
+  if (groupMembers.length === 0) return null;
 
-  const out = [];
-  const dRow = toRow(ep.defenderBooking, 'defender');
-  if (dRow) out.push(dRow);
-  const cRow = toRow(ep.challengerBooking, 'challenger');
-  if (cRow) out.push(cRow);
-  for (const qi of ep.queueItems || []) {
-    const qRow = toRow(qi.booking, 'queued', qi.position);
-    if (qRow) out.push(qRow);
-  }
-  return out;
+  return groupMembers.map((b) => ({
+    role: b.contentionRole,
+    ...(b.contentionRole === 'queued' ? { queuePosition: b.queuePosition } : {}),
+    id: b.id,
+    bookingType: b.bookingType,
+    status: b.status,
+    startTime: b.startTime,
+    endTime: b.endTime,
+    user: b.user ? { id: b.user.id, email: b.user.email } : undefined
+  }));
 }
 
 async function resolveResourceName(resourceType, resourceId) {
@@ -287,7 +260,6 @@ const createBooking = async (req, res) => {
     const rebookedFromBookingIdRaw = req.body.rebookedFromBookingId;
     const userId = req.user.id;
 
-    // Handle optional file upload for authorization document
     let authorizationDocUrl = req.body.authorizationDocUrl || null;
     let authorizationDocHash = null;
     if (req.file) {
@@ -450,6 +422,7 @@ const createBooking = async (req, res) => {
         status: c.status,
         startTime: c.startTime,
         endTime: c.endTime,
+        contentionRole: c.contentionRole || null,
         user: {
           id: c.user.id,
           email: c.user.email
@@ -487,19 +460,18 @@ const createBooking = async (req, res) => {
         });
       }
       if (otherPencilOverlaps.length > 0 && !confirmContention) {
-        const openEpForSlot = await contention.findOpenEpisodeOverlappingSlot(
+        const existingGroupId = await contention.findOverlappingContentionGroup(
           { resourceType, resourceId, startTime: start, endTime: end },
-          { transaction: null, ContentionEpisode, Booking, ContentionQueueItem }
+          { transaction: null, Booking }
         );
-        const willBeQueued = Boolean(openEpForSlot);
+        const willBeQueued = Boolean(existingGroupId);
         const contentionWaitlist = willBeQueued
-          ? await buildContentionWaitlistPreview(openEpForSlot.id)
+          ? await buildContentionWaitlistPreview(existingGroupId)
           : null;
         return res.status(409).json({
           error:
-            'This pencil booking would contest an existing pencil booking. Confirm to proceed.',
+            'This pencil booking would challenge an existing pencil booking. Confirm to proceed.',
           requiresContentionConfirmation: true,
-          /** True when an open episode already overlaps this slot — new booking would be enqueued, not the active challenger. */
           willBeQueued,
           previewBookingId: await previewNextBookingId(),
           conflicts: formatConflicts(otherPencilOverlaps),
@@ -520,12 +492,10 @@ const createBooking = async (req, res) => {
       for (const pencilBooking of ownPencilOverlaps) {
         await sequelize.transaction(async (t) => {
           const b = await Booking.findByPk(pencilBooking.id, { transaction: t, lock: t.LOCK.UPDATE });
-          if (!b || !['penciled', 'contested', 'queued'].includes(b.status)) return;
+          if (!b || b.status !== 'penciled') return;
           await contention.onBookingCancelledMidContention(b, {
             transaction: t,
-            Booking,
-            ContentionEpisode,
-            ContentionQueueItem
+            Booking
           });
           b.status = 'cancelled';
           b.staffRemark = 'Auto-cancelled: superseded by firm booking';
@@ -560,10 +530,9 @@ const createBooking = async (req, res) => {
     const initialFirmStatus = 'pending_approval';
 
     let createdBooking;
+    let contentionResult = null;
     try {
       createdBooking = await sequelize.transaction(async (t) => {
-        let contentionAttach = null;
-
         if (bookingType === 'pencil' && otherPencilOverlaps.length > 0 && confirmContention) {
           const freshPencilOverlaps = await Booking.findActivePencilOverlaps(
             resourceType,
@@ -587,25 +556,23 @@ const createBooking = async (req, res) => {
             throw err;
           }
 
-          const openEpLocked = await contention.findOpenEpisodeOverlappingSlot(
+          const existingGroupId = await contention.findOverlappingContentionGroup(
             { resourceType, resourceId, startTime: start, endTime: end },
-            { transaction: t, ContentionEpisode, Booking, ContentionQueueItem }
+            { transaction: t, Booking }
           );
-          const actualWillBeQueued = Boolean(openEpLocked);
+          const actualWillBeQueued = Boolean(existingGroupId);
           if (expectedWillBeQueued !== actualWillBeQueued) {
             const err = new Error(
               'Waitlist vs active challenger changed while you were reviewing. Please confirm again.'
             );
             err.statusCode = 409;
-            err.code = 'CONTESTATION_OUTCOME_CHANGED';
+            err.code = 'CONTENTION_OUTCOME_CHANGED';
             err.requiresContentionConfirmation = true;
             err.willBeQueued = actualWillBeQueued;
             err.conflicts = formatConflicts(freshOther);
-            err.episodeId = openEpLocked ? openEpLocked.id : null;
+            err.groupId = existingGroupId;
             throw err;
           }
-
-          contentionAttach = { openEp: openEpLocked, freshOther };
         }
 
         const created = await Booking.create(
@@ -630,31 +597,12 @@ const createBooking = async (req, res) => {
           { transaction: t }
         );
 
-        if (contentionAttach) {
-          if (contentionAttach.openEp) {
-            const b = await Booking.findByPk(created.id, { transaction: t, lock: t.LOCK.UPDATE });
-            await contention.enqueueBookingInEpisode(b, contentionAttach.openEp.id, {
-              transaction: t,
-              ContentionQueueItem,
-              Booking
-            });
-          } else {
-            const defenderRow = contention.pickDefenderBooking(contentionAttach.freshOther);
-            if (!defenderRow) {
-              throw new Error('No defender for contention');
-            }
-            const d = await Booking.findByPk(defenderRow.id, { transaction: t, lock: t.LOCK.UPDATE });
-            const c = await Booking.findByPk(created.id, { transaction: t, lock: t.LOCK.UPDATE });
-            await contention.openEpisode(
-              {
-                defenderBooking: d,
-                challengerBooking: c,
-                resourceType,
-                resourceId
-              },
-              { transaction: t, ContentionEpisode, Booking }
-            );
-          }
+        if (bookingType === 'pencil' && otherPencilOverlaps.length > 0 && confirmContention) {
+          const b = await Booking.findByPk(created.id, { transaction: t, lock: t.LOCK.UPDATE });
+          contentionResult = await contention.tryAttachPencilToContention(b, {
+            transaction: t,
+            Booking
+          });
         }
 
         return Booking.findByPk(created.id, {
@@ -672,10 +620,10 @@ const createBooking = async (req, res) => {
       if (txnErr.code === 'CONTENTION_DEFENDER_INVALID' || txnErr.code === 'CONTENTION_CHALLENGER_INVALID') {
         return res.status(txnErr.statusCode || 409).json({ error: txnErr.message, code: txnErr.code });
       }
-      if (txnErr.code === 'CONTESTATION_OUTCOME_CHANGED') {
+      if (txnErr.code === 'CONTENTION_OUTCOME_CHANGED') {
         let contentionWaitlist = null;
-        if (txnErr.willBeQueued && txnErr.episodeId) {
-          contentionWaitlist = await buildContentionWaitlistPreview(txnErr.episodeId);
+        if (txnErr.willBeQueued && txnErr.groupId) {
+          contentionWaitlist = await buildContentionWaitlistPreview(txnErr.groupId);
         }
         return res.status(409).json({
           error: txnErr.message,
@@ -705,8 +653,8 @@ const createBooking = async (req, res) => {
           : bookingType === 'firm' && otherPencilOverlaps.length > 0
             ? 'Firm booking submitted for staff approval.'
             : otherPencilOverlaps.length > 0 && bookingType === 'pencil'
-              ? createdBooking.status === 'queued'
-                ? 'Booking created successfully.'
+              ? contentionResult?.action === 'queued'
+                ? 'Booking created and queued in contention line.'
                 : 'Booking created; contention timer started against the overlapping pencil holder.'
               : 'Booking created successfully'
     };
@@ -728,23 +676,23 @@ const createBooking = async (req, res) => {
     const resourceName = await resolveResourceName(resourceType, resourceId);
     notifyBookingCreated(createdBooking, resourceName).catch(() => {});
 
-    const epChallenger = await ContentionEpisode.findOne({
-      where: { challengerBookingId: createdBooking.id, status: 'open' },
-      include: [
-        { model: Booking, as: 'defenderBooking', include: [{ model: User, as: 'user' }] },
-        { model: Booking, as: 'challengerBooking', include: [{ model: User, as: 'user' }] }
-      ]
-    });
-    if (epChallenger) {
-      notifyContentionStarted(epChallenger, resourceName).catch(() => {});
+    if (contentionResult?.action === 'challenger') {
+      const freshBooking = await Booking.findByPk(createdBooking.id, {
+        include: [{ model: User, as: 'user' }]
+      });
+      const defender = await Booking.findByPk(freshBooking.challengingBookingId, {
+        include: [{ model: User, as: 'user' }]
+      });
+      if (freshBooking && defender) {
+        notifyContentionStarted({ defender, challenger: freshBooking }, resourceName).catch(() => {});
+      }
     }
 
-    const queueRow = await ContentionQueueItem.findOne({
-      where: { bookingId: createdBooking.id },
-      include: [{ model: ContentionEpisode, as: 'episode' }]
-    });
-    if (queueRow) {
-      notifyBookingQueuedForContention(createdBooking, resourceName, queueRow.position).catch(() => {});
+    if (contentionResult?.action === 'queued') {
+      const freshBooking = await Booking.findByPk(createdBooking.id);
+      if (freshBooking?.queuePosition) {
+        notifyBookingQueuedForContention(freshBooking, resourceName, freshBooking.queuePosition).catch(() => {});
+      }
     }
   } catch (error) {
     console.error('Error creating booking:', error);
@@ -853,53 +801,18 @@ const getAllBookings = async (req, res) => {
       order: [['createdAt', 'DESC']]
     });
 
-    const challengerEpisodes = await ContentionEpisode.findAll({
-      where: {
-        challengerBookingId: { [Op.in]: latestBookingIds },
-        status: { [Op.in]: ['open', 'awaiting_firm'] }
-      },
-      attributes: ['challengerBookingId']
-    });
-    const challengerIdSet = new Set(challengerEpisodes.map((r) => r.challengerBookingId));
-
-    const planByChallengerId = new Map();
-    await Promise.all(
-      [...challengerIdSet].map(async (cid) => {
-        const plan = await contention.getChallengerContentionPlan(cid, { Booking, ContentionEpisode });
-        planByChallengerId.set(cid, plan);
-      })
-    );
-
-    const withFlags = bookings.map((booking) => {
+    const enriched = await Promise.all(bookings.map(async (booking) => {
       const plain = booking.toJSON();
       plain.canRebook = computeCanRebook(plain);
-      plain.contentionChallenger = challengerIdSet.has(plain.id);
-      plain.challengerContentionPlan = plain.contentionChallenger
-        ? planByChallengerId.get(plain.id) ?? null
-        : null;
+      plain.contentionChallenger = booking.contentionRole === 'challenger';
+      
+      if (booking.contentionRole) {
+        plain.contentionDetail = await contention.getContentionDetails(booking, { Booking, User });
+      } else {
+        plain.contentionDetail = null;
+      }
+      
       return plain;
-    });
-
-    const contestedIds = withFlags.filter((b) => b.status === 'contested').map((b) => b.id);
-    const queuedIds = withFlags.filter((b) => b.status === 'queued').map((b) => b.id);
-    const [defenderContentionMap, queueContentionMap] = await Promise.all([
-      contention.getDefenderContentionSummaries(contestedIds, { ContentionEpisode, Booking, User }),
-      contention.getQueuedContentionSummaries(queuedIds, {
-        ContentionQueueItem,
-        ContentionEpisode,
-        Booking,
-        User
-      })
-    ]);
-
-    const enriched = withFlags.map((plain) => ({
-      ...plain,
-      defenderContentionDetail:
-        plain.status === 'contested'
-          ? defenderContentionMap.get(Number(plain.id)) ?? null
-          : null,
-      queueContentionDetail:
-        plain.status === 'queued' ? queueContentionMap.get(Number(plain.id)) ?? null : null
     }));
 
     res.json(enriched);
@@ -933,39 +846,12 @@ const getBookingById = async (req, res) => {
 
     const plain = booking.toJSON();
     plain.canRebook = computeCanRebook(plain);
+    plain.contentionChallenger = booking.contentionRole === 'challenger';
 
-    const challengerEp = await ContentionEpisode.findOne({
-      where: {
-        challengerBookingId: booking.id,
-        status: { [Op.in]: ['open', 'awaiting_firm'] }
-      },
-      attributes: ['id']
-    });
-    plain.contentionChallenger = Boolean(challengerEp);
-    plain.challengerContentionPlan = plain.contentionChallenger
-      ? await contention.getChallengerContentionPlan(booking.id, { Booking, ContentionEpisode })
-      : null;
-
-    if (plain.status === 'contested') {
-      const dm = await contention.getDefenderContentionSummaries([booking.id], {
-        ContentionEpisode,
-        Booking,
-        User
-      });
-      plain.defenderContentionDetail = dm.get(Number(booking.id)) ?? null;
-      plain.queueContentionDetail = null;
-    } else if (plain.status === 'queued') {
-      const qm = await contention.getQueuedContentionSummaries([booking.id], {
-        ContentionQueueItem,
-        ContentionEpisode,
-        Booking,
-        User
-      });
-      plain.queueContentionDetail = qm.get(Number(booking.id)) ?? null;
-      plain.defenderContentionDetail = null;
+    if (booking.contentionRole) {
+      plain.contentionDetail = await contention.getContentionDetails(booking, { Booking, User });
     } else {
-      plain.defenderContentionDetail = null;
-      plain.queueContentionDetail = null;
+      plain.contentionDetail = null;
     }
 
     res.json(plain);
@@ -1021,14 +907,28 @@ const cancelBooking = async (req, res) => {
     await sequelize.transaction(async (t) => {
       const b = await Booking.findByPk(booking.id, { transaction: t, lock: t.LOCK.UPDATE });
       if (!b) return;
-      await contention.onBookingCancelledMidContention(b, {
-        transaction: t,
-        Booking,
-        ContentionEpisode,
-        ContentionQueueItem
-      });
+
+      // Set status to cancelled FIRST so that overlap queries inside the
+      // contention promotion logic do not see this booking as an active pencil.
       b.status = 'cancelled';
       await b.save({ transaction: t });
+
+      if (b.contentionRole) {
+        // Active contention participant: defender, challenger, or queued.
+        await contention.onBookingCancelledMidContention(b, {
+          transaction: t,
+          Booking
+        });
+      } else if (b.bookingType === 'firm' && b.contentionGroupId) {
+        // Firm booking that was freezing a contention group.
+        await contention.onFirmDeniedOrCancelled(b, { transaction: t, Booking });
+      } else if (b.bookingType === 'pencil' && b.contentionGroupId) {
+        // Frozen challenger: a pencil booking that kept its contentionGroupId when the
+        // group froze (contentionRole was cleared) but was not yet re-attached.
+        // Treat it as if it simply left the group — clean up its groupId and compact
+        // the remaining queue so position numbers stay contiguous.
+        await contention.onFrozenChallengerCancelled(b, { transaction: t, Booking });
+      }
     });
 
     const updated = await Booking.findByPk(booking.id, {
@@ -1090,22 +990,19 @@ const convertToFirm = async (req, res) => {
       throw lockErr;
     }
 
-    if (booking.status === 'queued') {
-      return res.status(400).json({
-        error:
-          'This booking is waiting in a contention queue. It cannot be converted until it becomes an active pencil.'
-      });
-    }
-
-    const epAsChallenger = await contention.findOpenEpisodeForChallenger(booking.id, {
-      transaction: null,
-      ContentionEpisode
-    });
-    if (epAsChallenger) {
-      return res.status(400).json({
-        error:
-          'As the challenger in an open contention, you cannot convert to firm until that round finishes. See your booking card for the current step and overlapping slots.'
-      });
+    if (!contention.canConvertToFirm(booking)) {
+      if (booking.contentionRole === 'queued') {
+        return res.status(400).json({
+          error:
+            'This booking is waiting in a contention queue. It cannot be converted until it becomes an active pencil.'
+        });
+      }
+      if (booking.contentionRole === 'challenger') {
+        return res.status(400).json({
+          error:
+            'As the challenger in an open contention, you cannot convert to firm until that round finishes. See your booking card for the current step and overlapping slots.'
+        });
+      }
     }
 
     const hasExistingAuth = hasAuthDoc(booking.authorizationDocUrl);
@@ -1144,7 +1041,6 @@ const convertToFirm = async (req, res) => {
 
     try {
       await sequelize.transaction(async (t) => {
-        // No includes here: Postgres rejects FOR UPDATE on outer joins (User is LEFT JOINed).
         const b = await Booking.findByPk(id, {
           transaction: t,
           lock: t.LOCK.UPDATE
@@ -1155,8 +1051,6 @@ const convertToFirm = async (req, res) => {
           err.statusCode = 404;
           throw err;
         }
-
-        const epDef = await contention.findOpenEpisodeForDefender(b.id, { transaction: t, ContentionEpisode });
 
         const firmBlockers = await Booking.findFirmBlockers(
           b.resourceType,
@@ -1174,6 +1068,8 @@ const convertToFirm = async (req, res) => {
           throw err;
         }
 
+        const wasDefender = b.contentionRole === 'defender';
+
         b.bookingType = 'firm';
         b.status = 'pending_approval';
         b.authorizationDocUrl = authDocUrl;
@@ -1184,11 +1080,8 @@ const convertToFirm = async (req, res) => {
         b.expiryAt = null;
         await b.save({ transaction: t });
 
-        if (epDef) {
-          await contention.onDefenderConvertedToFirm(b, epDef.id, {
-            transaction: t,
-            ContentionEpisode
-          });
+        if (wasDefender) {
+          await contention.onDefenderConvertedToFirm(b, { transaction: t, Booking });
         }
       });
     } catch (txnErr) {
@@ -1228,7 +1121,7 @@ const approveBooking = async (req, res) => {
     const approverUserId = req.user.id;
 
     const booking = await Booking.findByPk(id, {
-      attributes: ['id', 'status', 'bookingType', 'startTime']
+      attributes: ['id', 'status', 'bookingType', 'startTime', 'resourceType', 'resourceId']
     });
 
     if (!booking) {
@@ -1284,9 +1177,7 @@ const approveBooking = async (req, res) => {
 
         await contention.onFirmBookingApproved(full, {
           transaction: t,
-          Booking,
-          ContentionEpisode,
-          ContentionQueueItem
+          Booking
         });
       });
     } catch (txnErr) {
@@ -1323,7 +1214,7 @@ const denyBooking = async (req, res) => {
     const { staffRemark } = req.body;
 
     const booking = await Booking.findByPk(id, {
-      attributes: ['id', 'status', 'bookingType']
+      attributes: ['id', 'status', 'bookingType', 'contentionGroupId']
     });
 
     if (!booking) {
@@ -1361,17 +1252,16 @@ const denyBooking = async (req, res) => {
         }
 
         const deniedRow = await Booking.findByPk(id, {
-          attributes: ['id', 'bookingType', 'status'],
           transaction: t,
           lock: t.LOCK.UPDATE
         });
 
-        await contention.onAwaitingFirmEpisodeRejected(deniedRow, {
-          transaction: t,
-          Booking,
-          ContentionEpisode,
-          ContentionQueueItem
-        });
+        if (deniedRow.contentionGroupId) {
+          await contention.onFirmDeniedOrCancelled(deniedRow, {
+            transaction: t,
+            Booking
+          });
+        }
       });
     } catch (txnErr) {
       if (txnErr.statusCode === 409) {
@@ -1389,7 +1279,6 @@ const denyBooking = async (req, res) => {
       booking: updatedBooking
     });
 
-    // Non-blocking email notification
     resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId).then((resourceName) => {
       notifyBookingDenied(updatedBooking, resourceName).catch(() => {});
     });
@@ -1441,104 +1330,29 @@ const getAvailability = async (req, res) => {
 
     const bookings = await Booking.findAll({
       where: whereClause,
-      attributes: ['id', 'resourceType', 'resourceId', 'bookingType', 'status', 'startTime', 'endTime'],
+      attributes: [
+        'id', 'resourceType', 'resourceId', 'bookingType', 'status', 
+        'startTime', 'endTime', 'contentionGroupId', 'contentionRole', 
+        'contentionDeadlineAt', 'queuePosition'
+      ],
       order: [['startTime', 'ASC']]
     });
 
-    const challengerIdSet = new Set();
-    const activeEpisodes = [];
-    if (bookings.length > 0) {
-      // Calendar "contesting" color only while the contention timer is active (open).
-      // awaiting_firm freezes the line — challenger stays a normal grey pencil until approve/deny/cancel.
-      const episodeWhere = { status: 'open' };
-      if (resourceType && resourceId) {
-        episodeWhere.resourceType = resourceType;
-        episodeWhere.resourceId = parseInt(resourceId, 10);
-      } else {
-        const pairs = [
-          ...new Map(
-            bookings.map((b) => [`${b.resourceType}:${b.resourceId}`, { resourceType: b.resourceType, resourceId: b.resourceId }])
-          ).values()
-        ];
-        if (pairs.length === 1) {
-          episodeWhere.resourceType = pairs[0].resourceType;
-          episodeWhere.resourceId = pairs[0].resourceId;
-        } else {
-          episodeWhere[Op.or] = pairs;
-        }
-      }
-
-      const episodes = await ContentionEpisode.findAll({
-        where: episodeWhere,
-        attributes: ['id', 'challengerBookingId', 'defenderBookingId'],
-        include: [
-          {
-            model: Booking,
-            as: 'defenderBooking',
-            required: true,
-            attributes: ['bookingType', 'status']
-          }
-        ]
-      });
-      for (const ep of episodes) {
-        const d = ep.defenderBooking;
-        // Stale rows: episode still "open" but defender already converted to firm — not an active timer.
-        // Calendar contesting stripe only while the defender is a contested pencil.
-        if (
-          d &&
-          d.bookingType === 'firm' &&
-          ['pending_approval', 'approved'].includes(d.status)
-        ) {
-          continue;
-        }
-        activeEpisodes.push(ep);
-        challengerIdSet.add(ep.challengerBookingId);
-      }
-    }
-
-    const episodeIds = activeEpisodes.map((e) => e.id);
-    const queueRows =
-      episodeIds.length > 0
-        ? await ContentionQueueItem.findAll({
-            where: { episodeId: { [Op.in]: episodeIds } },
-            attributes: ['episodeId', 'bookingId', 'position']
-          })
-        : [];
-
-    const contentionByBookingId = new Map();
-    for (const ep of activeEpisodes) {
-      contentionByBookingId.set(ep.defenderBookingId, {
-        contentionEpisodeId: ep.id,
-        contentionRole: 'defender',
-        contentionQueuePosition: null
-      });
-      contentionByBookingId.set(ep.challengerBookingId, {
-        contentionEpisodeId: ep.id,
-        contentionRole: 'challenger',
-        contentionQueuePosition: null
-      });
-    }
-    for (const q of queueRows) {
-      contentionByBookingId.set(q.bookingId, {
-        contentionEpisodeId: q.episodeId,
-        contentionRole: 'queued',
-        contentionQueuePosition: q.position
-      });
-    }
-
     const payload = bookings.map((b) => {
       const row = b.get({ plain: true });
-      const meta = contentionByBookingId.get(b.id);
       return {
-        ...row,
-        contentionChallenger: challengerIdSet.has(b.id),
-        ...(meta
-          ? {
-              contentionEpisodeId: meta.contentionEpisodeId,
-              contentionRole: meta.contentionRole,
-              contentionQueuePosition: meta.contentionQueuePosition
-            }
-          : {})
+        id: row.id,
+        resourceType: row.resourceType,
+        resourceId: row.resourceId,
+        bookingType: row.bookingType,
+        status: row.status,
+        startTime: row.startTime,
+        endTime: row.endTime,
+        contentionChallenger: row.contentionRole === 'challenger',
+        contentionGroupId: row.contentionGroupId || null,
+        contentionRole: row.contentionRole || null,
+        contentionDeadlineAt: row.contentionDeadlineAt || null,
+        contentionQueuePosition: row.queuePosition || null
       };
     });
 
