@@ -14,7 +14,6 @@ const {
   notifyBookingDenied,
   notifyBookingCancelled,
   notifyContentionStarted,
-  notifyBookingQueuedForContention,
   notifyDisplacedUsersSlotReopened,
 } = require('../utils/booking-notifications');
 const { computePencilExpiryAt, assertStartNotWithinLockHours, isWithinLockHours } = require('../utils/booking-rules');
@@ -116,51 +115,6 @@ async function getNextBookingId() {
   return rows[0]?.id;
 }
 
-/** Display-only next id for contention confirmation UI (MAX(id)+1). Can differ if another booking is created before confirm. */
-async function previewNextBookingId() {
-  const m = await Booking.max('id');
-  if (m == null) return 1;
-  const n = Number(m);
-  return Number.isFinite(n) ? n + 1 : 1;
-}
-
-/**
- * Build contention waitlist preview for confirmation UI.
- * Uses the new contention model (directly on Booking).
- */
-async function buildContentionWaitlistPreview(groupId) {
-  if (!groupId) return null;
-
-  const groupMembers = await Booking.findAll({
-    where: {
-      contentionGroupId: groupId,
-      status: 'penciled'
-    },
-    include: [{ model: User, as: 'user', attributes: ['id', 'email'] }],
-    order: [
-      [sequelize.literal(`CASE "contentionRole" 
-        WHEN 'defender' THEN 0 
-        WHEN 'challenger' THEN 1 
-        WHEN 'queued' THEN 2 
-        ELSE 3 END`), 'ASC'],
-      ['queuePosition', 'ASC']
-    ]
-  });
-
-  if (groupMembers.length === 0) return null;
-
-  return groupMembers.map((b) => ({
-    role: b.contentionRole,
-    ...(b.contentionRole === 'queued' ? { queuePosition: b.queuePosition } : {}),
-    id: b.id,
-    bookingType: b.bookingType,
-    status: b.status,
-    startTime: b.startTime,
-    endTime: b.endTime,
-    user: b.user ? { id: b.user.id, email: b.user.email } : undefined
-  }));
-}
-
 async function resolveResourceName(resourceType, resourceId) {
   try {
     if (resourceType === 'equipment') {
@@ -249,14 +203,6 @@ const createBooking = async (req, res) => {
   try {
     const { resourceType, resourceId, bookingType, startTime, endTime, purpose } = req.body;
     const confirmOverlapOwn = req.body.confirmOverlapOwn === true || req.body.confirmOverlapOwn === 'true';
-    const confirmContention = req.body.confirmContention === true || req.body.confirmContention === 'true';
-    const rawExpectedWillBeQueued = req.body.expectedWillBeQueued;
-    const expectedWillBeQueued =
-      rawExpectedWillBeQueued === true || rawExpectedWillBeQueued === 'true'
-        ? true
-        : rawExpectedWillBeQueued === false || rawExpectedWillBeQueued === 'false'
-          ? false
-          : undefined;
     const rebookedFromBookingIdRaw = req.body.rebookedFromBookingId;
     const userId = req.user.id;
 
@@ -459,32 +405,8 @@ const createBooking = async (req, res) => {
           conflicts: formatConflicts(ownPencilOverlaps)
         });
       }
-      if (otherPencilOverlaps.length > 0 && !confirmContention) {
-        const existingGroupId = await contention.findOverlappingContentionGroup(
-          { resourceType, resourceId, startTime: start, endTime: end },
-          { transaction: null, Booking }
-        );
-        const willBeQueued = Boolean(existingGroupId);
-        const contentionWaitlist = willBeQueued
-          ? await buildContentionWaitlistPreview(existingGroupId)
-          : null;
-        return res.status(409).json({
-          error:
-            'This pencil booking would challenge an existing pencil booking. Confirm to proceed.',
-          requiresContentionConfirmation: true,
-          willBeQueued,
-          previewBookingId: await previewNextBookingId(),
-          conflicts: formatConflicts(otherPencilOverlaps),
-          ...(contentionWaitlist?.length ? { contentionWaitlist } : {})
-        });
-      }
-      if (otherPencilOverlaps.length > 0 && confirmContention && expectedWillBeQueued === undefined) {
-        return res.status(400).json({
-          error:
-            'expectedWillBeQueued is required when confirming a pencil booking that overlaps other pencils. Refresh this page if the problem continues.',
-          code: 'EXPECTED_WILL_BE_QUEUED_REQUIRED'
-        });
-      }
+      // 1v1 mode: overlap with foreign pencils is allowed and evaluated in-transaction.
+      // If an active contention already exists at commit time, we hard reject with 409.
     }
 
     let cancelledPencilBookings = [];
@@ -533,7 +455,7 @@ const createBooking = async (req, res) => {
     let contentionResult = null;
     try {
       createdBooking = await sequelize.transaction(async (t) => {
-        if (bookingType === 'pencil' && otherPencilOverlaps.length > 0 && confirmContention) {
+        if (bookingType === 'pencil' && otherPencilOverlaps.length > 0) {
           const freshPencilOverlaps = await Booking.findActivePencilOverlaps(
             resourceType,
             resourceId,
@@ -547,31 +469,7 @@ const createBooking = async (req, res) => {
           );
 
           if (freshOther.length === 0) {
-            const err = new Error(
-              'Overlapping pencil bookings changed before your request completed. Please check the calendar and try again.'
-            );
-            err.statusCode = 409;
-            err.code = 'PENCIL_OVERLAP_CHANGED';
-            err.conflicts = [];
-            throw err;
-          }
-
-          const existingGroupId = await contention.findOverlappingContentionGroup(
-            { resourceType, resourceId, startTime: start, endTime: end },
-            { transaction: t, Booking }
-          );
-          const actualWillBeQueued = Boolean(existingGroupId);
-          if (expectedWillBeQueued !== actualWillBeQueued) {
-            const err = new Error(
-              'Waitlist vs active challenger changed while you were reviewing. Please confirm again.'
-            );
-            err.statusCode = 409;
-            err.code = 'CONTENTION_OUTCOME_CHANGED';
-            err.requiresContentionConfirmation = true;
-            err.willBeQueued = actualWillBeQueued;
-            err.conflicts = formatConflicts(freshOther);
-            err.groupId = existingGroupId;
-            throw err;
+            // Nothing left to contend with; this request becomes a free pencil.
           }
         }
 
@@ -597,12 +495,15 @@ const createBooking = async (req, res) => {
           { transaction: t }
         );
 
-        if (bookingType === 'pencil' && otherPencilOverlaps.length > 0 && confirmContention) {
+        if (bookingType === 'pencil' && otherPencilOverlaps.length > 0) {
           const b = await Booking.findByPk(created.id, { transaction: t, lock: t.LOCK.UPDATE });
-          contentionResult = await contention.tryAttachPencilToContention(b, {
-            transaction: t,
-            Booking
-          });
+          contentionResult = await contention.tryAttachPencilToContention(b, { transaction: t, Booking });
+        }
+
+        if (bookingType === 'firm') {
+          const b = await Booking.findByPk(created.id, { transaction: t, lock: t.LOCK.UPDATE });
+          await contention.autoResolveFirmBlockedDefenders(b, { transaction: t, Booking });
+          await contention.reevaluateOverlappingPencilsForFirm(b, { transaction: t, Booking });
         }
 
         return Booking.findByPk(created.id, {
@@ -620,27 +521,8 @@ const createBooking = async (req, res) => {
       if (txnErr.code === 'CONTENTION_DEFENDER_INVALID' || txnErr.code === 'CONTENTION_CHALLENGER_INVALID') {
         return res.status(txnErr.statusCode || 409).json({ error: txnErr.message, code: txnErr.code });
       }
-      if (txnErr.code === 'CONTENTION_OUTCOME_CHANGED') {
-        let contentionWaitlist = null;
-        if (txnErr.willBeQueued && txnErr.groupId) {
-          contentionWaitlist = await buildContentionWaitlistPreview(txnErr.groupId);
-        }
-        return res.status(409).json({
-          error: txnErr.message,
-          code: txnErr.code,
-          requiresContentionConfirmation: true,
-          willBeQueued: txnErr.willBeQueued,
-          previewBookingId: await previewNextBookingId(),
-          conflicts: txnErr.conflicts || [],
-          ...(contentionWaitlist?.length ? { contentionWaitlist } : {})
-        });
-      }
-      if (txnErr.code === 'PENCIL_OVERLAP_CHANGED') {
-        return res.status(409).json({
-          error: txnErr.message,
-          code: txnErr.code,
-          conflicts: txnErr.conflicts || []
-        });
+      if (txnErr.code === 'ACTIVE_CONTENTION_LOCKED') {
+        return res.status(409).json({ error: txnErr.message, code: txnErr.code });
       }
       throw txnErr;
     }
@@ -653,9 +535,7 @@ const createBooking = async (req, res) => {
           : bookingType === 'firm' && otherPencilOverlaps.length > 0
             ? 'Firm booking submitted for staff approval.'
             : otherPencilOverlaps.length > 0 && bookingType === 'pencil'
-              ? contentionResult?.action === 'queued'
-                ? 'Booking created and queued in contention line.'
-                : 'Booking created; contention timer started against the overlapping pencil holder.'
+              ? 'Booking created; contention timer started against the overlapping pencil holder.'
               : 'Booking created successfully'
     };
 
@@ -688,12 +568,6 @@ const createBooking = async (req, res) => {
       }
     }
 
-    if (contentionResult?.action === 'queued') {
-      const freshBooking = await Booking.findByPk(createdBooking.id);
-      if (freshBooking?.queuePosition) {
-        notifyBookingQueuedForContention(freshBooking, resourceName, freshBooking.queuePosition).catch(() => {});
-      }
-    }
   } catch (error) {
     console.error('Error creating booking:', error);
     res.status(500).json({ error: 'Failed to create booking' });
@@ -914,20 +788,14 @@ const cancelBooking = async (req, res) => {
       await b.save({ transaction: t });
 
       if (b.contentionRole) {
-        // Active contention participant: defender, challenger, or queued.
+        // Active contention participant in strict 1v1 mode.
         await contention.onBookingCancelledMidContention(b, {
           transaction: t,
           Booking
         });
-      } else if (b.bookingType === 'firm' && b.contentionGroupId) {
-        // Firm booking that was freezing a contention group.
+      } else if (b.bookingType === 'firm') {
+        // Firm booking cancellation: clear any residual contention metadata.
         await contention.onFirmDeniedOrCancelled(b, { transaction: t, Booking });
-      } else if (b.bookingType === 'pencil' && b.contentionGroupId) {
-        // Frozen challenger: a pencil booking that kept its contentionGroupId when the
-        // group froze (contentionRole was cleared) but was not yet re-attached.
-        // Treat it as if it simply left the group — clean up its groupId and compact
-        // the remaining queue so position numbers stay contiguous.
-        await contention.onFrozenChallengerCancelled(b, { transaction: t, Booking });
       }
     });
 
@@ -991,12 +859,6 @@ const convertToFirm = async (req, res) => {
     }
 
     if (!contention.canConvertToFirm(booking)) {
-      if (booking.contentionRole === 'queued') {
-        return res.status(400).json({
-          error:
-            'This booking is waiting in a contention queue. It cannot be converted until it becomes an active pencil.'
-        });
-      }
       if (booking.contentionRole === 'challenger') {
         return res.status(400).json({
           error:
@@ -1214,7 +1076,7 @@ const denyBooking = async (req, res) => {
     const { staffRemark } = req.body;
 
     const booking = await Booking.findByPk(id, {
-      attributes: ['id', 'status', 'bookingType', 'contentionGroupId']
+      attributes: ['id', 'status', 'bookingType', 'contentionRole']
     });
 
     if (!booking) {
@@ -1256,7 +1118,7 @@ const denyBooking = async (req, res) => {
           lock: t.LOCK.UPDATE
         });
 
-        if (deniedRow.contentionGroupId) {
+        if (deniedRow.contentionRole === 'defender') {
           await contention.onFirmDeniedOrCancelled(deniedRow, {
             transaction: t,
             Booking
@@ -1331,9 +1193,8 @@ const getAvailability = async (req, res) => {
     const bookings = await Booking.findAll({
       where: whereClause,
       attributes: [
-        'id', 'resourceType', 'resourceId', 'bookingType', 'status', 
-        'startTime', 'endTime', 'contentionGroupId', 'contentionRole', 
-        'contentionDeadlineAt', 'queuePosition'
+        'id', 'resourceType', 'resourceId', 'bookingType', 'status',
+        'startTime', 'endTime', 'contentionRole', 'contentionDeadlineAt', 'challengingBookingId'
       ],
       order: [['startTime', 'ASC']]
     });
@@ -1349,10 +1210,10 @@ const getAvailability = async (req, res) => {
         startTime: row.startTime,
         endTime: row.endTime,
         contentionChallenger: row.contentionRole === 'challenger',
-        contentionGroupId: row.contentionGroupId || null,
         contentionRole: row.contentionRole || null,
         contentionDeadlineAt: row.contentionDeadlineAt || null,
-        contentionQueuePosition: row.queuePosition || null
+        challengingBookingId: row.challengingBookingId || null,
+        contentionQueuePosition: null
       };
     });
 

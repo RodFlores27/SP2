@@ -1333,7 +1333,7 @@
             }
           },
           "409": {
-            "description": "Conflict — firm overlaps, own pencil supersede confirmation, or pencil contention confirmation (includes willBeQueued when the booking would be enqueued on an existing open episode)",
+            "description": "Conflict — firm overlaps, own pencil overlaps, or active 1v1 contention lock (`ACTIVE_CONTENTION_LOCKED`).",
             "content": {
               "application/json": {
                 "schema": {
@@ -1361,7 +1361,7 @@
             "description": "Filter by booking status",
             "schema": {
               "type": "string",
-              "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"]
+              "enum": ["penciled", "on_hold", "contested", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"]
             }
           },
           {
@@ -2480,8 +2480,8 @@
           },
           "status": {
             "type": "string",
-            "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"],
-            "description": "Current booking status (pencil: penciled/contested/queued/displaced; firm: pending_approval/approved/denied/cancelled/expired)"
+            "enum": ["penciled", "on_hold", "contested", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"],
+            "description": "Current booking status (pencil: penciled/on_hold/contested/displaced; firm: pending_approval/approved/denied/cancelled/expired)"
           },
           "startTime": {
             "type": "string",
@@ -2728,7 +2728,7 @@
                 },
                 "status": {
                   "type": "string",
-                  "enum": ["penciled", "contested", "queued", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"]
+                  "enum": ["penciled", "on_hold", "contested", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"]
                 },
                 "startTime": {
                   "type": "string",
@@ -2804,7 +2804,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["penciled", "contested", "queued", "pending_approval", "approved"],
+            "enum": ["penciled", "on_hold", "contested", "pending_approval", "approved"],
             "description": "Booking status for calendar display (excludes terminal statuses including displaced, cancelled, denied, expired, completed)"
           },
           "startTime": {
@@ -2824,18 +2824,18 @@
           "contentionEpisodeId": {
             "type": "integer",
             "nullable": true,
-            "description": "When this booking participates in an open contention episode (defender, challenger, or queued), the ContentionEpisode id. Omitted when not in an active episode."
+            "description": "Legacy field from previous grouped-contention model. Deprecated in strict 1v1 mode."
           },
           "contentionRole": {
             "type": "string",
-            "enum": ["defender", "challenger", "queued"],
+            "enum": ["defender", "challenger"],
             "nullable": true,
-            "description": "Role within the contention group for calendar ordering (defender = challenged holder, challenger = active pencil challenger, queued = waitlist)."
+            "description": "1v1 contention role (defender = challenged holder, challenger = active challenger)."
           },
           "contentionQueuePosition": {
             "type": "integer",
             "nullable": true,
-            "description": "1-based waitlist position when contentionRole is queued; otherwise null or omitted."
+            "description": "Legacy waitlist position from grouped contention model. Deprecated in strict 1v1 mode."
           }
         }
       },

@@ -7,6 +7,8 @@ export function BookingStatusBadge({ status, bookingType, showChallengerBadge = 
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'penciled':
         return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'on_hold':
+        return 'bg-amber-100 text-amber-900 border-amber-300';
       case 'contested':
         return 'bg-orange-100 text-orange-800 border-orange-200';
       case 'queued':

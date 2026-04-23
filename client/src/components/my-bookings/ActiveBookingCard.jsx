@@ -65,7 +65,6 @@ export function ActiveBookingCard({
   const previousAttempts = getPreviousAttempts(booking);
   const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
   const [showContestedChallengerDetail, setShowContestedChallengerDetail] = useState(false);
-  const [showQueuedDetail, setShowQueuedDetail] = useState(false);
   const [showChallengerDetail, setShowChallengerDetail] = useState(false);
   const hasExistingAuthDoc = Boolean(
     booking.authorizationDocUrl && String(booking.authorizationDocUrl).trim().length > 0
@@ -211,107 +210,6 @@ export function ActiveBookingCard({
             </div>
           </div>
         )}
-        {booking.status === 'queued' && (
-          <div className="mb-3 flex items-start gap-2 bg-violet-50 border border-violet-200 text-violet-900 px-3 py-2 rounded-md text-sm">
-            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-violet-600" />
-            <div className="min-w-0 space-y-2">
-              <p>
-                Your booking is <strong>queued</strong> behind an active contention on this resource. You
-                will be notified when your turn starts.
-              </p>
-              {booking.queueContentionDetail ? (
-                <div className="border-t border-violet-200/80 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowQueuedDetail((prev) => !prev)}
-                    aria-expanded={showQueuedDetail}
-                    aria-label={
-                      showQueuedDetail ? 'Hide queue details' : 'View queue details'
-                    }
-                    className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-violet-950"
-                  >
-                    View details
-                    {showQueuedDetail ? (
-                      <ChevronUp className="h-3.5 w-3.5 shrink-0 text-violet-700" aria-hidden />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-violet-700" aria-hidden />
-                    )}
-                  </button>
-                  {showQueuedDetail && (
-                    <div className="mt-2 text-xs space-y-2">
-                      <p className="font-semibold text-violet-950">Waitlist and active contention</p>
-                      <p>
-                        <span className="font-semibold">Your waitlist position:</span>{' '}
-                        <strong>
-                          {booking.queueContentionDetail.position} of{' '}
-                          {booking.queueContentionDetail.queueLength}
-                        </strong>
-                        . (Only queued bookings are numbered; the active pair below is not in this count.)
-                      </p>
-                      {(booking.queueContentionDetail.activeDefender ||
-                        booking.queueContentionDetail.activeChallenger) && (
-                        <div>
-                          <p className="font-semibold text-violet-950">
-                            Active contention (ahead of the waitlist)
-                          </p>
-                          <ul className="list-disc pl-4 space-y-1 text-violet-900">
-                            {booking.queueContentionDetail.activeDefender && (
-                              <li>
-                                Defender — Booking #{booking.queueContentionDetail.activeDefender.bookingId}{' '}
-                                {formatBookingDateRange(
-                                  booking.queueContentionDetail.activeDefender.startTime,
-                                  booking.queueContentionDetail.activeDefender.endTime
-                                )}
-                                {booking.queueContentionDetail.activeDefender.user?.email && (
-                                  <span> ({booking.queueContentionDetail.activeDefender.user.email})</span>
-                                )}
-                              </li>
-                            )}
-                            {booking.queueContentionDetail.activeChallenger && (
-                              <li>
-                                Challenger — Booking #{booking.queueContentionDetail.activeChallenger.bookingId}{' '}
-                                {formatBookingDateRange(
-                                  booking.queueContentionDetail.activeChallenger.startTime,
-                                  booking.queueContentionDetail.activeChallenger.endTime
-                                )}
-                                {booking.queueContentionDetail.activeChallenger.user?.email && (
-                                  <span> ({booking.queueContentionDetail.activeChallenger.user.email})</span>
-                                )}
-                              </li>
-                            )}
-                          </ul>
-                        </div>
-                      )}
-                      {booking.queueContentionDetail.aheadInQueue?.length > 0 ? (
-                        <div>
-                          <p className="font-semibold text-violet-950">Ahead of you in the waitlist</p>
-                          <ol className="list-decimal pl-4 space-y-1 text-violet-900">
-                            {booking.queueContentionDetail.aheadInQueue.map((row) => (
-                              <li key={row.bookingId}>
-                                #{row.bookingId} (position {row.position}) —{' '}
-                                {formatBookingDateRange(row.startTime, row.endTime)}
-                                {row.user?.email && <span> — {row.user.email}</span>}
-                              </li>
-                            ))}
-                          </ol>
-                        </div>
-                      ) : (
-                        <p className="text-violet-800/90">
-                          No other bookings ahead of you in the waitlist—you are next after the active pair
-                          resolves.
-                        </p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <p className="text-xs text-violet-800/90">
-                  Queue details are unavailable. Refresh the page or contact staff if this persists.
-                </p>
-              )}
-            </div>
-          </div>
-        )}
 
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="space-y-1 min-w-0">
@@ -379,7 +277,7 @@ export function ActiveBookingCard({
               </div>
             )}
 
-            {booking.expiryAt && ['penciled', 'contested', 'queued'].includes(booking.status) && (
+            {booking.expiryAt && ['penciled', 'contested', 'on_hold'].includes(booking.status) && (
               <p className="text-xs text-muted-foreground">
                 Expires: {format(new Date(booking.expiryAt), 'MMM d, yyyy h:mm a')}
               </p>

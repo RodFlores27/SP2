@@ -68,7 +68,7 @@ export function getFirmCancelBlockedMessage(reason) {
 export function isConvertible(booking) {
   return (
     booking.bookingType === 'pencil' &&
-    !['cancelled', 'denied', 'expired', 'displaced', 'completed', 'queued'].includes(booking.status)
+    !['cancelled', 'denied', 'expired', 'displaced', 'completed', 'queued', 'on_hold'].includes(booking.status)
   );
 }
 
@@ -83,7 +83,7 @@ export function guessFileType(url) {
 }
 
 /** Active-tab status order (highest priority first). */
-const ACTIVE_STATUS_ORDER = ['contested', 'queued', 'pending_approval', 'penciled', 'approved'];
+const ACTIVE_STATUS_ORDER = ['contested', 'pending_approval', 'on_hold', 'penciled', 'approved'];
 /** Past-tab status order (denied first — staff decision, highest visibility). */
 const PAST_STATUS_ORDER = ['denied', 'displaced', 'cancelled', 'expired', 'completed'];
 

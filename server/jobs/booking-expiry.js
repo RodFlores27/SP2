@@ -102,7 +102,7 @@ cron.schedule('*/15 * * * *', async () => {
         if (!b || b.bookingType !== 'firm' || b.status !== 'pending_approval') return;
         if (!isWithinLockHours(b.startTime, now)) return;
 
-        if (b.contentionGroupId) {
+        if (b.contentionRole === 'defender') {
           await contention.onFirmDeniedOrCancelled(b, { transaction: t, Booking });
         }
 

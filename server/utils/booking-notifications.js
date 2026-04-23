@@ -59,16 +59,16 @@ async function notifyBookingCreated(booking, resourceName) {
 
   const isPencil = booking.bookingType === 'pencil';
   const isDefender = booking.contentionRole === 'defender';
-  const isQueued = booking.contentionRole === 'queued';
+  const isChallenger = booking.contentionRole === 'challenger';
 
   let statusNote = '';
-  if (isQueued) {
-    statusNote = `<p style="background:#f5f3ff;border:1px solid #ddd6fe;border-radius:6px;padding:12px;font-size:14px;color:#5b21b6;">
-      ⏳ Your pencil booking is <strong>queued</strong> behind an earlier contention on this resource. You will be notified when your turn starts.
-    </p>`;
-  } else if (isDefender) {
+  if (isDefender) {
     statusNote = `<p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:12px;font-size:14px;color:#92400e;">
       ⚠️ Your pencil booking is being <strong>challenged</strong>. Another user is challenging your slot. Convert to a firm booking before the contention deadline to keep the reservation.
+    </p>`;
+  } else if (isChallenger) {
+    statusNote = `<p style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px;font-size:14px;color:#1e40af;">
+      ⚔️ Your pencil booking is currently the <strong>challenger</strong> in an active 1v1 contention.
     </p>`;
   } else if (isPencil) {
     statusNote = `<p style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px;font-size:14px;color:#1e40af;">
@@ -269,27 +269,6 @@ async function notifyContentionStarted({ defender, challenger }, resourceName) {
 }
 
 /**
- * User is FIFO-queued behind an active contention.
- */
-async function notifyBookingQueuedForContention(booking, resourceName, position) {
-  const recipientEmail = booking.user?.email;
-  if (!recipientEmail) return;
-
-  const html = baseEmailWrapper(
-    'You are in a contention queue',
-    `<p>Your pencil booking is <strong>queued</strong> (position <strong>${position}</strong>) until earlier challenges on this resource finish.</p>
-    ${bookingDetailsBlock(booking, resourceName)}
-    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">View your booking →</a></p>`
-  );
-
-  await sendEmail({
-    to: recipientEmail,
-    subject: `[PTCF] Booking #${booking.id} — queued for contention`,
-    html
-  });
-}
-
-/**
  * An approved firm booking was cancelled — notify users whose pencils were displaced by that firm.
  */
 async function notifyDisplacedUsersSlotReopened(displacedBooking, firmBooking, resourceName) {
@@ -320,6 +299,5 @@ module.exports = {
   notifyBookingExpired,
   notifyBookingExpiringSoon,
   notifyContentionStarted,
-  notifyBookingQueuedForContention,
   notifyDisplacedUsersSlotReopened,
 };

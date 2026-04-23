@@ -99,7 +99,7 @@ function ContentionOverlapFlyout({ panel, onClose }) {
         <div>
           <p className="text-xs font-semibold text-foreground">Active overlaps</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {resourceName ? `${resourceName} · queue order` : 'Queue order'}
+            {resourceName ? `${resourceName} · overlap details` : 'Overlap details'}
           </p>
         </div>
         <button
@@ -158,9 +158,9 @@ function BookingEventLabel({ event, title }) {
         <button
           type="button"
           className="ptcf-agg-expand-btn inline-flex shrink-0 items-center justify-center rounded p-0.5 text-current hover:bg-black/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-          aria-label="Show or hide overlapping contention bookings in queue order"
+          aria-label="Show or hide overlapping contention bookings details"
           aria-expanded={ui.overlapAggregateKey === String(id)}
-          title="Show or hide overlaps (queue order)"
+          title="Show or hide overlap details"
           onMouseDown={(e) => {
             e.stopPropagation();
           }}
@@ -201,6 +201,15 @@ function toBaseCalendarEvent(booking, resourceName, resourceStatus) {
 }
 
 function groupContendedMonthEvents(events) {
+  const getContentionPairKey = (resource) => {
+    if (!resource) return null;
+    if (resource.contentionRole === 'defender') return `def:${resource.id}`;
+    if (resource.contentionRole === 'challenger' && resource.challengingBookingId != null) {
+      return `def:${resource.challengingBookingId}`;
+    }
+    return null;
+  };
+
   const byResource = new Map();
   for (const ev of events) {
     const key = `${ev.resource.resourceType}:${ev.resource.resourceId}`;
@@ -241,69 +250,68 @@ function groupContendedMonthEvents(events) {
         continue;
       }
 
-      // Contention participants: only bookings that are actual group members
-      // (defender, challenger, or queued). Firm bookings, approved bookings,
-      // and free pencils that merely share the same time slot are NOT members
-      // and must remain as individual events on the calendar.
-      const participants = cluster.filter((ev) => {
-        const st = toCalendarStatus(ev.resource);
-        return st === 'contested' || st === 'contesting' || st === 'queued';
-      });
-      const nonParticipants = cluster.filter((ev) => {
-        const st = toCalendarStatus(ev.resource);
-        return st !== 'contested' && st !== 'contesting' && st !== 'queued';
-      });
+      // Build separate aggregate blocks per independent 1v1 pair (defender + challenger).
+      const pairBuckets = new Map();
+      const nonParticipants = [];
 
-      // If fewer than 2 group members, no aggregate block — all events individual.
-      if (participants.length < 2) {
-        output.push(...cluster);
-        continue;
+      for (const ev of cluster) {
+        const key = getContentionPairKey(ev.resource);
+        if (!key) {
+          nonParticipants.push(ev);
+          continue;
+        }
+        if (!pairBuckets.has(key)) pairBuckets.set(key, []);
+        pairBuckets.get(key).push(ev);
       }
 
-      // Non-members always render as their own separate calendar events.
+      // Non-members always render as their own separate events.
       output.push(...nonParticipants);
 
-      // Build the aggregate block from participants only.
-      const challengerCount = participants.filter((ev) => toCalendarStatus(ev.resource) === 'contesting').length;
-      const queuedCount = participants.filter((ev) => toCalendarStatus(ev.resource) === 'queued').length;
-      const contestedCount = participants.filter((ev) => toCalendarStatus(ev.resource) === 'contested').length;
-      const plainPencilCount = participants.filter((ev) => {
-        const r = ev.resource;
-        return r.status === 'penciled' && !r.contentionRole && !r.contentionChallenger;
-      }).length;
+      for (const [pairKey, participants] of pairBuckets.entries()) {
+        // If pair is incomplete in this visible cluster, keep entries as individual events.
+        if (participants.length < 2) {
+          output.push(...participants);
+          continue;
+        }
 
-      const representative = [...participants].sort((a, b) => {
-        const pa = CALENDAR_STATUS_PRIORITY[toCalendarStatus(a.resource)] ?? 99;
-        const pb = CALENDAR_STATUS_PRIORITY[toCalendarStatus(b.resource)] ?? 99;
-        return pa - pb || a.start - b.start || Number(a.id) - Number(b.id);
-      })[0];
+        const challengerCount = participants.filter((ev) => toCalendarStatus(ev.resource) === 'contesting').length;
+        const contestedCount = participants.filter((ev) => toCalendarStatus(ev.resource) === 'contested').length;
+        const plainPencilCount = participants.filter((ev) => {
+          const r = ev.resource;
+          return r.status === 'penciled' && !r.contentionRole && !r.contentionChallenger;
+        }).length;
 
-      // Time range spans only the participants, not non-member overlapping bookings.
-      const participantStart = new Date(Math.min(...participants.map((ev) => ev.start.getTime())));
-      const participantEnd = new Date(Math.max(...participants.map((ev) => ev.end.getTime())));
-      const title = `${formatCalendarEventTimeRange(participantStart, participantEnd)} [${
-        representative.resource.resourceName
-      }] • Contention (${contestedCount}/${challengerCount}/${queuedCount})`;
+        const representative = [...participants].sort((a, b) => {
+          const pa = CALENDAR_STATUS_PRIORITY[toCalendarStatus(a.resource)] ?? 99;
+          const pb = CALENDAR_STATUS_PRIORITY[toCalendarStatus(b.resource)] ?? 99;
+          return pa - pb || a.start - b.start || Number(a.id) - Number(b.id);
+        })[0];
 
-      const aggregateMembers = buildAggregateMemberRows(participants);
+        const participantStart = new Date(Math.min(...participants.map((ev) => ev.start.getTime())));
+        const participantEnd = new Date(Math.max(...participants.map((ev) => ev.end.getTime())));
+        const title = `${formatCalendarEventTimeRange(participantStart, participantEnd)} [${
+          representative.resource.resourceName
+        }] • Contention (${contestedCount}/${challengerCount})`;
 
-      output.push({
-        id: `agg-${representative.resource.resourceType}-${representative.resource.resourceId}-${participantStart.getTime()}-${participantEnd.getTime()}`,
-        title,
-        start: participantStart,
-        end: participantEnd,
-        resource: {
-          ...representative.resource,
-          aggregateSummary: {
-            total: participants.length,
-            contestedCount,
-            challengerCount,
-            queuedCount,
-            plainPencilCount,
+        const aggregateMembers = buildAggregateMemberRows(participants);
+
+        output.push({
+          id: `agg-${pairKey}-${participantStart.getTime()}-${participantEnd.getTime()}`,
+          title,
+          start: participantStart,
+          end: participantEnd,
+          resource: {
+            ...representative.resource,
+            aggregateSummary: {
+              total: participants.length,
+              contestedCount,
+              challengerCount,
+              plainPencilCount,
+            },
+            aggregateMembers,
           },
-          aggregateMembers,
-        },
-      });
+        });
+      }
     }
   }
 
@@ -497,9 +505,7 @@ export function BookingCalendar({
           calendarStatus === 'contesting' ||
           calendarStatus === 'contested'
             ? 0.7
-            : calendarStatus === 'queued'
-              ? 0.92
-              : 1,
+            : 1,
       },
     };
   };
@@ -562,6 +568,13 @@ export function BookingCalendar({
           <div className="flex items-center gap-2">
             <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#d1d5db' }}></span>
             <span>Penciled</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className="w-4 h-4 rounded border-2 border-dashed"
+              style={{ backgroundColor: '#fef3c7', borderColor: '#f59e0b' }}
+            />
+            <span>On Hold (firm overlap)</span>
           </div>
           <div className="flex items-center gap-2">
             <span

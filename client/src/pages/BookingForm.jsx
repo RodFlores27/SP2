@@ -71,14 +71,6 @@ function formatStatusLabel(status) {
     .join(' ');
 }
 
-/** Subtitle for episode waitlist rows from API (defender / challenger / queued position). */
-function contentionWaitlistRowSubtitle(row) {
-  if (row.role === 'defender') return 'Defender';
-  if (row.role === 'challenger') return 'Active challenger';
-  if (row.role === 'queued' && row.queuePosition != null) return `Queued · position ${row.queuePosition}`;
-  return null;
-}
-
 export default function BookingForm() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -261,8 +253,7 @@ export default function BookingForm() {
   const submitBooking = async (
     data,
     confirmOverlapOwn = false,
-    confirmContention = false,
-    expectedWillBeQueued = undefined
+    confirmContention = false
   ) => {
     try {
       setIsSubmitting(true);
@@ -293,9 +284,6 @@ export default function BookingForm() {
         if (confirmContention) {
           formData.append('confirmContention', 'true');
         }
-        if (expectedWillBeQueued !== undefined) {
-          formData.append('expectedWillBeQueued', expectedWillBeQueued ? 'true' : 'false');
-        }
         if (rebookedFromBookingId) {
           formData.append('rebookedFromBookingId', rebookedFromBookingId);
         }
@@ -319,10 +307,6 @@ export default function BookingForm() {
         const resData = await res.json();
 
         if (!res.ok) {
-          if (res.status === 400 && resData.code === 'EXPECTED_WILL_BE_QUEUED_REQUIRED') {
-            setSubmitError(resData.error || 'Please refresh the booking page and try again.');
-            return;
-          }
           if (res.status === 409) {
             // Check if this is a confirmation prompt for own pencil overlap
             if (resData.requiresConfirmation) {
@@ -330,19 +314,6 @@ export default function BookingForm() {
                 formData: data,
                 ownPencilConflicts: resData.ownPencilConflicts,
               });
-              return;
-            }
-            if (resData.code === 'CONTESTATION_OUTCOME_CHANGED' && resData.requiresContentionConfirmation) {
-              setPendingContentionConfirmation({
-                formData: data,
-                conflicts: resData.conflicts || [],
-                willBeQueued: Boolean(resData.willBeQueued),
-                previewBookingId: resData.previewBookingId,
-                contentionWaitlist: resData.contentionWaitlist || null,
-              });
-              setSubmitError(
-                resData.error || 'Contention changed while you were reviewing. Please confirm again.'
-              );
               return;
             }
             if (resData.code === 'PENCIL_OVERLAP_CHANGED') {
@@ -357,10 +328,7 @@ export default function BookingForm() {
             if (resData.requiresContentionConfirmation) {
               setPendingContentionConfirmation({
                 formData: data,
-                conflicts: resData.conflicts || [],
-                willBeQueued: Boolean(resData.willBeQueued),
-                previewBookingId: resData.previewBookingId,
-                contentionWaitlist: resData.contentionWaitlist || null,
+                conflicts: resData.conflicts || []
               });
               return;
             }
@@ -388,9 +356,6 @@ export default function BookingForm() {
         if (confirmContention) {
           payload.confirmContention = true;
         }
-        if (expectedWillBeQueued !== undefined) {
-          payload.expectedWillBeQueued = expectedWillBeQueued;
-        }
         if (rebookedFromBookingId) {
           payload.rebookedFromBookingId = parseInt(rebookedFromBookingId, 10);
         }
@@ -403,28 +368,11 @@ export default function BookingForm() {
         } catch (axiosErr) {
           const st = axiosErr.response?.status;
           const d = axiosErr.response?.data;
-          if (st === 400 && d?.code === 'EXPECTED_WILL_BE_QUEUED_REQUIRED') {
-            setSubmitError(d.error || 'Please refresh the booking page and try again.');
-            return;
-          }
           if (st === 409 && d?.requiresConfirmation) {
             setPendingConfirmation({
               formData: data,
               ownPencilConflicts: d.ownPencilConflicts,
             });
-            return;
-          }
-          if (st === 409 && d?.code === 'CONTESTATION_OUTCOME_CHANGED' && d?.requiresContentionConfirmation) {
-            setPendingContentionConfirmation({
-              formData: data,
-              conflicts: d.conflicts || [],
-              willBeQueued: Boolean(d.willBeQueued),
-              previewBookingId: d.previewBookingId,
-              contentionWaitlist: d.contentionWaitlist || null,
-            });
-            setSubmitError(
-              d.error || 'Contention changed while you were reviewing. Please confirm again.'
-            );
             return;
           }
           if (st === 409 && d?.code === 'PENCIL_OVERLAP_CHANGED') {
@@ -440,9 +388,6 @@ export default function BookingForm() {
             setPendingContentionConfirmation({
               formData: data,
               conflicts: d.conflicts || [],
-              willBeQueued: Boolean(d.willBeQueued),
-              previewBookingId: d.previewBookingId,
-              contentionWaitlist: d.contentionWaitlist || null,
             });
             return;
           }
@@ -457,7 +402,7 @@ export default function BookingForm() {
       const st = result.booking?.status;
       const contentionSuccess =
         result.booking?.bookingType === 'pencil' &&
-        (st === 'contested' || st === 'queued');
+        st === 'contested';
 
       if (result.conflicts && result.conflicts.length > 0) {
         setConflicts(result.conflicts);
@@ -508,8 +453,8 @@ export default function BookingForm() {
 
   const handleConfirmContention = async () => {
     if (!pendingContentionConfirmation) return;
-    const { formData: fd, willBeQueued } = pendingContentionConfirmation;
-    await submitBooking(fd, false, true, willBeQueued);
+    const { formData: fd } = pendingContentionConfirmation;
+    await submitBooking(fd, false, true);
   };
 
   const handleCancelContention = () => {
@@ -713,98 +658,36 @@ export default function BookingForm() {
         <Card className="mb-6 border-amber-200 bg-amber-50">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
-              {pendingContentionConfirmation.willBeQueued ? (
-                <Info className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
-              ) : (
-                <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
-              )}
+              <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
               <div className="space-y-3">
                 {submitError && (
                   <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
                     {submitError}
                   </div>
                 )}
-                {pendingContentionConfirmation.willBeQueued ? (
-                  <>
-                    <p className="font-medium text-amber-950">
-                      You would be placed on the <strong>waitlist (queued)</strong>
-                    </p>
-                    <p className="text-sm text-amber-900">
-                      An open contention already covers this time on this resource. If you continue, your
-                      pencil booking will be created as <strong>queued</strong> — you will get the slot only
-                      after earlier challengers in line are resolved. You will be notified when your turn
-                      starts. Pick another time if you prefer not to wait.
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <p className="font-medium text-amber-900">
-                      This pencil booking would contest an existing pencil on the same resource.
-                    </p>
-                    <p className="text-sm text-amber-800">
-                      Contention is resolved automatically: the holder must convert to a firm booking before
-                      the deadline, or you receive the slot. Later challengers for the same episode may be
-                      queued (first come, first served).
-                    </p>
-                  </>
-                )}
-                {pendingContentionConfirmation.willBeQueued ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-100/50 p-3 space-y-2">
-                    <p className="text-sm font-semibold text-amber-950">Waitlist:</p>
-                    <div className="space-y-2">
-                      {(pendingContentionConfirmation.contentionWaitlist?.length > 0
-                        ? pendingContentionConfirmation.contentionWaitlist
-                        : pendingContentionConfirmation.conflicts
-                      ).map((c) => (
-                        <div
-                          key={`${c.role ?? 'slot'}-${c.id}-${c.queuePosition ?? ''}`}
-                          className="text-sm bg-white rounded px-3 py-2 border border-amber-200"
-                        >
-                          <p className="font-medium text-foreground">Booking #{c.id}</p>
-                          {contentionWaitlistRowSubtitle(c) ? (
-                            <p className="text-xs text-amber-700/90">{contentionWaitlistRowSubtitle(c)}</p>
-                          ) : null}
-                          <p className="text-xs text-amber-800">
-                            {formatBookingDateRange(c.startTime, c.endTime)}
-                          </p>
-                        </div>
-                      ))}
-                      <div className="text-sm rounded px-3 py-2 border border-violet-600 bg-violet-50">
-                        <p className="font-medium text-foreground">
-                          Booking #{pendingContentionConfirmation.previewBookingId ?? '—'}{' '}
-                          <span className="font-normal text-violet-900/90">(your booking)</span>
-                        </p>
-                        <p className="text-xs text-violet-800">
-                          {formatBookingDateRange(
-                            pendingContentionConfirmation.formData.startTime,
-                            pendingContentionConfirmation.formData.endTime
-                          )}
-                        </p>
-                      </div>
+                <p className="font-medium text-amber-900">
+                  This pencil booking would contest an existing pencil on the same resource.
+                </p>
+                <p className="text-sm text-amber-800">
+                  Contention is resolved automatically: the holder must convert to a firm booking before
+                  the deadline, or you receive the slot.
+                </p>
+                <div className="space-y-1">
+                  {pendingContentionConfirmation.conflicts.map((c) => (
+                    <div
+                      key={c.id}
+                      className="text-sm bg-white/60 rounded px-3 py-2 border border-amber-200"
+                    >
+                      <p className="font-medium">Booking #{c.id}</p>
+                      <p className="text-xs text-amber-800">
+                        {formatBookingDateRange(c.startTime, c.endTime)}
+                      </p>
                     </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {pendingContentionConfirmation.conflicts.map((c) => (
-                      <div
-                        key={c.id}
-                        className="text-sm bg-white/60 rounded px-3 py-2 border border-amber-200"
-                      >
-                        <p className="font-medium">Booking #{c.id}</p>
-                        <p className="text-xs text-amber-800">
-                          {formatBookingDateRange(c.startTime, c.endTime)}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  ))}
+                </div>
                 <div className="flex gap-3 pt-1">
                   <Button size="sm" onClick={handleConfirmContention} disabled={isSubmitting}>
-                    {isSubmitting
-                      ? 'Creating...'
-                      : pendingContentionConfirmation.willBeQueued
-                        ? 'Confirm & join waitlist'
-                        : 'Confirm & start contention'}
+                    {isSubmitting ? 'Creating...' : 'Confirm & start contention'}
                   </Button>
                   <Button size="sm" variant="outline" onClick={handleCancelContention} disabled={isSubmitting}>
                     Go Back

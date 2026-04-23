@@ -22,6 +22,12 @@ export const CALENDAR_STATUS_STYLES = {
     borderColor: '#9ca3af',
     color: '#374151',
   },
+  on_hold: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#f59e0b',
+    color: '#78350f',
+    borderStyle: 'dashed',
+  },
   contesting: {
     backgroundColor: '#0ea5e9',
     borderColor: '#0284c7',
@@ -31,11 +37,6 @@ export const CALENDAR_STATUS_STYLES = {
     backgroundColor: '#fb923c',
     borderColor: '#ea580c',
     color: '#fff',
-  },
-  queued: {
-    backgroundColor: '#ede9fe',
-    borderColor: '#a78bfa',
-    color: '#5b21b6',
   },
   completed: {
     backgroundColor: '#a7f3d0',
@@ -54,8 +55,8 @@ export const CALENDAR_STATUS_PRIORITY = {
   pending_approval: 2,
   contested: 3,
   contesting: 4,
-  queued: 5,
-  penciled: 6,
+  penciled: 5,
+  on_hold: 6,
   completed: 7,
   displaced: 8,
 };
@@ -66,19 +67,15 @@ export function toCalendarStatus(booking) {
   // New model: derive visual status from contentionRole
   if (booking.contentionRole === 'defender') return 'contested';
   if (booking.contentionRole === 'challenger') return 'contesting';
-  if (booking.contentionRole === 'queued') return 'queued';
-  
   // Legacy fallbacks for backward compatibility
   if (booking.status === 'penciled' && booking.contentionChallenger) return 'contesting';
   if (booking.status === 'contested') return 'contested';
-  if (booking.status === 'queued') return 'queued';
   
   return booking.status || 'penciled';
 }
 
 /**
- * Order rows in a contention overlap list: defender → challenger → other penciled (same window, not in group)
- * → queued by position → everything else.
+ * Order rows in a contention overlap list: defender → challenger → other penciled → everything else.
  */
 function overlapDisplaySortRank(resource) {
   if (!resource) return 99;
@@ -86,18 +83,15 @@ function overlapDisplaySortRank(resource) {
   // New model: use contentionRole for ordering
   if (resource.contentionRole === 'defender') return 0;
   if (resource.contentionRole === 'challenger') return 1;
-  if (resource.contentionRole === 'queued') return 3;
-  
   // Legacy fallbacks
   const st = resource.status;
   if (st === 'contested') return 0;
   if (st === 'penciled' && resource.contentionChallenger) return 1;
-  if (st === 'queued') return 3;
   
   // Free pencils (not in any contention)
   if (st === 'penciled') return 2;
   
-  return 4;
+  return 3;
 }
 
 /**
@@ -113,12 +107,6 @@ export function sortCalendarContentionOverlaps(events) {
     const rbRank = overlapDisplaySortRank(rb);
     if (raRank !== rbRank) return raRank - rbRank;
 
-    if (raRank === 3 && rbRank === 3) {
-      const qa = ra.contentionQueuePosition ?? 0;
-      const qb = rb.contentionQueuePosition ?? 0;
-      if (qa !== qb) return qa - qb;
-    }
-
     const pa = CALENDAR_STATUS_PRIORITY[toCalendarStatus(ra)] ?? 99;
     const pb = CALENDAR_STATUS_PRIORITY[toCalendarStatus(rb)] ?? 99;
     if (pa !== pb) return pa - pb;
@@ -133,13 +121,7 @@ export function formatAggregateMemberRoleLabel(resource) {
   if (!resource) return '';
   if (resource.contentionRole === 'defender') return 'Defender (contested)';
   if (resource.contentionRole === 'challenger') return 'Challenger';
-  if (resource.contentionRole === 'queued') {
-    return resource.contentionQueuePosition != null
-      ? `Queued · position ${resource.contentionQueuePosition}`
-      : 'Queued';
-  }
   if (resource.status === 'contested') return 'Defender (contested)';
-  if (resource.status === 'queued') return 'Queued';
   if (resource.status === 'penciled' && resource.contentionChallenger) return 'Challenger';
   if (resource.status === 'penciled' && !resource.contentionChallenger) return 'Penciled';
   return resource.status ?? '';
@@ -170,13 +152,12 @@ export function formatBookingHoverDetail(event) {
     const parts = [
       `${summary.contestedCount} contested`,
       `${summary.challengerCount} challenger`,
-      `${summary.queuedCount} queued`,
     ];
     if ((summary.plainPencilCount ?? 0) > 0) {
       parts.push(`${summary.plainPencilCount} penciled`);
     }
     const countLine = `Active overlaps: ${summary.total} (${parts.join(', ')})`;
-    const hint = 'Click the stack icon to show or hide queue order.';
+    const hint = 'Click the stack icon to show or hide overlap details.';
     if (event.start != null && event.end != null) {
       return `${headline}\n${formatBookingDateRange(event.start, event.end)}\n${countLine}\n${hint}`;
     }
