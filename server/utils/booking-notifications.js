@@ -1,6 +1,6 @@
 const { sendEmail } = require('./email');
+const { email: E } = require('../messages/bookingMessages');
 
-const APP_NAME = 'PTCF Reservation System';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'https://ptcf.vercel.app';
 
 function formatDateTime(dateStr) {
@@ -26,12 +26,12 @@ function baseEmailWrapper(title, bodyHtml) {
 <head><meta charset="utf-8" /></head>
 <body style="font-family: sans-serif; background: #f9fafb; padding: 24px; color: #111;">
   <div style="max-width: 560px; margin: 0 auto; background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; padding: 32px;">
-    <h2 style="margin-top: 0; color: #1e3a5f;">${APP_NAME}</h2>
+    <h2 style="margin-top: 0; color: #1e3a5f;">${E.appName}</h2>
     <h3 style="color: #374151;">${title}</h3>
     ${bodyHtml}
     <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
     <p style="font-size: 12px; color: #9ca3af;">
-      This is an automated message from the PTCF Reservation System. Please do not reply to this email.
+      ${E.automatedFooter}
     </p>
   </div>
 </body>
@@ -39,14 +39,15 @@ function baseEmailWrapper(title, bodyHtml) {
 }
 
 function bookingDetailsBlock(booking, resourceName) {
+  const L = E.bookingDetailsLabels;
   return `
 <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin: 16px 0;">
-  <tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">Booking ID</td><td style="padding: 6px 0; font-weight: 600;">#${booking.id}</td></tr>
-  <tr><td style="padding: 6px 0; color: #6b7280;">Resource</td><td style="padding: 6px 0;">${resourceName} <span style="color:#9ca3af;">(${booking.resourceType})</span></td></tr>
-  <tr><td style="padding: 6px 0; color: #6b7280;">Booking Type</td><td style="padding: 6px 0;">${formatBookingType(booking.bookingType)}</td></tr>
-  <tr><td style="padding: 6px 0; color: #6b7280;">Start</td><td style="padding: 6px 0;">${formatDateTime(booking.startTime)}</td></tr>
-  <tr><td style="padding: 6px 0; color: #6b7280;">End</td><td style="padding: 6px 0;">${formatDateTime(booking.endTime)}</td></tr>
-  ${booking.purpose ? `<tr><td style="padding: 6px 0; color: #6b7280;">Purpose</td><td style="padding: 6px 0;">${booking.purpose}</td></tr>` : ''}
+  <tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">${L.bookingId}</td><td style="padding: 6px 0; font-weight: 600;">#${booking.id}</td></tr>
+  <tr><td style="padding: 6px 0; color: #6b7280;">${L.resource}</td><td style="padding: 6px 0;">${resourceName} <span style="color:#9ca3af;">(${booking.resourceType})</span></td></tr>
+  <tr><td style="padding: 6px 0; color: #6b7280;">${L.bookingType}</td><td style="padding: 6px 0;">${formatBookingType(booking.bookingType)}</td></tr>
+  <tr><td style="padding: 6px 0; color: #6b7280;">${L.start}</td><td style="padding: 6px 0;">${formatDateTime(booking.startTime)}</td></tr>
+  <tr><td style="padding: 6px 0; color: #6b7280;">${L.end}</td><td style="padding: 6px 0;">${formatDateTime(booking.endTime)}</td></tr>
+  ${booking.purpose ? `<tr><td style="padding: 6px 0; color: #6b7280;">${L.purpose}</td><td style="padding: 6px 0;">${booking.purpose}</td></tr>` : ''}
 </table>`;
 }
 
@@ -60,38 +61,38 @@ async function notifyBookingCreated(booking, resourceName) {
   const isPencil = booking.bookingType === 'pencil';
   const isDefender = booking.contentionRole === 'defender';
   const isChallenger = booking.contentionRole === 'challenger';
+  const C = E.created;
 
   let statusNote = '';
   if (isDefender) {
     statusNote = `<p style="background:#fff7ed;border:1px solid #fed7aa;border-radius:6px;padding:12px;font-size:14px;color:#92400e;">
-      ⚠️ Your pencil booking is being <strong>challenged</strong>. Another user is challenging your slot. Convert to a firm booking before the contention deadline to keep the reservation.
+      ${C.defenderNote}
     </p>`;
   } else if (isChallenger) {
     statusNote = `<p style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px;font-size:14px;color:#1e40af;">
-      ⚔️ Your pencil booking is currently the <strong>challenger</strong> in an active 1v1 contention.
+      ${C.challengerNote}
     </p>`;
   } else if (isPencil) {
     statusNote = `<p style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px;font-size:14px;color:#1e40af;">
-      ℹ️ Your pencil booking is <strong>tentative</strong>. It expires at the earlier of 3 days from creation or 24 hours before the scheduled start unless converted to a firm booking.
+      ${C.pencilTentativeNote}
     </p>`;
   } else {
     statusNote = `<p style="background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:12px;font-size:14px;color:#78350f;">
-      ⏳ Your firm booking has been submitted and is <strong>pending staff approval</strong>.
-      Staff must approve it <strong>at least 24 hours before</strong> the scheduled start. If it is still pending inside that window, it will expire automatically.
+      ${C.firmPendingNote}
     </p>`;
   }
 
   const html = baseEmailWrapper(
-    'Booking Submitted',
-    `<p>Your booking has been received. Here are the details:</p>
+    C.title,
+    `<p>${C.body}</p>
     ${bookingDetailsBlock(booking, resourceName)}
     ${statusNote}
-    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">View your bookings →</a></p>`
+    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">${C.viewDashboard}</a></p>`
   );
 
   await sendEmail({
     to: recipientEmail,
-    subject: `[PTCF] Booking #${booking.id} Submitted`,
+    subject: C.subject({ id: booking.id }),
     html,
   });
 }
@@ -103,17 +104,18 @@ async function notifyBookingApproved(booking, resourceName) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
+  const A = E.approved;
   const html = baseEmailWrapper(
-    'Booking Approved',
-    `<p>Great news! Your booking has been <strong style="color:#16a34a;">approved</strong> by PTCF staff.</p>
+    A.title,
+    `<p>${A.body}</p>
     ${bookingDetailsBlock(booking, resourceName)}
-    ${booking.staffRemark ? `<p><strong>Staff remark:</strong> ${booking.staffRemark}</p>` : ''}
-    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">View your bookings →</a></p>`
+    ${booking.staffRemark ? `<p><strong>${A.staffRemarkLabel}</strong> ${booking.staffRemark}</p>` : ''}
+    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">${A.viewDashboard}</a></p>`
   );
 
   await sendEmail({
     to: recipientEmail,
-    subject: `[PTCF] Booking #${booking.id} Approved`,
+    subject: A.subject({ id: booking.id }),
     html,
   });
 }
@@ -125,18 +127,19 @@ async function notifyBookingDenied(booking, resourceName) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
+  const D = E.denied;
   const html = baseEmailWrapper(
-    'Booking Denied',
-    `<p>Unfortunately, your booking has been <strong style="color:#dc2626;">denied</strong> by PTCF staff.</p>
+    D.title,
+    `<p>${D.body}</p>
     ${bookingDetailsBlock(booking, resourceName)}
-    ${booking.staffRemark ? `<p><strong>Reason:</strong> ${booking.staffRemark}</p>` : ''}
-    <p>If you have questions, please contact the PTCF facility directly.</p>
-    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">Create a new booking →</a></p>`
+    ${booking.staffRemark ? `<p><strong>${D.reasonLabel}</strong> ${booking.staffRemark}</p>` : ''}
+    <p>${D.contactFacility}</p>
+    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">${D.createNew}</a></p>`
   );
 
   await sendEmail({
     to: recipientEmail,
-    subject: `[PTCF] Booking #${booking.id} Denied`,
+    subject: D.subject({ id: booking.id }),
     html,
   });
 }
@@ -148,24 +151,25 @@ async function notifyBookingCancelled(booking, resourceName, cancelledBy) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
+  const X = E.cancelled;
   const byStaff = cancelledBy && cancelledBy !== booking.userId;
   const note = byStaff
     ? `<p style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-size:14px;color:#991b1b;">
-        ℹ️ This booking was cancelled by a staff member.
+        ${X.staffCancelledNote}
       </p>`
     : '';
 
   const html = baseEmailWrapper(
-    'Booking Cancelled',
-    `<p>Your booking has been <strong>cancelled</strong>.</p>
+    X.title,
+    `<p>${X.body}</p>
     ${bookingDetailsBlock(booking, resourceName)}
     ${note}
-    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">Create a new booking →</a></p>`
+    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">${X.createNew}</a></p>`
   );
 
   await sendEmail({
     to: recipientEmail,
-    subject: `[PTCF] Booking #${booking.id} Cancelled`,
+    subject: X.subject({ id: booking.id }),
     html,
   });
 }
@@ -178,25 +182,26 @@ async function notifyBookingExpired(booking, resourceName) {
   if (!recipientEmail) return;
 
   const isFirm = booking.bookingType === 'firm';
-  const title = isFirm ? 'Firm Request Expired' : 'Pencil Booking Expired';
+  const X = E.expired;
+  const title = isFirm ? X.firmTitle : X.pencilTitle;
   const body = isFirm
-    ? `<p>Your <strong>firm</strong> booking request has <strong style="color:#dc2626;">expired</strong> because staff did not approve it at least <strong>24 hours before</strong> the scheduled start.</p>
+    ? `<p>${X.firmBody}</p>
     ${bookingDetailsBlock(booking, resourceName)}
     <p style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-size:14px;color:#991b1b;">
-      Submit a new request with enough lead time for staff review if you still need the slot.
+      ${X.firmCallout}
     </p>`
-    : `<p>Your pencil booking has <strong style="color:#dc2626;">expired</strong> because it was not converted to a firm booking in time.</p>
+    : `<p>${X.pencilBody}</p>
     ${bookingDetailsBlock(booking, resourceName)}
     <p style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;font-size:14px;color:#991b1b;">
-      Pencil bookings must be converted to firm bookings within 3 days of creation (and before other pencil expiry rules). This booking has been automatically expired.
+      ${X.pencilCallout}
     </p>`;
 
   const html = baseEmailWrapper(title, `${body}
-    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">Create a new booking →</a></p>`);
+    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">${X.createNew}</a></p>`);
 
   await sendEmail({
     to: recipientEmail,
-    subject: `[PTCF] Booking #${booking.id} Expired`,
+    subject: X.subject({ id: booking.id }),
     html,
   });
 }
@@ -209,24 +214,25 @@ async function notifyBookingExpiringSoon(booking, resourceName, hoursLeft) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
+  const S = E.expiringSoon;
   const urgency = hoursLeft <= 24 ? 'high' : 'medium';
   const bannerStyle = urgency === 'high'
     ? 'background:#fef2f2;border:1px solid #fecaca;color:#991b1b;'
     : 'background:#fff7ed;border:1px solid #fed7aa;color:#92400e;';
 
   const html = baseEmailWrapper(
-    `Pencil Booking Expiring in ${hoursLeft} Hours`,
-    `<p>Your pencil booking is expiring in <strong>${hoursLeft} hours</strong>. Convert it to a firm booking to keep your reservation.</p>
+    S.title({ hours: hoursLeft }),
+    `<p>${S.body({ hours: hoursLeft })}</p>
     ${bookingDetailsBlock(booking, resourceName)}
     <p style="${bannerStyle}border-radius:6px;padding:12px;font-size:14px;">
-      To secure this booking, upload your authorization document and convert it to a firm booking before it expires.
+      ${S.callout}
     </p>
-    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;font-weight:600;">Convert to Firm Booking →</a></p>`
+    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;font-weight:600;">${S.convertCta}</a></p>`
   );
 
   await sendEmail({
     to: recipientEmail,
-    subject: `[PTCF] Booking #${booking.id} Expires in ${hoursLeft}h — Action Required`,
+    subject: S.subject({ id: booking.id, hours: hoursLeft }),
     html,
   });
 }
@@ -239,31 +245,34 @@ async function notifyContentionStarted({ defender, challenger }, resourceName) {
   const deadlineStr = formatDateTime(defender.contentionDeadlineAt);
   if (!defender?.user?.email || !challenger?.user?.email) return;
 
+  const C = E.contentionStarted;
+  const tz = C.timezoneNote;
+
   const defenderHtml = baseEmailWrapper(
-    'Your pencil booking is being challenged',
-    `<p>Another user has placed an overlapping pencil booking for the same resource. A contention timer is running.</p>
+    C.defenderTitle,
+    `<p>${C.defenderBody}</p>
     ${bookingDetailsBlock(defender, resourceName)}
-    <p><strong>Resolve by:</strong> ${deadlineStr} (Asia/Manila)</p>
-    <p>To keep this slot, convert your booking to a <strong>firm</strong> booking and upload your authorization document before the deadline.</p>
-    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">Open your dashboard →</a></p>`
+    <p><strong>${C.defenderResolveBy}</strong> ${deadlineStr} ${tz}</p>
+    <p>${C.defenderAction}</p>
+    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">${C.defenderDashboard}</a></p>`
   );
 
   const challengerHtml = baseEmailWrapper(
-    'You started a pencil contention',
-    `<p>Your overlapping pencil booking is now challenging the current holder. If they do not convert to firm in time, you will take the slot.</p>
+    C.challengerTitle,
+    `<p>${C.challengerBody}</p>
     ${bookingDetailsBlock(challenger, resourceName)}
-    <p><strong>Contention resolves by:</strong> ${deadlineStr} (Asia/Manila)</p>
-    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">View your booking →</a></p>`
+    <p><strong>${C.challengerResolvesBy}</strong> ${deadlineStr} ${tz}</p>
+    <p><a href="${FRONTEND_URL}/dashboard" style="color:#2563eb;">${C.challengerDashboard}</a></p>`
   );
 
   await sendEmail({
     to: defender.user.email,
-    subject: `[PTCF] Booking #${defender.id} — being challenged`,
+    subject: C.defenderSubject({ id: defender.id }),
     html: defenderHtml
   });
   await sendEmail({
     to: challenger.user.email,
-    subject: `[PTCF] Booking #${challenger.id} — contention started`,
+    subject: C.challengerSubject({ id: challenger.id }),
     html: challengerHtml
   });
 }
@@ -275,18 +284,19 @@ async function notifyDisplacedUsersSlotReopened(displacedBooking, firmBooking, r
   const recipientEmail = displacedBooking.user?.email;
   if (!recipientEmail) return;
 
+  const R = E.displacedSlotReopened;
   const html = baseEmailWrapper(
-    'Time slot may be available again',
-    `<p>A firm booking that previously displaced your pencil booking has been <strong>cancelled</strong>. The time window may be open again on a first-come, first-served basis.</p>
-    <p><strong>Your displaced pencil booking</strong> (for reference):</p>
+    R.title,
+    `<p>${R.body}</p>
+    <p><strong>${R.yourBookingLabel}</strong> (for reference):</p>
     ${bookingDetailsBlock(displacedBooking, resourceName)}
-    <p><strong>Firm booking cancelled:</strong> #${firmBooking.id}</p>
-    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">Try booking again →</a></p>`
+    <p><strong>${R.firmCancelledLabel}</strong> #${firmBooking.id}</p>
+    <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">${R.tryAgain}</a></p>`
   );
 
   await sendEmail({
     to: recipientEmail,
-    subject: `[PTCF] Slot notice — firm booking #${firmBooking.id} cancelled`,
+    subject: R.subject({ firmId: firmBooking.id }),
     html
   });
 }

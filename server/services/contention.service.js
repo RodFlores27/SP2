@@ -6,6 +6,7 @@ const {
   assertPositiveContentionDeadline,
   computePencilExpiryAt
 } = require('../utils/booking-rules');
+const { domain } = require('../messages/bookingMessages');
 
 // ---------------------------------------------------------------------------
 // Basic utilities
@@ -156,13 +157,13 @@ async function startContention({ defenderBooking, challengerBooking }, { transac
   const challenger = await Booking.findByPk(challengerBooking.id, { transaction, lock: transaction.LOCK.UPDATE });
 
   if (!defender || defender.status !== 'penciled' || defender.bookingType !== 'pencil') {
-    const err = new Error('Defender is not eligible for contention');
+    const err = new Error(domain.defenderIneligible);
     err.code = 'CONTENTION_DEFENDER_INVALID';
     err.statusCode = 409;
     throw err;
   }
   if (!challenger || challenger.status !== 'penciled' || challenger.bookingType !== 'pencil') {
-    const err = new Error('Challenger is not eligible for contention');
+    const err = new Error(domain.challengerIneligible);
     err.code = 'CONTENTION_CHALLENGER_INVALID';
     err.statusCode = 409;
     throw err;
@@ -195,7 +196,7 @@ async function tryAttachPencilToContention(pencilBooking, { transaction, Booking
   // Overlaps with challengers are allowed (they represent in-flight battle paths).
   const activeDefender = foreign.find((b) => b.contentionRole === 'defender');
   if (activeDefender) {
-    const err = new Error('Slot is in active contention, please try again later');
+    const err = new Error(domain.activeContentionLocked);
     err.code = 'ACTIVE_CONTENTION_LOCKED';
     err.statusCode = 409;
     throw err;

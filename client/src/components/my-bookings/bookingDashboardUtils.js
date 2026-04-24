@@ -1,3 +1,5 @@
+import { bookingMessages } from '@/messages/bookingMessages';
+
 /** Lookup resource display name from the pre-fetched lists. */
 export function getResourceName(booking, equipment, rooms) {
   if (!booking) return `Resource #${booking?.resourceId}`;
@@ -60,7 +62,7 @@ export function getFirmCancelBlockedReason(booking) {
 /** Human-readable explanation for firm cancel blocked reasons (tooltip / aria-label). */
 export function getFirmCancelBlockedMessage(reason) {
   if (reason === 'started_or_past') {
-    return 'The start time has passed; this booking can’t be cancelled here.';
+    return bookingMessages.myBookings.firmCancelBlocked.startedOrPast;
   }
   return '';
 }
@@ -106,6 +108,32 @@ export function groupByStatus(bookings, statusOrder) {
 }
 
 export { ACTIVE_STATUS_ORDER, PAST_STATUS_ORDER };
+
+const DEADLINE_SLACK_MS = 60 * 1000;
+
+/**
+ * Whether the contention deadline equals pencil expiry or the 24h-before-start boundary (for UI copy).
+ */
+export function getContentionDeadlineQualifier(deadlineAt, scheduleStartTime, pencilExpiryAt) {
+  if (!deadlineAt || !scheduleStartTime) return null;
+  const d = new Date(deadlineAt).getTime();
+  const lockBoundary = new Date(scheduleStartTime).getTime() - 24 * 60 * 60 * 1000;
+  if (pencilExpiryAt) {
+    const exp = new Date(pencilExpiryAt).getTime();
+    if (!Number.isNaN(exp) && Math.abs(d - exp) <= DEADLINE_SLACK_MS) return 'expiry';
+  }
+  if (!Number.isNaN(lockBoundary) && Math.abs(d - lockBoundary) <= DEADLINE_SLACK_MS) {
+    return 'lock_window';
+  }
+  return null;
+}
+
+export function contentionDeadlineQualifierSentence(qualifier) {
+  const q = bookingMessages.myBookings.deadlineQualifier;
+  if (qualifier === 'expiry') return q.expiry;
+  if (qualifier === 'lock_window') return q.lockWindow;
+  return null;
+}
 
 /**
  * Filter a booking list against the current toolbar state.

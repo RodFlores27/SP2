@@ -1,6 +1,7 @@
 'use strict';
 
 const bcrypt = require('bcrypt');
+const { computePencilExpiryAt, computeContentionDeadline } = require('../utils/booking-rules');
 
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
@@ -125,10 +126,26 @@ module.exports = {
     const studentId = users.find((u) => u.email === 'student@uplb.edu.ph')?.id;
     const staffId = users.find((u) => u.email === 'staff@uplb.edu.ph')?.id;
     const adminId = users.find((u) => u.email === 'admin@uplb.edu.ph')?.id;
+    const researcher1Id = users.find((u) => u.email === 'researcher1@uplb.edu.ph')?.id;
+    const researcher2Id = users.find((u) => u.email === 'researcher2@uplb.edu.ph')?.id;
     const laminarFlowHoodId = equipment.find((e) => e.name === 'Laminar Flow Hood')?.id;
+    const autoclaveId = equipment.find((e) => e.name === 'Autoclave')?.id;
+    const growthChamberId = equipment.find((e) => e.name === 'Growth Chamber')?.id;
     const cultureRoomAId = rooms.find((r) => r.name === 'Culture Room A')?.id;
+    const preparationRoomId = rooms.find((r) => r.name === 'Preparation Room')?.id;
 
-    if (!studentId || !staffId || !adminId || !laminarFlowHoodId || !cultureRoomAId) {
+    if (
+      !studentId ||
+      !staffId ||
+      !adminId ||
+      !researcher1Id ||
+      !researcher2Id ||
+      !laminarFlowHoodId ||
+      !autoclaveId ||
+      !growthChamberId ||
+      !cultureRoomAId ||
+      !preparationRoomId
+    ) {
       throw new Error('Required seed references for initial bookings were not found.');
     }
 
@@ -139,65 +156,29 @@ module.exports = {
       date.setHours(hours, minutes, 0, 0);
       return date;
     };
-    const computePencilExpiry = (issuedAt, startTime) => {
-      const byLifetime = new Date(issuedAt.getTime() + 3 * 24 * 60 * 60 * 1000);
-      const byLockWindow = new Date(new Date(startTime).getTime() - 24 * 60 * 60 * 1000);
-      return byLifetime < byLockWindow ? byLifetime : byLockWindow;
-    };
 
-    const pencilStart = createDateAtTime(2, 9, 0);
-    const approvedStart = createDateAtTime(3, 13, 0);
-
-    const bookingRows = [
-      {
-        userId: studentId,
-        resourceType: 'equipment',
-        resourceId: laminarFlowHoodId,
-        bookingType: 'pencil',
-        status: 'penciled',
-        startTime: pencilStart,
-        endTime: new Date(pencilStart.getTime() + 2 * 60 * 60 * 1000),
-        purpose: 'Initial seeded pencil booking sample',
-        authorizationDocUrl: null,
-        approvedByUserId: null,
-        approvedAt: null,
-        expiryAt: computePencilExpiry(now, pencilStart),
-        createdAt: now,
-        updatedAt: now,
-      },
-      {
-        userId: staffId,
-        resourceType: 'room',
-        resourceId: cultureRoomAId,
-        bookingType: 'firm',
-        status: 'approved',
-        startTime: approvedStart,
-        endTime: new Date(approvedStart.getTime() + 3 * 60 * 60 * 1000),
-        purpose: 'Initial seeded approved firm booking sample',
-        authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
-        approvedByUserId: adminId,
-        approvedAt: new Date(now.getTime() - 60 * 60 * 1000),
-        expiryAt: null,
-        createdAt: now,
-        updatedAt: now,
-      },
-    ];
-
-    for (const row of bookingRows) {
+    const insertBooking = async (row) => {
       const inserted = await queryInterface.sequelize.query(
         `INSERT INTO "Bookings" (
           "userId", "resourceType", "resourceId", "bookingType", "status",
           "startTime", "endTime", "purpose", "authorizationDocUrl",
           "approvedByUserId", "approvedAt", "expiryAt",
+          "contentionRole", "contentionDeadlineAt", "challengingBookingId",
           "createdAt", "updatedAt", "bookingThreadId"
         ) VALUES (
           :userId, :resourceType, :resourceId, :bookingType, :status,
           :startTime, :endTime, :purpose, :authorizationDocUrl,
           :approvedByUserId, :approvedAt, :expiryAt,
+          :contentionRole, :contentionDeadlineAt, :challengingBookingId,
           :createdAt, :updatedAt, 0
         ) RETURNING id`,
         {
-          replacements: row,
+          replacements: {
+            ...row,
+            contentionRole: row.contentionRole ?? null,
+            contentionDeadlineAt: row.contentionDeadlineAt ?? null,
+            challengingBookingId: row.challengingBookingId ?? null,
+          },
           type: Sequelize.QueryTypes.SELECT,
         }
       );
@@ -206,7 +187,177 @@ module.exports = {
         `UPDATE "Bookings" SET "bookingThreadId" = :id WHERE id = :id`,
         { replacements: { id } }
       );
-    }
+      return id;
+    };
+
+    const pencilStart = createDateAtTime(2, 9, 0);
+    const approvedStart = createDateAtTime(3, 13, 0);
+
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: laminarFlowHoodId,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: pencilStart,
+      endTime: new Date(pencilStart.getTime() + 2 * 60 * 60 * 1000),
+      purpose: 'Baseline sample — free pencil (no contention)',
+      authorizationDocUrl: null,
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: computePencilExpiryAt(now, pencilStart),
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    await insertBooking({
+      userId: staffId,
+      resourceType: 'room',
+      resourceId: cultureRoomAId,
+      bookingType: 'firm',
+      status: 'approved',
+      startTime: approvedStart,
+      endTime: new Date(approvedStart.getTime() + 3 * 60 * 60 * 1000),
+      purpose: 'Baseline sample — approved firm booking',
+      authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      approvedByUserId: adminId,
+      approvedAt: new Date(now.getTime() - 60 * 60 * 1000),
+      expiryAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    // Pencil contention (1v1): researcher1 = defender, student = challenger (Autoclave)
+    const researcher1DefIssued = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    const studentChalIssued = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+    const defWindowStart = createDateAtTime(5, 10, 0);
+    const defWindowEnd = createDateAtTime(5, 13, 0);
+    const chalStart = createDateAtTime(5, 11, 0);
+    const chalEnd = createDateAtTime(5, 12, 0);
+    const defenderExpiry = computePencilExpiryAt(researcher1DefIssued, defWindowStart);
+    const defenderDeadline = computeContentionDeadline(
+      researcher1DefIssued,
+      defWindowStart,
+      defenderExpiry
+    );
+
+    const defenderBookingId = await insertBooking({
+      userId: researcher1Id,
+      resourceType: 'equipment',
+      resourceId: autoclaveId,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: defWindowStart,
+      endTime: defWindowEnd,
+      purpose: 'Seed: defender — log in as researcher1@uplb.edu.ph to see defender notice',
+      authorizationDocUrl: null,
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: defenderExpiry,
+      contentionRole: 'defender',
+      contentionDeadlineAt: defenderDeadline,
+      challengingBookingId: null,
+      createdAt: researcher1DefIssued,
+      updatedAt: researcher1DefIssued,
+    });
+
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: autoclaveId,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: chalStart,
+      endTime: chalEnd,
+      purpose: 'Seed: challenger — log in as student@uplb.edu.ph to see challenger notice',
+      authorizationDocUrl: null,
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: computePencilExpiryAt(studentChalIssued, chalStart),
+      contentionRole: 'challenger',
+      contentionDeadlineAt: null,
+      challengingBookingId: defenderBookingId,
+      createdAt: studentChalIssued,
+      updatedAt: studentChalIssued,
+    });
+
+    // Pending firm (student) + on-hold pencil (researcher2), same window — firm card shows on-hold warning
+    const firmOnHoldStart = createDateAtTime(7, 9, 0);
+    const firmOnHoldEnd = createDateAtTime(7, 12, 0);
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: growthChamberId,
+      bookingType: 'firm',
+      status: 'pending_approval',
+      startTime: firmOnHoldStart,
+      endTime: firmOnHoldEnd,
+      purpose: 'Seed: pending firm overlapping on-hold pencil',
+      authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const onHoldOverlapIssued = new Date(now.getTime() - 30 * 60 * 1000);
+    await insertBooking({
+      userId: researcher2Id,
+      resourceType: 'equipment',
+      resourceId: growthChamberId,
+      bookingType: 'pencil',
+      status: 'on_hold',
+      startTime: firmOnHoldStart,
+      endTime: firmOnHoldEnd,
+      purpose: 'Seed: on-hold pencil — log in as researcher2@uplb.edu.ph; overlaps student pending firm',
+      authorizationDocUrl: null,
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: computePencilExpiryAt(onHoldOverlapIssued, firmOnHoldStart),
+      createdAt: onHoldOverlapIssued,
+      updatedAt: onHoldOverlapIssued,
+    });
+
+    // On-hold pencil (student) overlapping approved firm (staff) — on-hold card lists firms
+    const firmBlockStart = createDateAtTime(8, 10, 0);
+    const firmBlockEnd = createDateAtTime(8, 15, 0);
+    const onHoldStudentStart = createDateAtTime(8, 11, 0);
+    const onHoldStudentEnd = createDateAtTime(8, 14, 0);
+    await insertBooking({
+      userId: staffId,
+      resourceType: 'room',
+      resourceId: preparationRoomId,
+      bookingType: 'firm',
+      status: 'approved',
+      startTime: firmBlockStart,
+      endTime: firmBlockEnd,
+      purpose: 'Seed: approved firm overlapping student on-hold pencil',
+      authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      approvedByUserId: adminId,
+      approvedAt: new Date(now.getTime() - 30 * 60 * 1000),
+      expiryAt: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+
+    const studentHoldIssued = new Date(now.getTime() - 20 * 60 * 1000);
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'room',
+      resourceId: preparationRoomId,
+      bookingType: 'pencil',
+      status: 'on_hold',
+      startTime: onHoldStudentStart,
+      endTime: onHoldStudentEnd,
+      purpose: 'Seed: on-hold pencil with overlapping firm — student@uplb.edu.ph',
+      authorizationDocUrl: null,
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: computePencilExpiryAt(studentHoldIssued, onHoldStudentStart),
+      createdAt: studentHoldIssued,
+      updatedAt: studentHoldIssued,
+    });
   },
 
   async down(queryInterface, Sequelize) {

@@ -4,6 +4,7 @@ const morgan = require('morgan');
 const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./docs/swagger.json');
+const { devHttpErrorLog } = require('./middleware/dev-http-error-log.middleware');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -22,6 +23,7 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(devHttpErrorLog);
 
 // Swagger API Documentation
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));

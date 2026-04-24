@@ -31,6 +31,9 @@ import {
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AuthorizationDocButton } from '@/components/my-bookings/AuthorizationDocButton';
 import { ArrowLeft, Upload, FileText, X, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { bookingMessages } from '@/messages/bookingMessages';
+
+const bf = bookingMessages.bookingForm;
 
 const ACCEPTED_FILE_TYPES = [
   'application/pdf',
@@ -43,14 +46,14 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 const bookingSchema = z.object({
   resourceType: z.enum(['equipment', 'room'], {
-    required_error: 'Select a resource type',
+    required_error: bf.schema.resourceTypeRequired,
   }),
-  resourceId: z.string().min(1, 'Select a resource'),
+  resourceId: z.string().min(1, bf.schema.resourceIdRequired),
   bookingType: z.enum(['pencil', 'firm'], {
-    required_error: 'Select a booking type',
+    required_error: bf.schema.bookingTypeRequired,
   }),
-  startTime: z.string().min(1, 'Start time is required'),
-  endTime: z.string().min(1, 'End time is required'),
+  startTime: z.string().min(1, bf.schema.startTimeRequired),
+  endTime: z.string().min(1, bf.schema.endTimeRequired),
   purpose: z.string().optional(),
 });
 
@@ -58,7 +61,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
 function formatBookingTypeLabel(bookingType) {
   if (!bookingType || typeof bookingType !== 'string') return String(bookingType ?? '');
-  const map = { firm: 'Firm', pencil: 'Pencil' };
+  const map = bf.labels.bookingType;
   if (map[bookingType]) return map[bookingType];
   return bookingType.charAt(0).toUpperCase() + bookingType.slice(1).toLowerCase();
 }
@@ -130,23 +133,23 @@ export default function BookingForm() {
   }, [watchedBookingType]);
 
   const selectedResourceName = useMemo(() => {
-    if (!watchedResourceId) return 'Resource';
+    if (!watchedResourceId) return bf.fields.resourceFallback;
     if (watchedResourceType === 'room') {
       const r = rooms.find((x) => String(x.id) === String(watchedResourceId));
-      return r?.name ?? `Resource #${watchedResourceId}`;
+      return r?.name ?? bf.fields.resourceNumber(watchedResourceId);
     }
     if (watchedResourceType === 'equipment') {
       const e = equipment.find((x) => String(x.id) === String(watchedResourceId));
-      return e?.name ?? `Resource #${watchedResourceId}`;
+      return e?.name ?? bf.fields.resourceNumber(watchedResourceId);
     }
-    return `Resource #${watchedResourceId}`;
+    return bf.fields.resourceNumber(watchedResourceId);
   }, [watchedResourceType, watchedResourceId, equipment, rooms]);
 
   useLayoutEffect(() => {
     const cs = peekConvertFirmSuccess();
     if (cs?.booking) {
       setSubmitSuccess({
-        message: cs.message ?? 'Booking converted to firm successfully. Awaiting staff approval.',
+        message: cs.message ?? bf.convertFirmDefaultSuccess,
         booking: cs.booking,
         isContested: false,
         cancelledPencilBookings: [],
@@ -229,13 +232,13 @@ export default function BookingForm() {
     }
 
     if (!ACCEPTED_FILE_TYPES.includes(file.type)) {
-      setDocError('Invalid file type. Only PDF, DOC, DOCX, JPG, and PNG are allowed.');
+      setDocError(bf.docErrors.invalidType);
       setDocFile(null);
       return;
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      setDocError('File size exceeds 5MB limit.');
+      setDocError(bf.docErrors.tooLarge);
       setDocFile(null);
       return;
     }
@@ -319,10 +322,7 @@ export default function BookingForm() {
             if (resData.code === 'PENCIL_OVERLAP_CHANGED') {
               setPendingContentionConfirmation(null);
               setConflicts(resData.conflicts || []);
-              setSubmitError(
-                resData.error ||
-                  'Overlapping pencil bookings changed. Please check the calendar and try again.'
-              );
+              setSubmitError(resData.error || bf.apiFallbacks.pencilOverlapChanged);
               return;
             }
             if (resData.requiresContentionConfirmation) {
@@ -333,7 +333,7 @@ export default function BookingForm() {
               return;
             }
             setConflicts(resData.conflicts || []);
-            setSubmitError(resData.error || 'Booking conflicts with existing bookings.');
+            setSubmitError(resData.error || bf.apiFallbacks.genericConflict);
             return;
           }
           throw { response: { data: resData, status: res.status } };
@@ -378,10 +378,7 @@ export default function BookingForm() {
           if (st === 409 && d?.code === 'PENCIL_OVERLAP_CHANGED') {
             setPendingContentionConfirmation(null);
             setConflicts(d.conflicts || []);
-            setSubmitError(
-              d.error ||
-                'Overlapping pencil bookings changed. Please check the calendar and try again.'
-            );
+            setSubmitError(d.error || bf.apiFallbacks.pencilOverlapChanged);
             return;
           }
           if (st === 409 && d?.requiresContentionConfirmation) {
@@ -399,36 +396,35 @@ export default function BookingForm() {
       setPendingContentionConfirmation(null);
       setPendingConfirmation(null);
 
-      const st = result.booking?.status;
+      const b = result.booking;
       const contentionSuccess =
-        result.booking?.bookingType === 'pencil' &&
-        st === 'contested';
+        b?.bookingType === 'pencil' &&
+        (b?.contentionRole === 'challenger' ||
+          b?.contentionChallenger === true ||
+          b?.status === 'contested');
 
       if (result.conflicts && result.conflicts.length > 0) {
         setConflicts(result.conflicts);
-        setSubmitSuccess({
-          message: result.message,
-          booking: result.booking,
-          isContested: contentionSuccess,
-        });
       } else {
-        setSubmitSuccess({
-          message: result.message,
-          booking: result.booking,
-          isContested: false,
-          cancelledPencilBookings: result.cancelledPencilBookings || [],
-          overlappingPencils: result.overlappingPencils || [],
-        });
+        setConflicts(null);
       }
+
+      setSubmitSuccess({
+        message: result.message,
+        booking: result.booking,
+        isContested: contentionSuccess,
+        cancelledPencilBookings: result.cancelledPencilBookings || [],
+        overlappingPencils: result.overlappingPencils || [],
+      });
     } catch (err) {
       console.error('Error creating booking:', err);
       const errorData = err.response?.data;
 
       if (err.response?.status === 409) {
         setConflicts(errorData?.conflicts || []);
-        setSubmitError(errorData?.error || 'Booking conflicts with existing bookings.');
+        setSubmitError(errorData?.error || bf.apiFallbacks.genericConflict);
       } else {
-        setSubmitError(errorData?.error || 'Failed to create booking. Please try again.');
+        setSubmitError(errorData?.error || bf.apiFallbacks.genericCreateFailed);
       }
     } finally {
       setIsSubmitting(false);
@@ -476,7 +472,7 @@ export default function BookingForm() {
         <Link to="/calendar">
           <Button variant="ghost" size="sm">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Calendar
+            {bf.nav.backToCalendar()}
           </Button>
         </Link>
       </div>
@@ -491,17 +487,42 @@ export default function BookingForm() {
                 <p className="font-medium text-green-800">{submitSuccess.message}</p>
                 {submitSuccess.booking && (
                   <div className="text-sm text-green-700 space-y-1">
-                    <p>Booking ID: #{submitSuccess.booking.id}</p>
-                    <p>Status: <span className="font-medium capitalize">{submitSuccess.booking.status?.replace('_', ' ')}</span></p>
-                    <p>Type: <span className="font-medium capitalize">{submitSuccess.booking.bookingType}</span></p>
+                    <p>
+                      {bf.success.bookingIdLabel()} #{submitSuccess.booking.id}
+                    </p>
+                    <p>
+                      {bf.success.statusLabel()}{' '}
+                      <span className="font-medium capitalize">
+                        {submitSuccess.booking.status?.replace('_', ' ')}
+                      </span>
+                    </p>
+                    <p>
+                      {bf.success.typeLabel()}{' '}
+                      <span className="font-medium capitalize">{submitSuccess.booking.bookingType}</span>
+                    </p>
                   </div>
                 )}
-                {submitSuccess.isContested && submitSuccess.booking?.status === 'contested' && (
+                {submitSuccess.isContested && (
                   <div className="flex items-start gap-2 mt-2 p-2 bg-orange-50 border border-orange-200 rounded">
                     <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-orange-700">
-                      You are challenging an existing pencil booking. A contention timer is running — the current holder must convert to a firm booking before the deadline, or you will take the slot.
-                    </p>
+                    <div className="text-sm text-orange-700 space-y-2 min-w-0">
+                      <p>{bf.success.contentionBody()}</p>
+                      {conflicts && conflicts.length > 0 && (
+                        <div>
+                          <p className="text-xs font-medium text-orange-900">
+                            {bf.success.contentionConflictsHeading()}
+                          </p>
+                          <ul className="list-disc pl-4 text-xs space-y-0.5 mt-1">
+                            {conflicts.map((c) => (
+                              <li key={c.id}>
+                                #{c.id} — {formatBookingDateRange(c.startTime, c.endTime)}
+                                {c.user?.email ? ` (${c.user.email})` : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
                 {submitSuccess.booking?.bookingType === 'firm' &&
@@ -509,20 +530,12 @@ export default function BookingForm() {
                     <div className="flex items-start gap-2 mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
                       <Info className="h-4 w-4 text-amber-700 mt-0.5 flex-shrink-0" />
                       <div className="text-sm text-amber-900 space-y-2">
-                        <p>
-                          This firm booking is currently &quot;blocking&quot; the pencils listed below.
-                        </p>
+                        <p>{bf.success.firmBlockingIntro()}</p>
                         <ul className="list-disc pl-4 space-y-1 text-xs">
-                          <li>
-                            <span className="font-semibold">If Approved:</span>{' '}
-                            Overlapping pencil bookings are displaced but notified they can rebook if you cancel.
-                          </li>
-                          <li>
-                            <span className="font-semibold">If Denied/Cancelled:</span>{' '}
-                            These pencils will immediately resume their original schedule.
-                          </li>
+                          <li>{bf.success.firmBlockingIfApprovedLine()}</li>
+                          <li>{bf.success.firmBlockingIfDeniedLine()}</li>
                         </ul>
-                        <p className="font-medium pt-0.5">Overlapping pencils:</p>
+                        <p className="font-medium pt-0.5">{bf.success.overlappingPencilsHeading()}</p>
                         <ul className="list-disc pl-4 space-y-0.5 text-xs">
                           {submitSuccess.overlappingPencils.map((c) => (
                             <li key={c.id}>
@@ -547,7 +560,7 @@ export default function BookingForm() {
                           navigate('/dashboard');
                         }}
                       >
-                        Back to my bookings
+                        {bf.success.backToMyBookings()}
                       </Button>
                       <Button
                         size="sm"
@@ -557,7 +570,7 @@ export default function BookingForm() {
                           navigate('/calendar');
                         }}
                       >
-                        View Calendar
+                        {bf.success.viewCalendar()}
                       </Button>
                     </>
                   ) : (
@@ -570,7 +583,7 @@ export default function BookingForm() {
                           navigate('/calendar');
                         }}
                       >
-                        View Calendar
+                        {bf.success.viewCalendar()}
                       </Button>
                       <Button
                         size="sm"
@@ -597,7 +610,7 @@ export default function BookingForm() {
                           navigate('/bookings/new', { replace: true });
                         }}
                       >
-                        Create Another Booking
+                        {bf.success.createAnother()}
                       </Button>
                     </>
                   )}
@@ -615,16 +628,12 @@ export default function BookingForm() {
             <div className="flex items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
               <div className="space-y-3">
-                <p className="font-medium text-orange-800">
-                  This firm booking overlaps with your existing pencil booking(s).
-                </p>
-                <p className="text-sm text-orange-700">
-                  Creating this firm booking will automatically cancel the following pencil booking(s):
-                </p>
+                <p className="font-medium text-orange-800">{bf.confirmOwnPencilOverlap.title()}</p>
+                <p className="text-sm text-orange-700">{bf.confirmOwnPencilOverlap.subtitle()}</p>
                 <div className="space-y-1">
                   {pendingConfirmation.ownPencilConflicts.map((c) => (
                     <div key={c.id} className="text-sm bg-white/60 border border-orange-200 rounded px-3 py-2">
-                      <p className="font-medium">Pencil Booking #{c.id}</p>
+                      <p className="font-medium">{bf.confirmOwnPencilOverlap.pencilCardTitle({ id: c.id })}</p>
                       <p className="text-xs text-orange-600">
                         {formatBookingDateRange(c.startTime, c.endTime)}
                       </p>
@@ -637,7 +646,7 @@ export default function BookingForm() {
                     onClick={handleConfirmOverlap}
                     disabled={isSubmitting}
                   >
-                    {isSubmitting ? 'Creating...' : 'Confirm & Cancel Pencil Booking(s)'}
+                    {isSubmitting ? bf.confirmOwnPencilOverlap.confirmLoading : bf.confirmOwnPencilOverlap.confirm}
                   </Button>
                   <Button
                     size="sm"
@@ -645,7 +654,7 @@ export default function BookingForm() {
                     onClick={handleCancelOverlap}
                     disabled={isSubmitting}
                   >
-                    Go Back
+                    {bf.confirmOwnPencilOverlap.goBack}
                   </Button>
                 </div>
               </div>
@@ -665,20 +674,15 @@ export default function BookingForm() {
                     {submitError}
                   </div>
                 )}
-                <p className="font-medium text-amber-900">
-                  This pencil booking would contest an existing pencil on the same resource.
-                </p>
-                <p className="text-sm text-amber-800">
-                  Contention is resolved automatically: the holder must convert to a firm booking before
-                  the deadline, or you receive the slot.
-                </p>
+                <p className="font-medium text-amber-900">{bf.confirmContention.title()}</p>
+                <p className="text-sm text-amber-800">{bf.confirmContention.subtitle()}</p>
                 <div className="space-y-1">
                   {pendingContentionConfirmation.conflicts.map((c) => (
                     <div
                       key={c.id}
                       className="text-sm bg-white/60 rounded px-3 py-2 border border-amber-200"
                     >
-                      <p className="font-medium">Booking #{c.id}</p>
+                      <p className="font-medium">{bf.confirmContention.conflictCardTitle({ id: c.id })}</p>
                       <p className="text-xs text-amber-800">
                         {formatBookingDateRange(c.startTime, c.endTime)}
                       </p>
@@ -687,10 +691,10 @@ export default function BookingForm() {
                 </div>
                 <div className="flex gap-3 pt-1">
                   <Button size="sm" onClick={handleConfirmContention} disabled={isSubmitting}>
-                    {isSubmitting ? 'Creating...' : 'Confirm & start contention'}
+                    {isSubmitting ? bf.confirmContention.confirmLoading : bf.confirmContention.confirm}
                   </Button>
                   <Button size="sm" variant="outline" onClick={handleCancelContention} disabled={isSubmitting}>
-                    Go Back
+                    {bf.confirmContention.goBack}
                   </Button>
                 </div>
               </div>
@@ -702,10 +706,8 @@ export default function BookingForm() {
       {!submitSuccess && !pendingConfirmation && !pendingContentionConfirmation && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">Create New Booking</CardTitle>
-            <p className="text-muted-foreground">
-              Reserve equipment or a room at the Plant Tissue Culture Facility
-            </p>
+            <CardTitle className="text-2xl">{bf.formCard.title()}</CardTitle>
+            <p className="text-muted-foreground">{bf.formCard.subtitle()}</p>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -719,10 +721,16 @@ export default function BookingForm() {
                         <p>{submitError}</p>
                         {conflicts && conflicts.length > 0 && (
                           <div className="mt-2 space-y-1">
-                            <p className="font-medium">Conflicting bookings:</p>
+                            <p className="font-medium">{bf.formCard.conflictingBookingsHeading()}</p>
                             {conflicts.map((c) => (
                               <p key={c.id} className="text-xs">
-                                #{c.id} {selectedResourceName} — {formatBookingTypeLabel(c.bookingType)} ({formatStatusLabel(c.status)}) — {formatBookingDateRange(c.startTime, c.endTime)}
+                                {bf.formCard.conflictLine({
+                                  id: c.id,
+                                  resourceName: selectedResourceName,
+                                  typeLabel: formatBookingTypeLabel(c.bookingType),
+                                  statusLabel: formatStatusLabel(c.status),
+                                  range: formatBookingDateRange(c.startTime, c.endTime),
+                                })}
                               </p>
                             ))}
                           </div>
@@ -738,23 +746,21 @@ export default function BookingForm() {
                   name="resourceType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Resource Type</FormLabel>
+                      <FormLabel>{bf.fields.resourceType()}</FormLabel>
                       <Select onValueChange={field.onChange} value={field.value} disabled={isRebookMode}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select resource type" />
+                            <SelectValue placeholder={bf.fields.resourceTypePlaceholder} />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="equipment">Equipment</SelectItem>
-                          <SelectItem value="room">Room</SelectItem>
+                          <SelectItem value="equipment">{bf.fields.equipment()}</SelectItem>
+                          <SelectItem value="room">{bf.fields.room()}</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
                       {isRebookMode && (
-                        <p className="text-xs text-muted-foreground">
-                          Locked for rebook: keep the original resource type.
-                        </p>
+                        <p className="text-xs text-muted-foreground">{bf.fields.rebookLockResourceType()}</p>
                       )}
                     </FormItem>
                   )}
@@ -767,7 +773,7 @@ export default function BookingForm() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>
-                        {watchedResourceType === 'room' ? 'Room' : 'Equipment'}
+                        {watchedResourceType === 'room' ? bf.fields.room() : bf.fields.equipment()}
                       </FormLabel>
                       <Select
                         onValueChange={field.onChange}
@@ -779,8 +785,10 @@ export default function BookingForm() {
                             <SelectValue
                               placeholder={
                                 watchedResourceType
-                                  ? `Select ${watchedResourceType === 'room' ? 'a room' : 'equipment'}`
-                                  : 'Select resource type first'
+                                  ? watchedResourceType === 'room'
+                                    ? bf.fields.selectRoom
+                                    : bf.fields.selectEquipment
+                                  : bf.fields.selectRoomFirst
                               }
                             />
                           </SelectTrigger>
@@ -795,9 +803,7 @@ export default function BookingForm() {
                       </Select>
                       <FormMessage />
                       {isRebookMode && (
-                        <p className="text-xs text-muted-foreground">
-                          Locked for rebook: keep the original resource.
-                        </p>
+                        <p className="text-xs text-muted-foreground">{bf.fields.rebookLockResource()}</p>
                       )}
                     </FormItem>
                   )}
@@ -809,7 +815,7 @@ export default function BookingForm() {
                   name="bookingType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Booking Type</FormLabel>
+                      <FormLabel>{bf.fields.bookingType()}</FormLabel>
                       <div className="flex gap-3">
                         <button
                           type="button"
@@ -820,10 +826,8 @@ export default function BookingForm() {
                               : 'border-border hover:border-muted-foreground/50'
                           }`}
                         >
-                          <p className="font-medium">Pencil</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Tentative reservation. Expires in 3 days if not converted to firm.
-                          </p>
+                          <p className="font-medium">{bf.fields.pencilTitle()}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{bf.fields.pencilBlurb()}</p>
                         </button>
                         <button
                           type="button"
@@ -834,11 +838,8 @@ export default function BookingForm() {
                               : 'border-border hover:border-muted-foreground/50'
                           }`}
                         >
-                          <p className="font-medium">Firm</p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Confirmed reservation. Cannot overlap other firms; may overlap pencils (displaced if
-                            approved). Pending staff approval after submission.
-                          </p>
+                          <p className="font-medium">{bf.fields.firmTitle()}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{bf.fields.firmBlurb()}</p>
                         </button>
                       </div>
                       {field.value === 'firm' && (
@@ -847,10 +848,7 @@ export default function BookingForm() {
                             <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" aria-hidden />
                             <div className="min-w-0 flex-1 space-y-2 text-sm text-blue-900">
                               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                                <p className="min-w-0 flex-1 text-blue-800">
-                                  Firm bookings cannot overlap other firm bookings. They can overlap pencil
-                                  bookings; what happens depends on whose pencil it is.
-                                </p>
+                                <p className="min-w-0 flex-1 text-blue-800">{bf.fields.firmOverlapCallout()}</p>
                                 <button
                                   type="button"
                                   id="firm-pencil-overlap-details-trigger"
@@ -861,7 +859,9 @@ export default function BookingForm() {
                                     setFirmPencilOverlapDetailsOpen((open) => !open)
                                   }
                                 >
-                                  {firmPencilOverlapDetailsOpen ? 'Hide details' : 'Show details'}
+                                  {firmPencilOverlapDetailsOpen
+                                    ? bf.fields.firmOverlapHideDetails()
+                                    : bf.fields.firmOverlapShowDetails()}
                                 </button>
                               </div>
                               {firmPencilOverlapDetailsOpen && (
@@ -872,21 +872,23 @@ export default function BookingForm() {
                                   aria-labelledby="firm-pencil-overlap-details-trigger"
                                 >
                                   <p className="text-xs font-semibold uppercase tracking-wide text-blue-950">
-                                    If overlapping pencils
+                                    {bf.fields.firmOverlapSectionTitle()}
                                   </p>
                                   <dl className="mt-2 space-y-2.5">
                                     <div>
-                                      <dt className="font-medium text-blue-950">Your own pencils</dt>
+                                      <dt className="font-medium text-blue-950">
+                                        {bf.fields.firmOverlapOwnPencilsDt()}
+                                      </dt>
                                       <dd className="mt-0.5 text-blue-800">
-                                        Overlapping pencils are cancelled when your firm booking is submitted.
+                                        {bf.fields.firmOverlapOwnPencilsDd()}
                                       </dd>
                                     </div>
                                     <div>
-                                      <dt className="font-medium text-blue-950">Other users&apos; pencils</dt>
+                                      <dt className="font-medium text-blue-950">
+                                        {bf.fields.firmOverlapOtherPencilsDt()}
+                                      </dt>
                                       <dd className="mt-0.5 text-blue-800">
-                                        Their pencils remain but inactive. Once staff approves your request, those pencils will be displaced. If you
-                                        cancel, displaced users are notified
-                                        immediately, in which they can rebook.
+                                        {bf.fields.firmOverlapOtherPencilsDd()}
                                       </dd>
                                     </div>
                                   </dl>
@@ -908,7 +910,7 @@ export default function BookingForm() {
                     name="startTime"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Start Time</FormLabel>
+                        <FormLabel>{bf.fields.startTime()}</FormLabel>
                         <FormControl>
                           <Input type="datetime-local" {...field} />
                         </FormControl>
@@ -922,7 +924,7 @@ export default function BookingForm() {
                     name="endTime"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>End Time</FormLabel>
+                        <FormLabel>{bf.fields.endTime()}</FormLabel>
                         <FormControl>
                           <Input type="datetime-local" {...field} />
                         </FormControl>
@@ -938,10 +940,10 @@ export default function BookingForm() {
                   name="purpose"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Purpose (optional)</FormLabel>
+                      <FormLabel>{bf.fields.purposeOptional()}</FormLabel>
                       <FormControl>
                         <textarea
-                          placeholder="Describe the purpose of your booking..."
+                          placeholder={bf.fields.purposePlaceholder}
                           className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                           {...field}
                         />
@@ -954,25 +956,21 @@ export default function BookingForm() {
                 {/* Authorization Document Upload */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium leading-none">
-                    Authorization Document {watchedBookingType === 'firm' ? '' : '(optional)'}
+                    {watchedBookingType === 'firm' ? bf.fields.authLabelFirm() : bf.fields.authLabelOptional()}
                   </label>
                   <p className="text-xs text-muted-foreground">
-                    {watchedBookingType === 'firm'
-                      ? 'Upload an authorization letter or supporting document for your firm booking.'
-                      : 'You may attach an authorization document now, or upload it later when converting to a firm booking.'}
+                    {watchedBookingType === 'firm' ? bf.fields.authHelpFirm() : bf.fields.authHelpPencil()}
                   </p>
 
                   {!docFile ? (
                     existingDocUrl ? (
                       <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                        <p className="text-sm text-muted-foreground">
-                          Using authorization document from previous attempt.
-                        </p>
+                        <p className="text-sm text-muted-foreground">{bf.fields.authRebookNote()}</p>
                         <div className="flex items-center justify-between gap-2">
                           <AuthorizationDocButton url={existingDocUrl} />
                           <label className="cursor-pointer">
                             <Button type="button" variant="outline" size="sm" asChild>
-                              <span>Replace File</span>
+                              <span>{bf.fields.replaceFile()}</span>
                             </Button>
                             <input
                               type="file"
@@ -986,12 +984,10 @@ export default function BookingForm() {
                     ) : (
                       <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
                         <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground mb-2">
-                          PDF, DOC, DOCX, JPG, or PNG (max 5MB)
-                        </p>
+                        <p className="text-sm text-muted-foreground mb-2">{bf.fields.dropzoneTypes()}</p>
                         <label className="cursor-pointer">
                           <Button type="button" variant="outline" size="sm" asChild>
-                            <span>Choose File</span>
+                            <span>{bf.fields.chooseFile()}</span>
                           </Button>
                           <input
                             type="file"
@@ -1037,10 +1033,10 @@ export default function BookingForm() {
                     disabled={isSubmitting}
                     className="flex-1"
                   >
-                    Cancel
+                    {bf.submit.cancel()}
                   </Button>
                   <Button type="submit" disabled={isSubmitting} className="flex-1">
-                    {isSubmitting ? 'Creating Booking...' : 'Create Booking'}
+                    {isSubmitting ? bf.submit.creating() : bf.submit.create()}
                   </Button>
                 </div>
               </form>

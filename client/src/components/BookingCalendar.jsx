@@ -22,6 +22,9 @@ import {
 } from '@/components/bookingCalendarUtils';
 import { formatCalendarEventTimeRange } from '@/lib/formatBookingDateRange';
 import { useBookingCalendarSideEffects } from '@/components/useBookingCalendarSideEffects';
+import { bookingMessages } from '@/messages/bookingMessages';
+
+const cal = bookingMessages.calendar;
 
 const locales = { 'en-US': enUS };
 
@@ -38,6 +41,7 @@ const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const BookingCalendarUiContext = createContext(null);
 
 function ContentionOverlapFlyout({ panel, onClose }) {
+  const fly = cal.flyout;
   const panelRef = useRef(null);
   const [placement, setPlacement] = useState(null);
 
@@ -93,13 +97,15 @@ function ContentionOverlapFlyout({ panel, onClose }) {
         top: styleTop,
       }}
       role="dialog"
-      aria-label="Contention overlaps"
+      aria-label={fly.ariaDialog}
     >
       <div className="flex shrink-0 items-start justify-between gap-2 border-b border-border pb-2 mb-2">
         <div>
-          <p className="text-xs font-semibold text-foreground">Active overlaps</p>
+          <p className="text-xs font-semibold text-foreground">{fly.activeOverlaps()}</p>
           <p className="text-[11px] text-muted-foreground mt-0.5">
-            {resourceName ? `${resourceName} · overlap details` : 'Overlap details'}
+            {resourceName
+              ? fly.overlapDetailsWithResource({ name: resourceName })
+              : fly.overlapDetailsFallback()}
           </p>
         </div>
         <button
@@ -107,7 +113,7 @@ function ContentionOverlapFlyout({ panel, onClose }) {
           className="text-[11px] text-muted-foreground hover:text-foreground shrink-0"
           onClick={onClose}
         >
-          Close
+          {fly.close()}
         </button>
       </div>
       <ul className="min-h-0 max-h-64 flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden pr-0.5">
@@ -143,6 +149,7 @@ function ContentionOverlapFlyout({ panel, onClose }) {
 
 function BookingEventLabel({ event, title }) {
   const ui = useContext(BookingCalendarUiContext);
+  const evCopy = cal.event;
   const id = event?.id;
   const members = event?.resource?.aggregateMembers;
   const isAgg = Array.isArray(members) && members.length > 0;
@@ -158,9 +165,9 @@ function BookingEventLabel({ event, title }) {
         <button
           type="button"
           className="ptcf-agg-expand-btn inline-flex shrink-0 items-center justify-center rounded p-0.5 text-current hover:bg-black/10 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary"
-          aria-label="Show or hide overlapping contention bookings details"
+          aria-label={evCopy.expandOverlapAria}
           aria-expanded={ui.overlapAggregateKey === String(id)}
-          title="Show or hide overlap details"
+          title={evCopy.expandOverlapTitle}
           onMouseDown={(e) => {
             e.stopPropagation();
           }}
@@ -289,9 +296,12 @@ function groupContendedMonthEvents(events) {
 
         const participantStart = new Date(Math.min(...participants.map((ev) => ev.start.getTime())));
         const participantEnd = new Date(Math.max(...participants.map((ev) => ev.end.getTime())));
-        const title = `${formatCalendarEventTimeRange(participantStart, participantEnd)} [${
-          representative.resource.resourceName
-        }] • Contention (${contestedCount}/${challengerCount})`;
+        const title = cal.aggregateMonthTitle({
+          timeRange: formatCalendarEventTimeRange(participantStart, participantEnd),
+          resourceName: representative.resource.resourceName,
+          contestedCount,
+          challengerCount,
+        });
 
         const aggregateMembers = buildAggregateMemberRows(participants);
 
@@ -427,7 +437,7 @@ export function BookingCalendar({
       const response = await fetch(`${BASE_URL}/bookings/availability?${params}`);
 
       if (!response.ok) {
-        throw new Error('Failed to fetch availability');
+        throw new Error(cal.fetchAvailabilityFailed);
       }
 
       const bookings = await response.json();
@@ -532,7 +542,7 @@ export function BookingCalendar({
   if (error) {
     return (
       <div className="flex items-center justify-center p-8 text-red-500">
-        <p>Error loading calendar: {error}</p>
+        <p>{cal.errorLoading({ message: error })}</p>
       </div>
     );
   }
@@ -556,32 +566,32 @@ export function BookingCalendar({
         <div className="mb-4 flex flex-wrap gap-4 text-sm">
           <div className="flex items-center gap-2">
             <span className="w-4 h-4 rounded" style={{ backgroundColor: '#22c55e' }}></span>
-            <span>Approved</span>
+            <span>{cal.legend.approved()}</span>
           </div>
           <div className="flex items-center gap-2">
             <span
               className="w-4 h-4 rounded border-2 border-dashed"
               style={{ backgroundColor: '#eab308', borderColor: '#ca8a04' }}
             ></span>
-            <span>Pending Approval</span>
+            <span>{cal.legend.pendingApproval()}</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#d1d5db' }}></span>
-            <span>Penciled</span>
+            <span>{cal.legend.penciled()}</span>
           </div>
           <div className="flex items-center gap-2">
             <span
               className="w-4 h-4 rounded border-2 border-dashed"
               style={{ backgroundColor: '#fef3c7', borderColor: '#f59e0b' }}
             />
-            <span>On Hold (firm overlap)</span>
+            <span>{cal.legend.onHold()}</span>
           </div>
           <div className="flex items-center gap-2">
             <span
               className="w-4 h-4 rounded border-2 opacity-80"
               style={{ backgroundColor: '#fb923c', borderColor: '#ea580c' }}
             />
-            <span>Contention group</span>
+            <span>{cal.legend.contentionGroup()}</span>
           </div>
         </div>
 

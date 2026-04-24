@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { format } from 'date-fns';
 import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
 import {
-  AlertTriangle,
   CalendarDays,
   FileText,
   Info,
@@ -15,6 +14,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { BookingStatusBadge } from '@/components/BookingStatusBadge';
 import { AuthorizationDocButton } from './AuthorizationDocButton';
+import { bookingMessages } from '@/messages/bookingMessages';
 import {
   formatBookingTypeLabel,
   formatStatusLabel,
@@ -22,7 +22,39 @@ import {
   getFirmCancelBlockedReason,
   isCancellable,
   isConvertible,
+  getContentionDeadlineQualifier,
+  contentionDeadlineQualifierSentence,
 } from './bookingDashboardUtils';
+
+const ac = bookingMessages.myBookings.activeCard;
+const alerts = ac.alerts;
+
+function AlertIcon({ icon, className }) {
+  const LucideIcon = icon;
+  return <LucideIcon className={className} />;
+}
+
+/** Renders `alerts.*.title` / `body` per `introInSingleParagraph`. */
+function ActiveCardAlertIntro({ alert }) {
+  const t = alert.title?.();
+  const b = alert.body?.();
+  if (t == null && b == null) return null;
+  const single = Boolean(alert.introInSingleParagraph || !t || !b);
+  if (single) {
+    return (
+      <p>
+        {t}
+        {b}
+      </p>
+    );
+  }
+  return (
+    <>
+      {t != null && <p>{t}</p>}
+      {b != null && <p>{b}</p>}
+    </>
+  );
+}
 
 function getPreviousAttempts(booking) {
   if (!booking?.threadBookings?.length) return [];
@@ -64,145 +96,208 @@ export function ActiveBookingCard({
   const canConvert = onOpenConvert && isConvertible(booking);
   const previousAttempts = getPreviousAttempts(booking);
   const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
-  const [showContestedChallengerDetail, setShowContestedChallengerDetail] = useState(false);
+  const [showDefenderChallengerDetail, setShowDefenderChallengerDetail] = useState(false);
   const [showChallengerDetail, setShowChallengerDetail] = useState(false);
   const hasExistingAuthDoc = Boolean(
     booking.authorizationDocUrl && String(booking.authorizationDocUrl).trim().length > 0
   );
   const canSubmitConvert = Boolean(convertFile || hasExistingAuthDoc);
   const isChallengerBlockedFromConvert = booking.contentionChallenger === true;
-  const challengerPlan = booking.challengerContentionPlan;
-  const challengerSteps = challengerPlan?.steps ?? [];
   const canRenderConvertSection = isConvertOpen && !isChallengerBlockedFromConvert;
+  const detail = booking.contentionDetail;
+  const isDefenderInContention =
+    booking.bookingType === 'pencil' &&
+    !booking.contentionChallenger &&
+    (booking.contentionRole === 'defender' ||
+      (booking.status === 'contested' && !booking.contentionRole));
+  const challengerDefenderStart = detail?.role === 'challenger' ? detail.defender?.startTime : null;
+  const challengerDeadlineQualifier = getContentionDeadlineQualifier(
+    detail?.deadlineAt,
+    challengerDefenderStart ?? booking.startTime,
+    booking.expiryAt
+  );
+  const defenderDeadlineQualifier = getContentionDeadlineQualifier(
+    detail?.deadlineAt ?? booking.contentionDeadlineAt,
+    booking.startTime,
+    booking.expiryAt
+  );
 
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        {booking.contentionChallenger === true && (
-          <div className="mb-3 flex items-start gap-2 bg-sky-50 border border-sky-200 text-sky-950 px-3 py-2 rounded-md text-sm">
-            <Info className="h-4 w-4 mt-0.5 flex-shrink-0 text-sky-700" />
+        {booking.bookingType === 'firm' &&
+          booking.status === 'pending_approval' &&
+          booking.overlappingOnHoldPencils?.length > 0 && (
+            <div className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-950 px-3 py-2 rounded-md text-sm">
+              <AlertIcon
+                icon={alerts.firmPendingOnHold.icon}
+                className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-700"
+              />
+              <div className="min-w-0 space-y-2">
+                <ActiveCardAlertIntro alert={alerts.firmPendingOnHold} />
+                <p className="text-xs font-medium text-amber-900">{alerts.firmPendingOnHold.listHeading()}</p>
+                <ul className="list-disc pl-4 space-y-1 text-xs text-amber-900">
+                  {booking.overlappingOnHoldPencils.map((p) => (
+                    <li key={p.id}>
+                      #{p.id} — {formatBookingDateRange(p.startTime, p.endTime)}
+                      {p.user?.email ? ` (${p.user.email})` : ''}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+        {booking.bookingType === 'pencil' && booking.status === 'on_hold' && (
+          <div className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-300 text-amber-950 px-3 py-2 rounded-md text-sm">
+            <AlertIcon
+              icon={alerts.pencilOnHold.icon}
+              className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-800"
+            />
             <div className="min-w-0 space-y-2">
-              <p>
-                <strong>You are the active challenger</strong> for this booking.
-              </p>
-              <p>
-                Your booking is currently contesting others to secure this slot. To ensure fairness, the
-                current constested holder have until the deadline to firm up their bookings. If they do not, the
-                contention moves to the next overlap in your path.
-              </p>
-              {challengerPlan && (
-                <div className="border-t border-sky-200/80 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowChallengerDetail((prev) => !prev)}
-                    aria-expanded={showChallengerDetail}
-                    aria-label={
-                      showChallengerDetail ? 'Hide challenger details' : 'View challenger details'
-                    }
-                    className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-sky-950"
-                  >
-                    View details
-                    {showChallengerDetail ? (
-                      <ChevronUp className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
-                    )}
-                  </button>
-                  {showChallengerDetail && (
-                    <div className="mt-2 text-xs text-sky-900 space-y-2">
-                      <p className="font-semibold text-sky-950">Active challenge details</p>
-                      <p className="font-semibold text-sky-950">Overlaps on this resource</p>
-                      {challengerSteps.length > 0 ? (
-                        <ol className="list-decimal pl-4 space-y-1">
-                          {challengerSteps.map((step) => (
-                            <li key={step.id}>
-                              Booking #{step.id} — {formatBookingDateRange(step.startTime, step.endTime)} —{' '}
-                              {step.isCurrentDefender ? (
-                                <>
-                                  Current step
-                                  {challengerPlan.deadlineAt
-                                    ? ` (Deadline: ${format(
-                                        new Date(challengerPlan.deadlineAt),
-                                        'MMM d, yyyy h:mm a'
-                                      )})`
-                                    : ''}
-                                </>
-                              ) : (
-                                'Pending'
-                              )}
-                            </li>
-                          ))}
-                        </ol>
-                      ) : (
-                        <p className="text-sky-800/90">
-                          Overlap details are unavailable right now. Refresh the page to retry.
-                        </p>
-                      )}
-                      <p className="text-sky-800/90">
-                        Note: <strong>Convert to Firm</strong> is disabled until all overlaps are cleared.
-                      </p>
-                    </div>
-                  )}
-                </div>
+              <ActiveCardAlertIntro alert={alerts.pencilOnHold} />
+              {booking.overlappingFirmBookings?.length > 0 && (
+                <>
+                  <p className="text-xs font-medium text-amber-900">
+                    {alerts.pencilOnHold.overlappingFirmsListHeading()}
+                  </p>
+                  <ul className="list-disc pl-4 space-y-1 text-xs text-amber-900">
+                    {booking.overlappingFirmBookings.map((f) => (
+                      <li key={f.id}>
+                        #{f.id} — {formatBookingTypeLabel(f.bookingType)} ({formatStatusLabel(f.status)}) —{' '}
+                        {formatBookingDateRange(f.startTime, f.endTime)}
+                        {f.user?.email ? ` (${f.user.email})` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                </>
               )}
             </div>
           </div>
         )}
-        {booking.status === 'contested' && (
-          <div className="mb-3 flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2 rounded-md text-sm">
-            <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600" />
+
+        {booking.contentionChallenger === true && (
+          <div className="mb-3 flex items-start gap-2 bg-sky-50 border border-sky-200 text-sky-950 px-3 py-2 rounded-md text-sm">
+            <AlertIcon
+              icon={alerts.challenger.icon}
+              className="h-4 w-4 mt-0.5 flex-shrink-0 text-sky-700"
+            />
             <div className="min-w-0 space-y-2">
-              <p>
-                This pencil booking is <strong>contested</strong>. Another user is challenging your slot.
-                Convert to a firm booking before the deadline to keep it.
-              </p>
-              {booking.defenderContentionDetail?.challengedBy && (
+              <ActiveCardAlertIntro alert={alerts.challenger} />
+              {detail?.defender && (
+                <>
+                  <p className="text-xs">
+                    {alerts.challenger.challengingLine({
+                      bookingId: detail.defender.bookingId,
+                      timeRange: formatBookingDateRange(
+                        detail.defender.startTime,
+                        detail.defender.endTime
+                      ),
+                      email: detail.defender.user?.email,
+                    })}
+                  </p>
+                  {detail.deadlineAt && (
+                    <p className="text-xs">
+                      {alerts.challenger.deadlineLine({
+                        formattedDeadline: format(new Date(detail.deadlineAt), 'MMM d, yyyy h:mm a'),
+                      })}
+                      {contentionDeadlineQualifierSentence(challengerDeadlineQualifier) && (
+                        <span className="block mt-1 text-sky-900/90">
+                          {contentionDeadlineQualifierSentence(challengerDeadlineQualifier)}
+                        </span>
+                      )}
+                    </p>
+                  )}
+                  <div className="border-t border-sky-200/80 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowChallengerDetail((prev) => !prev)}
+                      aria-expanded={showChallengerDetail}
+                      aria-label={
+                        showChallengerDetail
+                          ? alerts.challenger.toggleAriaHide
+                          : alerts.challenger.toggleAriaView
+                      }
+                      className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-sky-950"
+                    >
+                      {showChallengerDetail
+                        ? alerts.challenger.toggleHideDetails
+                        : alerts.challenger.toggleViewDetails}
+                      {showChallengerDetail ? (
+                        <ChevronUp className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
+                      )}
+                    </button>
+                    {showChallengerDetail && (
+                      <p className="mt-2 text-xs text-sky-900">{alerts.challenger.expandNote()}</p>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+        {isDefenderInContention && (
+          <div className="mb-3 flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2 rounded-md text-sm">
+            <AlertIcon
+              icon={alerts.defender.icon}
+              className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600"
+            />
+            <div className="min-w-0 space-y-2">
+              <ActiveCardAlertIntro alert={alerts.defender} />
+              {(detail?.deadlineAt || booking.contentionDeadlineAt) && (
+                <p className="text-xs">
+                  {alerts.defender.deadlineLine({
+                    formattedDeadline: format(
+                      new Date(detail?.deadlineAt ?? booking.contentionDeadlineAt),
+                      'MMM d, yyyy h:mm a'
+                    ),
+                  })}
+                  {contentionDeadlineQualifierSentence(defenderDeadlineQualifier) && (
+                    <span className="block mt-1 text-orange-900/90">
+                      {contentionDeadlineQualifierSentence(defenderDeadlineQualifier)}
+                    </span>
+                  )}
+                </p>
+              )}
+              {detail?.challenger && (
                 <div className="border-t border-orange-200/80 pt-2">
                   <button
                     type="button"
-                    onClick={() => setShowContestedChallengerDetail((prev) => !prev)}
-                    aria-expanded={showContestedChallengerDetail}
+                    onClick={() => setShowDefenderChallengerDetail((prev) => !prev)}
+                    aria-expanded={showDefenderChallengerDetail}
                     aria-label={
-                      showContestedChallengerDetail
-                        ? 'Hide challenger details'
-                        : 'View challenger details'
+                      showDefenderChallengerDetail
+                        ? alerts.defender.toggleAriaHide
+                        : alerts.defender.toggleAriaView
                     }
                     className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-orange-900"
                   >
-                    View details
-                    {showContestedChallengerDetail ? (
+                    {alerts.defender.toggleViewDetails}
+                    {showDefenderChallengerDetail ? (
                       <ChevronUp className="h-3.5 w-3.5 shrink-0 text-orange-700" aria-hidden />
                     ) : (
                       <ChevronDown className="h-3.5 w-3.5 shrink-0 text-orange-700" aria-hidden />
                     )}
                   </button>
-                  {showContestedChallengerDetail && (
+                  {showDefenderChallengerDetail && (
                     <div className="mt-2 text-xs text-orange-900 space-y-2">
-                      <p className="font-semibold text-orange-950">Who is challenging you</p>
+                      <p className="font-semibold text-orange-950">
+                        {alerts.defender.whoChallengesHeading()}
+                      </p>
                       <ul className="list-disc pl-4 space-y-1">
                         <li>
-                          Booking #{booking.defenderContentionDetail.challengedBy.bookingId} —{' '}
-                          {formatBookingDateRange(
-                            booking.defenderContentionDetail.challengedBy.startTime,
-                            booking.defenderContentionDetail.challengedBy.endTime
-                          )}
+                          {alerts.defender.challengerSummaryLine({
+                            bookingId: detail.challenger.bookingId,
+                            timeRange: formatBookingDateRange(
+                              detail.challenger.startTime,
+                              detail.challenger.endTime
+                            ),
+                          })}
                         </li>
-                        {booking.defenderContentionDetail.challengedBy.user?.email && (
-                          <li>{booking.defenderContentionDetail.challengedBy.user.email}</li>
-                        )}
+                        {detail.challenger.user?.email && <li>{detail.challenger.user.email}</li>}
                       </ul>
-                      {booking.defenderContentionDetail.episodeStatus === 'open' &&
-                        booking.defenderContentionDetail.deadlineAt && (
-                          <p className="text-orange-800/90 pt-1">
-                            Response deadline:{' '}
-                            <strong>
-                              {format(
-                                new Date(booking.defenderContentionDetail.deadlineAt),
-                                'MMM d, yyyy h:mm a'
-                              )}
-                            </strong>
-                          </p>
-                        )}
                     </div>
                   )}
                 </div>
@@ -232,13 +327,14 @@ export function ActiveBookingCard({
 
             {booking.purpose && (
               <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Purpose:</span> {booking.purpose}
+                <span className="font-medium text-foreground">{ac.meta.purposeLabel()}</span>{' '}
+                {booking.purpose}
               </p>
             )}
 
             {booking.staffRemark && (
               <p className="text-sm">
-                <span className="font-medium">Staff remark:</span>{' '}
+                <span className="font-medium">{ac.meta.staffRemarkLabel()}</span>{' '}
                 <span className="text-muted-foreground">{booking.staffRemark}</span>
               </p>
             )}
@@ -251,10 +347,12 @@ export function ActiveBookingCard({
                   className="flex w-full items-center justify-between gap-2 text-left"
                 >
                   <span className="font-medium text-amber-900">
-                    Previous attempts ({previousAttempts.length})
+                    {ac.meta.previousAttempts.label({ count: previousAttempts.length })}
                   </span>
                   <span className="text-xs text-amber-700">
-                    {showPreviousAttempts ? 'Hide' : 'Show'}
+                    {showPreviousAttempts
+                      ? ac.meta.previousAttempts.hide()
+                      : ac.meta.previousAttempts.show()}
                   </span>
                 </button>
                 {showPreviousAttempts && (
@@ -262,7 +360,10 @@ export function ActiveBookingCard({
                     {previousAttempts.map((attempt) => (
                       <div key={attempt.id}>
                         <p className="font-medium text-amber-900">
-                          Booking #{attempt.id} ({formatStatusLabel(attempt.status)})
+                          {ac.meta.previousAttempts.bookingLine({
+                            id: attempt.id,
+                            statusLabel: formatStatusLabel(attempt.status),
+                          })}
                         </p>
                         <p className="text-xs text-amber-700">
                           {formatBookingDateRange(attempt.startTime, attempt.endTime)}
@@ -279,7 +380,7 @@ export function ActiveBookingCard({
 
             {booking.expiryAt && ['penciled', 'contested', 'on_hold'].includes(booking.status) && (
               <p className="text-xs text-muted-foreground">
-                Expires: {format(new Date(booking.expiryAt), 'MMM d, yyyy h:mm a')}
+                {ac.meta.expiresPrefix()} {format(new Date(booking.expiryAt), 'MMM d, yyyy h:mm a')}
               </p>
             )}
 
@@ -297,12 +398,12 @@ export function ActiveBookingCard({
                 {isConvertOpen ? (
                   <>
                     <ChevronUp className="h-4 w-4 mr-1" />
-                    Close
+                    {ac.convertPanel.close()}
                   </>
                 ) : (
                   <>
                     <ChevronDown className="h-4 w-4 mr-1" />
-                    Convert to Firm
+                    {ac.convertPanel.convertToFirm()}
                   </>
                 )}
               </Button>
@@ -326,7 +427,7 @@ export function ActiveBookingCard({
                     disabled={!canCancel}
                     onClick={() => canCancel && onCancel(booking.id)}
                   >
-                    Cancel
+                    {ac.convertPanel.buttonCancelBooking()}
                   </Button>
                 </div>
               </div>
@@ -336,21 +437,21 @@ export function ActiveBookingCard({
 
         {canRenderConvertSection && (
           <div className="mt-4 border-t pt-4 space-y-3">
-            <p className="text-sm font-medium">Convert to Firm Booking</p>
+            <p className="text-sm font-medium">{ac.convertPanel.convertSectionTitle()}</p>
             <p className="text-xs text-muted-foreground">
-              Convert as a firm request which will be submitted for staff approval.
-              {!hasExistingAuthDoc && ' An authorization document is required.'}
+              {ac.convertPanel.convertSectionBlurb()}
+              {!hasExistingAuthDoc ? ac.convertPanel.convertAuthRequiredSuffix() : null}
             </p>
 
             <div className="space-y-1.5">
               <label htmlFor={`convert-purpose-${booking.id}`} className="text-sm font-medium leading-none">
-                Purpose (optional)
+                {ac.convertPanel.convertPurposeLabel()}
               </label>
               <textarea
                 id={`convert-purpose-${booking.id}`}
                 value={convertPurpose ?? ''}
                 onChange={(e) => onConvertPurposeChange(e.target.value)}
-                placeholder="Describe the purpose of your booking..."
+                placeholder={ac.convertPanel.convertPurposePlaceholder}
                 rows={3}
                 className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
@@ -359,17 +460,24 @@ export function ActiveBookingCard({
             {convertError && (
               <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded-md text-sm">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                  <AlertIcon
+                    icon={ac.convertPanel.icons.convertError}
+                    className="h-4 w-4 mt-0.5 flex-shrink-0"
+                  />
                   <div>
                     <p>{convertError}</p>
                     {convertConflicts && convertConflicts.length > 0 && (
                       <div className="mt-2 space-y-1">
-                        <p className="font-medium text-xs">Conflicting bookings:</p>
+                        <p className="font-medium text-xs">{ac.convertPanel.convertConflictsHeading()}</p>
                         {convertConflicts.map((c) => (
                           <p key={c.id} className="text-xs">
-                            #{c.id} {resourceName} &mdash; {formatBookingTypeLabel(c.bookingType)} (
-                            {formatStatusLabel(c.status)}) &mdash;{' '}
-                            {formatBookingDateRange(c.startTime, c.endTime)}
+                            {ac.convertPanel.convertConflictLine({
+                              id: c.id,
+                              resourceName,
+                              typeLabel: formatBookingTypeLabel(c.bookingType),
+                              statusLabel: formatStatusLabel(c.status),
+                              range: formatBookingDateRange(c.startTime, c.endTime),
+                            })}
                           </p>
                         ))}
                       </div>
@@ -380,22 +488,18 @@ export function ActiveBookingCard({
             )}
 
             <div className="space-y-2">
-              <label className="text-sm font-medium leading-none">Authorization Document</label>
-              <p className="text-xs text-muted-foreground">
-                Upload an authorization letter or supporting document for your firm booking.
-              </p>
+              <label className="text-sm font-medium leading-none">{ac.convertPanel.convertAuthLabel()}</label>
+              <p className="text-xs text-muted-foreground">{ac.convertPanel.convertAuthHint()}</p>
 
               {!convertFile ? (
                 hasExistingAuthDoc ? (
                   <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                    <p className="text-sm text-muted-foreground">
-                      Using authorization document from previous attempt.
-                    </p>
+                    <p className="text-sm text-muted-foreground">{ac.convertPanel.convertUsingPreviousDoc()}</p>
                     <div className="flex items-center justify-between gap-2">
                       <AuthorizationDocButton url={booking.authorizationDocUrl} />
                       <label className="cursor-pointer shrink-0">
                         <Button type="button" variant="outline" size="sm" asChild>
-                          <span>Replace File</span>
+                          <span>{ac.convertPanel.replaceFile()}</span>
                         </Button>
                         <input
                           type="file"
@@ -409,12 +513,10 @@ export function ActiveBookingCard({
                 ) : (
                   <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
                     <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-sm text-muted-foreground mb-2">
-                      PDF, DOC, DOCX, JPG, or PNG (max 5MB)
-                    </p>
+                    <p className="text-sm text-muted-foreground mb-2">{ac.convertPanel.dropzoneTypes()}</p>
                     <label className="cursor-pointer">
                       <Button type="button" variant="outline" size="sm" asChild>
-                        <span>Choose File</span>
+                        <span>{ac.convertPanel.chooseFile()}</span>
                       </Button>
                       <input
                         type="file"
@@ -457,10 +559,10 @@ export function ActiveBookingCard({
                 onClick={() => onConvertSubmit(booking.id)}
                 disabled={convertLoading || !canSubmitConvert || isChallengerBlockedFromConvert}
               >
-                {convertLoading ? 'Converting...' : 'Submit for Approval'}
+                {convertLoading ? ac.convertPanel.convertSubmitLoading() : ac.convertPanel.convertSubmit()}
               </Button>
               <Button size="sm" variant="outline" onClick={onCloseConvert} disabled={convertLoading}>
-                Cancel
+                {ac.convertPanel.cancel()}
               </Button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { formatBookingDateRange, formatCalendarEventTimeRange } from '@/lib/formatBookingDateRange';
+import { bookingMessages } from '@/messages/bookingMessages';
 
 /** Passed to react-big-calendar tooltipAccessor to avoid native `title` (duplicate of our custom tooltip). */
 export function suppressNativeEventTooltip() {
@@ -119,11 +120,12 @@ export function sortCalendarContentionOverlaps(events) {
 
 export function formatAggregateMemberRoleLabel(resource) {
   if (!resource) return '';
-  if (resource.contentionRole === 'defender') return 'Defender (contested)';
-  if (resource.contentionRole === 'challenger') return 'Challenger';
-  if (resource.status === 'contested') return 'Defender (contested)';
-  if (resource.status === 'penciled' && resource.contentionChallenger) return 'Challenger';
-  if (resource.status === 'penciled' && !resource.contentionChallenger) return 'Penciled';
+  const L = bookingMessages.calendar.roleLabel;
+  if (resource.contentionRole === 'defender') return L.defenderContested;
+  if (resource.contentionRole === 'challenger') return L.challenger;
+  if (resource.status === 'contested') return L.defenderContested;
+  if (resource.status === 'penciled' && resource.contentionChallenger) return L.challenger;
+  if (resource.status === 'penciled' && !resource.contentionChallenger) return L.penciled;
   return resource.status ?? '';
 }
 
@@ -145,19 +147,20 @@ export function buildAggregateMemberRows(participantEvents) {
 /** Hover copy: headline + full local date/time range (esp. when month cell label truncates). */
 export function formatBookingHoverDetail(event) {
   if (!event?.resource) return '';
+  const H = bookingMessages.calendar.hover;
   if (event.resource.aggregateSummary) {
     const name = event.resource.resourceName ?? '';
     const summary = event.resource.aggregateSummary;
-    const headline = `${name} - contention group`;
+    const headline = H.contentionGroupHeadline(name);
     const parts = [
-      `${summary.contestedCount} contested`,
-      `${summary.challengerCount} challenger`,
+      H.partContested(summary.contestedCount),
+      H.partChallenger(summary.challengerCount),
     ];
     if ((summary.plainPencilCount ?? 0) > 0) {
-      parts.push(`${summary.plainPencilCount} penciled`);
+      parts.push(H.partPenciled(summary.plainPencilCount));
     }
-    const countLine = `Active overlaps: ${summary.total} (${parts.join(', ')})`;
-    const hint = 'Click the stack icon to show or hide overlap details.';
+    const countLine = H.activeOverlaps(summary.total, parts.join(', '));
+    const hint = H.hintStack;
     if (event.start != null && event.end != null) {
       return `${headline}\n${formatBookingDateRange(event.start, event.end)}\n${countLine}\n${hint}`;
     }
@@ -170,10 +173,10 @@ export function formatBookingHoverDetail(event) {
   const kind = bookingType ?? '';
   let st = status ?? '';
   if (status === 'penciled' && contentionChallenger) {
-    st = 'contesting (challenger)';
+    st = H.statusContestingChallenger;
   }
   if (!name && !kind && !st) return '';
-  const headline = `${idPrefix}${name} - ${kind} (${st})`;
+  const headline = H.headlineWithKind(idPrefix, name, kind, st);
   if (event.start != null && event.end != null) {
     return `${headline}\n${formatBookingDateRange(event.start, event.end)}`;
   }

@@ -1,5 +1,7 @@
 'use strict';
 
+const { domain } = require('../messages/bookingMessages');
+
 const LOCK_HOURS = 24;
 const PENCIL_MAX_DAYS = 3;
 
@@ -19,9 +21,7 @@ function isWithinLockHours(startTime, now = new Date()) {
 
 function assertStartNotWithinLockHours(startTime, now = new Date()) {
   if (isWithinLockHours(startTime, now)) {
-    const err = new Error(
-      'This schedule is within 24 hours of the start time. New bookings, firm convert-to-firm, and firm staff approval are not allowed in this window.'
-    );
+    const err = new Error(domain.bookingLockWindow);
     err.code = 'BOOKING_LOCK_WINDOW';
     err.statusCode = 400;
     throw err;
@@ -53,7 +53,7 @@ function computeContentionDeadline(now, startTime, pencilExpiryAt) {
 
 function assertPositiveContentionDeadline(deadlineAt, now = new Date()) {
   if (new Date(deadlineAt).getTime() <= new Date(now).getTime()) {
-    const err = new Error('Contention cannot start: resolution window has already lapsed.');
+    const err = new Error(domain.contentionDeadlineInvalid);
     err.code = 'CONTENTION_DEADLINE_INVALID';
     err.statusCode = 400;
     throw err;

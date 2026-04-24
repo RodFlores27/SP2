@@ -18,6 +18,7 @@ const {
 } = require('../utils/booking-notifications');
 const { computePencilExpiryAt, assertStartNotWithinLockHours, isWithinLockHours } = require('../utils/booking-rules');
 const contention = require('../services/contention.service');
+const { api } = require('../messages/bookingMessages');
 
 const getUserAccountType = (req) => req.user?.accountType || req.user?.role;
 const REBOOKABLE_STATUSES = ['cancelled', 'denied', 'expired', 'displaced', 'completed'];
@@ -34,6 +35,55 @@ function computeCanRebook(plain) {
     }
   }
   return true;
+}
+
+function formatBookingOverlapSummary(row) {
+  const u = row.user;
+  return {
+    id: row.id,
+    bookingType: row.bookingType,
+    status: row.status,
+    startTime: row.startTime,
+    endTime: row.endTime,
+    user: u ? { id: u.id, email: u.email } : null
+  };
+}
+
+/**
+ * My Bookings UI: firm pending may overlap on-hold pencils; on-hold pencils overlap blocking firms.
+ */
+async function attachDashboardOverlapHints(plain) {
+  plain.overlappingOnHoldPencils = [];
+  plain.overlappingFirmBookings = [];
+
+  if (plain.bookingType === 'firm' && plain.status === 'pending_approval') {
+    const rows = await Booking.findAll({
+      where: {
+        resourceType: plain.resourceType,
+        resourceId: plain.resourceId,
+        bookingType: 'pencil',
+        status: 'on_hold',
+        id: { [Op.ne]: plain.id },
+        [Op.and]: [
+          { startTime: { [Op.lt]: plain.endTime } },
+          { endTime: { [Op.gt]: plain.startTime } }
+        ]
+      },
+      include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+    });
+    plain.overlappingOnHoldPencils = rows.map(formatBookingOverlapSummary);
+  }
+
+  if (plain.bookingType === 'pencil' && plain.status === 'on_hold') {
+    const firms = await Booking.findFirmBlockers(
+      plain.resourceType,
+      plain.resourceId,
+      plain.startTime,
+      plain.endTime,
+      plain.id
+    );
+    plain.overlappingFirmBookings = firms.map(formatBookingOverlapSummary);
+  }
 }
 
 const THREAD_BOOKING_ATTRIBUTES = [
@@ -215,31 +265,31 @@ const createBooking = async (req, res) => {
 
     if (!resourceType || !resourceId || !bookingType || !startTime || !endTime) {
       return res.status(400).json({
-        error: 'Missing required fields: resourceType, resourceId, bookingType, startTime, and endTime are required'
+        error: api.create.missingFields
       });
     }
 
     if (!['equipment', 'room'].includes(resourceType)) {
-      return res.status(400).json({ error: 'Invalid resourceType. Must be "equipment" or "room"' });
+      return res.status(400).json({ error: api.create.invalidResourceType });
     }
 
     if (!['pencil', 'firm'].includes(bookingType)) {
-      return res.status(400).json({ error: 'Invalid bookingType. Must be "pencil" or "firm"' });
+      return res.status(400).json({ error: api.create.invalidBookingType });
     }
 
     const start = new Date(startTime);
     const end = new Date(endTime);
 
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-      return res.status(400).json({ error: 'Invalid date format for startTime or endTime' });
+      return res.status(400).json({ error: api.create.invalidDates });
     }
 
     if (start >= end) {
-      return res.status(400).json({ error: 'endTime must be after startTime' });
+      return res.status(400).json({ error: api.create.endBeforeStart });
     }
 
     if (start < new Date()) {
-      return res.status(400).json({ error: 'Cannot create booking in the past' });
+      return res.status(400).json({ error: api.create.pastBooking });
     }
 
     try {
@@ -258,21 +308,24 @@ const createBooking = async (req, res) => {
     if (rebookedFromBookingIdRaw !== undefined && rebookedFromBookingIdRaw !== null && rebookedFromBookingIdRaw !== '') {
       rebookedFromBookingId = parseInt(rebookedFromBookingIdRaw, 10);
       if (Number.isNaN(rebookedFromBookingId)) {
-        return res.status(400).json({ error: 'Invalid rebookedFromBookingId' });
+        return res.status(400).json({ error: api.create.invalidRebookId });
       }
 
       sourceBooking = await Booking.findByPk(rebookedFromBookingId);
       if (!sourceBooking) {
-        return res.status(404).json({ error: 'Source booking for rebook not found' });
+        return res.status(404).json({ error: api.create.rebookSourceNotFound });
       }
 
       if (sourceBooking.userId !== userId) {
-        return res.status(403).json({ error: 'Access denied. You can only rebook your own booking attempts.' });
+        return res.status(403).json({ error: api.create.rebookAccessDenied });
       }
 
       if (!REBOOKABLE_STATUSES.includes(sourceBooking.status)) {
         return res.status(400).json({
-          error: `Cannot rebook from booking with status: ${sourceBooking.status}. Only ${REBOOKABLE_STATUSES.join(', ')} attempts can be rebooked.`
+          error: api.create.rebookInvalidStatus({
+            status: sourceBooking.status,
+            allowedListCsv: REBOOKABLE_STATUSES.join(', '),
+          })
         });
       }
 
@@ -286,8 +339,7 @@ const createBooking = async (req, res) => {
           FIRM_ACTIVE_FOR_DISPLACEMENT.includes(displacer.status)
         ) {
           return res.status(400).json({
-            error:
-              'Cannot rebook yet: the firm booking that displaced this slot is still pending or approved. Try again after it is cancelled or denied.',
+            error: api.create.displacedRebookBlocked,
             code: 'DISPLACED_REBOOK_BLOCKED'
           });
         }
@@ -313,13 +365,13 @@ const createBooking = async (req, res) => {
 
       if (newerAttempt) {
         return res.status(409).json({
-          error: 'This booking attempt is no longer the latest in its thread. Please rebook from the most recent attempt.'
+          error: api.create.threadNotLatest
         });
       }
 
       if (sourceBooking.resourceType !== resourceType || sourceBooking.resourceId !== parseInt(resourceId, 10)) {
         return res.status(400).json({
-          error: 'Resource type and resource must match the source booking when rebooking.'
+          error: api.create.rebookResourceMismatch
         });
       }
 
@@ -342,12 +394,12 @@ const createBooking = async (req, res) => {
     }
 
     if (!resource) {
-      return res.status(404).json({ error: `${resourceType} not found` });
+      return res.status(404).json({ error: api.create.resourceNotFound({ resourceType }) });
     }
 
     if (!['available', 'in-use'].includes(resource.status)) {
       return res.status(400).json({ 
-        error: `Cannot book ${resourceType}. Current status: ${resource.status}` 
+        error: api.create.resourceNotBookable({ resourceType, resourceStatus: resource.status })
       });
     }
 
@@ -378,14 +430,13 @@ const createBooking = async (req, res) => {
     if (bookingType === 'firm') {
       if (firmBlockers.length > 0) {
         return res.status(409).json({
-          error: 'Firm booking conflicts with an existing firm booking',
+          error: api.create.firmFirmConflict,
           conflicts: formatConflicts(firmBlockers)
         });
       }
       if (ownPencilOverlaps.length > 0 && !confirmOverlapOwn) {
         return res.status(409).json({
-          error:
-            'Firm booking overlaps your existing pencil booking(s). Confirm to proceed — overlapping pencil bookings will be cancelled.',
+          error: api.create.firmOwnPencilOverlapConfirm,
           requiresConfirmation: true,
           ownPencilConflicts: formatConflicts(ownPencilOverlaps)
         });
@@ -395,13 +446,13 @@ const createBooking = async (req, res) => {
     if (bookingType === 'pencil') {
       if (firmBlockers.length > 0) {
         return res.status(409).json({
-          error: 'Cannot create pencil booking: time slot overlaps a firm booking',
+          error: api.create.pencilOverlapsFirm,
           conflicts: formatConflicts(firmBlockers)
         });
       }
       if (ownPencilOverlaps.length > 0) {
         return res.status(409).json({
-          error: 'You already have a pencil booking for this time slot',
+          error: api.create.pencilOwnDuplicate,
           conflicts: formatConflicts(ownPencilOverlaps)
         });
       }
@@ -420,7 +471,7 @@ const createBooking = async (req, res) => {
             Booking
           });
           b.status = 'cancelled';
-          b.staffRemark = 'Auto-cancelled: superseded by firm booking';
+          b.staffRemark = api.create.autoCancelledPencilRemark;
           await b.save({ transaction: t });
         });
         cancelledPencilBookings.push(pencilBooking.id);
@@ -531,12 +582,12 @@ const createBooking = async (req, res) => {
       booking: createdBooking,
       message:
         cancelledPencilBookings.length > 0
-          ? `Booking created successfully. ${cancelledPencilBookings.length} overlapping pencil booking(s) were cancelled.`
+          ? api.create.successCancelledPencils({ count: cancelledPencilBookings.length })
           : bookingType === 'firm' && otherPencilOverlaps.length > 0
-            ? 'Firm booking submitted for staff approval.'
+            ? api.create.successFirmSubmitted
             : otherPencilOverlaps.length > 0 && bookingType === 'pencil'
-              ? 'Booking created; contention timer started against the overlapping pencil holder.'
-              : 'Booking created successfully'
+              ? api.create.successContentionStarted
+              : api.create.successGeneric
     };
 
     if (cancelledPencilBookings.length > 0) {
@@ -550,6 +601,10 @@ const createBooking = async (req, res) => {
     if (otherPencilOverlaps.length > 0 && bookingType === 'pencil') {
       response.conflicts = formatConflicts(otherPencilOverlaps);
     }
+
+    const bookingPlain = createdBooking.toJSON();
+    bookingPlain.contentionChallenger = createdBooking.contentionRole === 'challenger';
+    response.booking = bookingPlain;
 
     res.status(201).json(response);
 
@@ -570,7 +625,7 @@ const createBooking = async (req, res) => {
 
   } catch (error) {
     console.error('Error creating booking:', error);
-    res.status(500).json({ error: 'Failed to create booking' });
+    res.status(500).json({ error: api.create.failed });
   }
 };
 
@@ -593,7 +648,7 @@ const getAllBookings = async (req, res) => {
       userAccountType !== 'ptcf_staff' &&
       userAccountType !== 'system_admin'
     ) {
-      return res.status(403).json({ error: 'Access denied.' });
+      return res.status(403).json({ error: api.list.accessDenied });
     }
 
     if (
@@ -601,23 +656,23 @@ const getAllBookings = async (req, res) => {
       userAccountType !== 'ptcf_staff' &&
       userAccountType !== 'system_admin'
     ) {
-      return res.status(403).json({ error: 'Access denied.' });
+      return res.status(403).json({ error: api.list.accessDenied });
     }
 
     if (approvedBy != null && approvedBy !== 'me') {
-      return res.status(400).json({ error: 'Invalid approvedBy filter. Use approvedBy=me.' });
+      return res.status(400).json({ error: api.list.invalidApprovedBy });
     }
 
     if (
       approvedByUserIdRaw != null &&
       (Number.isNaN(approvedByUserIdParsed) || approvedByUserIdParsed <= 0)
     ) {
-      return res.status(400).json({ error: 'approvedByUserId must be a positive integer.' });
+      return res.status(400).json({ error: api.list.approvedByUserIdInvalid });
     }
 
     if ((approvedBy === 'me' || approvedByUserIdRaw != null) && status !== 'approved') {
       return res.status(400).json({
-        error: 'approvedBy filters are only valid with status=approved.'
+        error: api.list.approvedByRequiresApprovedStatus
       });
     }
 
@@ -630,7 +685,7 @@ const getAllBookings = async (req, res) => {
 
     if (resourceType) {
       if (!['equipment', 'room'].includes(resourceType)) {
-        return res.status(400).json({ error: 'Invalid resourceType. Must be "equipment" or "room"' });
+        return res.status(400).json({ error: api.create.invalidResourceType });
       }
       whereClause.resourceType = resourceType;
     }
@@ -685,6 +740,8 @@ const getAllBookings = async (req, res) => {
       } else {
         plain.contentionDetail = null;
       }
+
+      await attachDashboardOverlapHints(plain);
       
       return plain;
     }));
@@ -692,7 +749,7 @@ const getAllBookings = async (req, res) => {
     res.json(enriched);
   } catch (error) {
     console.error('Error fetching bookings:', error);
-    res.status(500).json({ error: 'Failed to fetch bookings' });
+    res.status(500).json({ error: api.list.fetchFailed });
   }
 };
 
@@ -709,13 +766,13 @@ const getBookingById = async (req, res) => {
     });
 
     if (!booking) {
-      return res.status(404).json({ error: 'Booking not found' });
+      return res.status(404).json({ error: api.getById.notFound });
     }
 
     if (booking.userId !== userId && 
         userAccountType !== 'ptcf_staff' && 
         userAccountType !== 'system_admin') {
-      return res.status(403).json({ error: 'Access denied. You can only view your own bookings.' });
+      return res.status(403).json({ error: api.getById.accessDenied });
     }
 
     const plain = booking.toJSON();
@@ -728,10 +785,12 @@ const getBookingById = async (req, res) => {
       plain.contentionDetail = null;
     }
 
+    await attachDashboardOverlapHints(plain);
+
     res.json(plain);
   } catch (error) {
     console.error('Error fetching booking:', error);
-    res.status(500).json({ error: 'Failed to fetch booking' });
+    res.status(500).json({ error: api.getById.fetchFailed });
   }
 };
 
@@ -746,17 +805,17 @@ const cancelBooking = async (req, res) => {
     });
 
     if (!booking) {
-      return res.status(404).json({ error: 'Booking not found' });
+      return res.status(404).json({ error: api.getById.notFound });
     }
 
     if (booking.userId !== userId && 
         userAccountType !== 'ptcf_staff' && 
         userAccountType !== 'system_admin') {
-      return res.status(403).json({ error: 'Access denied. You can only cancel your own bookings.' });
+      return res.status(403).json({ error: api.cancel.accessDenied });
     }
 
     if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) {
-      return res.status(400).json({ error: `Booking is already ${booking.status}` });
+      return res.status(400).json({ error: api.cancel.alreadyTerminal({ status: booking.status }) });
     }
 
     if (
@@ -765,7 +824,7 @@ const cancelBooking = async (req, res) => {
       new Date(booking.startTime) <= new Date()
     ) {
       return res.status(400).json({
-        error: 'Firm bookings cannot be cancelled once the scheduled start time has begun or passed.'
+        error: api.cancel.firmStarted
       });
     }
 
@@ -804,7 +863,7 @@ const cancelBooking = async (req, res) => {
     });
 
     res.json({
-      message: 'Booking cancelled successfully',
+      message: api.cancel.successMessage,
       booking: updated
     });
 
@@ -817,7 +876,7 @@ const cancelBooking = async (req, res) => {
     }
   } catch (error) {
     console.error('Error cancelling booking:', error);
-    res.status(500).json({ error: 'Failed to cancel booking' });
+    res.status(500).json({ error: api.cancel.failed });
   }
 };
 
@@ -832,20 +891,20 @@ const convertToFirm = async (req, res) => {
     });
 
     if (!booking) {
-      return res.status(404).json({ error: 'Booking not found' });
+      return res.status(404).json({ error: api.getById.notFound });
     }
 
     if (booking.userId !== userId) {
-      return res.status(403).json({ error: 'Access denied. You can only convert your own bookings.' });
+      return res.status(403).json({ error: api.convert.accessDenied });
     }
 
     if (booking.bookingType === 'firm') {
-      return res.status(400).json({ error: 'Booking is already a firm booking' });
+      return res.status(400).json({ error: api.convert.alreadyFirm });
     }
 
     if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) {
       return res.status(400).json({
-        error: `Cannot convert ${booking.status} booking to firm`
+        error: api.convert.cannotConvertStatus({ status: booking.status })
       });
     }
 
@@ -861,8 +920,7 @@ const convertToFirm = async (req, res) => {
     if (!contention.canConvertToFirm(booking)) {
       if (booking.contentionRole === 'challenger') {
         return res.status(400).json({
-          error:
-            'As the challenger in an open contention, you cannot convert to firm until that round finishes. See your booking card for the current step and overlapping slots.'
+          error: api.convert.challengerBlocked
         });
       }
     }
@@ -870,7 +928,7 @@ const convertToFirm = async (req, res) => {
     const hasExistingAuth = hasAuthDoc(booking.authorizationDocUrl);
     if (!req.file && !hasExistingAuth) {
       return res.status(400).json({
-        error: 'Authorization document is required when converting to firm booking'
+        error: api.convert.authRequired
       });
     }
 
@@ -909,7 +967,7 @@ const convertToFirm = async (req, res) => {
         });
 
         if (!b || b.userId !== userId) {
-          const err = new Error('Booking not found');
+          const err = new Error(api.convert.notFound);
           err.statusCode = 404;
           throw err;
         }
@@ -924,7 +982,7 @@ const convertToFirm = async (req, res) => {
         );
 
         if (firmBlockers.length > 0) {
-          const err = new Error('Cannot convert to firm booking: time slot overlaps another firm booking');
+          const err = new Error(api.convert.overlapsFirm);
           err.statusCode = 409;
           err.conflicts = firmBlockers.map(formatConflict);
           throw err;
@@ -964,12 +1022,12 @@ const convertToFirm = async (req, res) => {
     });
 
     res.json({
-      message: 'Booking converted to firm successfully. Awaiting staff approval.',
+      message: api.convert.successMessage,
       booking: updatedBooking
     });
   } catch (error) {
     console.error('Error converting booking to firm:', error);
-    res.status(500).json({ error: 'Failed to convert booking to firm' });
+    res.status(500).json({ error: api.convert.failed });
   }
 };
 
@@ -977,7 +1035,7 @@ const approveBooking = async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid booking id' });
+      return res.status(400).json({ error: api.approve.invalidId });
     }
     const { staffRemark } = req.body;
     const approverUserId = req.user.id;
@@ -987,19 +1045,18 @@ const approveBooking = async (req, res) => {
     });
 
     if (!booking) {
-      return res.status(404).json({ error: 'Booking not found' });
+      return res.status(404).json({ error: api.getById.notFound });
     }
 
     if (booking.bookingType !== 'firm' || booking.status !== 'pending_approval') {
       return res.status(400).json({
-        error: `Cannot approve booking with status: ${booking.status}. Only firm bookings awaiting staff approval can be approved.`
+        error: api.approve.invalidStatus({ status: booking.status })
       });
     }
 
     if (isWithinLockHours(booking.startTime)) {
       return res.status(400).json({
-        error:
-          'This firm booking can no longer be approved: the scheduled start is within 24 hours. Staff must approve at least 24 hours before start; otherwise the request expires automatically.',
+        error: api.approve.lockWindow,
         code: 'FIRM_APPROVAL_LOCK_WINDOW'
       });
     }
@@ -1025,9 +1082,7 @@ const approveBooking = async (req, res) => {
         });
 
         if (affectedCount === 0) {
-          const err = new Error(
-            'This booking was updated by another action. Refresh the staff dashboard and try again.'
-          );
+          const err = new Error(api.approve.concurrentUpdate);
           err.statusCode = 409;
           throw err;
         }
@@ -1054,7 +1109,7 @@ const approveBooking = async (req, res) => {
     });
 
     res.json({
-      message: 'Booking approved successfully',
+      message: api.approve.successMessage,
       booking: updatedBooking
     });
 
@@ -1063,7 +1118,7 @@ const approveBooking = async (req, res) => {
     });
   } catch (error) {
     console.error('Error approving booking:', error);
-    res.status(500).json({ error: 'Failed to approve booking' });
+    res.status(500).json({ error: api.approve.failed });
   }
 };
 
@@ -1071,7 +1126,7 @@ const denyBooking = async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (Number.isNaN(id)) {
-      return res.status(400).json({ error: 'Invalid booking id' });
+      return res.status(400).json({ error: api.approve.invalidId });
     }
     const { staffRemark } = req.body;
 
@@ -1080,12 +1135,12 @@ const denyBooking = async (req, res) => {
     });
 
     if (!booking) {
-      return res.status(404).json({ error: 'Booking not found' });
+      return res.status(404).json({ error: api.getById.notFound });
     }
 
     if (booking.bookingType !== 'firm' || booking.status !== 'pending_approval') {
       return res.status(400).json({
-        error: 'Only firm bookings awaiting staff approval can be denied.'
+        error: api.deny.invalidBooking
       });
     }
 
@@ -1106,9 +1161,7 @@ const denyBooking = async (req, res) => {
         });
 
         if (affectedCount === 0) {
-          const err = new Error(
-            'This booking was updated by another action. Refresh the staff dashboard and try again.'
-          );
+          const err = new Error(api.approve.concurrentUpdate);
           err.statusCode = 409;
           throw err;
         }
@@ -1146,7 +1199,7 @@ const denyBooking = async (req, res) => {
     });
   } catch (error) {
     console.error('Error denying booking:', error);
-    res.status(500).json({ error: 'Failed to deny booking' });
+    res.status(500).json({ error: api.deny.failed });
   }
 };
 
@@ -1162,7 +1215,7 @@ const getAvailability = async (req, res) => {
 
     if (resourceType) {
       if (!['equipment', 'room'].includes(resourceType)) {
-        return res.status(400).json({ error: 'Invalid resourceType. Must be "equipment" or "room"' });
+        return res.status(400).json({ error: api.create.invalidResourceType });
       }
       whereClause.resourceType = resourceType;
     }
@@ -1174,7 +1227,7 @@ const getAvailability = async (req, res) => {
     if (startDate) {
       const start = new Date(startDate);
       if (isNaN(start.getTime())) {
-        return res.status(400).json({ error: 'Invalid startDate format' });
+        return res.status(400).json({ error: api.availability.invalidStartDate });
       }
       whereClause.endTime = { [Op.gte]: start };
     }
@@ -1182,7 +1235,7 @@ const getAvailability = async (req, res) => {
     if (endDate) {
       const end = new Date(endDate);
       if (isNaN(end.getTime())) {
-        return res.status(400).json({ error: 'Invalid endDate format' });
+        return res.status(400).json({ error: api.availability.invalidEndDate });
       }
       whereClause.startTime = { 
         ...(whereClause.startTime || {}),
@@ -1220,7 +1273,7 @@ const getAvailability = async (req, res) => {
     res.json(payload);
   } catch (error) {
     console.error('Error fetching availability:', error);
-    res.status(500).json({ error: 'Failed to fetch availability' });
+    res.status(500).json({ error: api.availability.fetchFailed });
   }
 };
 
@@ -1230,7 +1283,7 @@ const getBookingConflicts = async (req, res) => {
 
     const booking = await Booking.findByPk(id);
     if (!booking) {
-      return res.status(404).json({ error: 'Booking not found' });
+      return res.status(404).json({ error: api.getById.notFound });
     }
 
     const conflicts = await Booking.findConflicts(
@@ -1244,7 +1297,7 @@ const getBookingConflicts = async (req, res) => {
     res.json(conflicts);
   } catch (error) {
     console.error('Error fetching booking conflicts:', error);
-    res.status(500).json({ error: 'Failed to fetch booking conflicts' });
+    res.status(500).json({ error: api.conflicts.fetchFailed });
   }
 };
 

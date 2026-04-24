@@ -86,6 +86,8 @@ npm run test:all
 | API docs (Swagger) | `server/docs/swagger.json` → rendered at `localhost:4000/api-docs` |
 | Frontend pages | `client/src/pages/` |
 | React components | `client/src/components/` |
+| **Booking user-visible copy (UI)** | `client/src/messages/bookingMessages.jsx` (source); `bookingMessages.js` re-exports for tooling |
+| **Booking user-visible copy (API, email, domain errors)** | `server/messages/bookingMessages.js` (`api`, `domain`, `email`; plain strings / string functions, no JSX) |
 | Global styles | `client/src/index.css` |
 | Cloudinary util | `server/utils/cloudinary.js` |
 | Email transport | `server/utils/email.js` |
