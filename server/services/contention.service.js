@@ -521,12 +521,13 @@ async function resolveExpiredDefenders(now = new Date(), { sequelize, Booking })
       const result = await resolveDefenderLoses1v1(
         fresh.id,
         {
-          terminalStatus: 'expired',
-          remark: 'Expired: pencil lifetime ended during contention'
+          terminalStatus: 'displaced',
+          remark:
+            'Displaced: lost contention — expiry boundary was reached before defender converted to firm'
         },
         { transaction: t, Booking }
       );
-      return { bookingId: defender.id, outcome: 'defender_expired', ...result };
+      return { bookingId: defender.id, outcome: 'defender_lost_expiry_boundary', ...result };
     }
   });
 }

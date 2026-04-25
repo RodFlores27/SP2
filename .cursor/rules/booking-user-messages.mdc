@@ -24,9 +24,21 @@ Whenever you add or change **text that end users see** for the booking flow (UI 
 - **`myBookings.activeCard.meta`** — inline card copy: `purposeLabel()`, `previousAttempts.label({ count })`, `bookingLine({ id, statusLabel })`, etc.
 - **`myBookings.activeCard.convertPanel`** — convert-to-firm UI: `icons.convertError`, JSX functions for labels/help, **plain string** only for `convertPurposePlaceholder` (HTML `placeholder` attr).
 - **`bookingForm`** — `schema` / `docErrors` / `apiFallbacks` / `convertFirmDefaultSuccess` stay **plain strings** (Zod, errors, session). `labels.bookingType` stays string map. `fields.resourceFallback`, `resourceNumber`, and all `*Placeholder` / `selectRoom` text stay **strings**. Everything else is **`() => ReactNode`** or **`({ ... }) => ReactNode`** (e.g. `formCard.conflictLine({ id, resourceName, typeLabel, statusLabel, range })`).
+- **Active contention booking-form behavior:** when API returns `ACTIVE_CONTENTION_LOCKED`, show an inline form notice from `bookingForm.activeContentionUnavailable.*` (including displayed deadline), and **do not** show a confirmation guard card in that path.
 - **`calendar`** — `legend` / `flyout` visible copy: JSX functions; `flyout.ariaDialog` and `event.expandOverlap*` stay **strings** (aria/title attrs). `fetchAvailabilityFailed`, `aggregateMonthTitle({ … })` (string title), `errorLoading({ message })`, `hover`, `roleLabel` stay **string**-based for tooltips/utils.
 
 Do **not** use `dangerouslySetInnerHTML`; use JSX fragments (or plain strings where required above).
+
+## Active card warning/alert/notice format
+
+When creating or changing a warning/alert/notice card in **My Bookings** (`ActiveBookingCard`), follow this UI/content pattern:
+
+1. **Integrated placement:** render inside the booking info column (after status badges), not as a floating top block.
+2. **Visible summary first:** short outcome-focused sentence shown by default.
+3. **Collapsed details:** use a **View details / Hide details** toggle for explanatory/background text.
+4. **Centralized copy:** keep copy in `bookingMessages.jsx` under `myBookings.activeCard.alerts.*` (e.g. `summaryLine`, `detailsBody`, toggle labels, aria labels).
+5. **Role visuals:** include relevant badge/notice context (e.g., Challenger/Defender) and keep icon + color semantics consistent with existing alert type.
+6. **No inline literals:** do not hardcode long warning text in component JSX.
 
 ## Out of scope
 

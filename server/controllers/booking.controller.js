@@ -253,6 +253,10 @@ const createBooking = async (req, res) => {
   try {
     const { resourceType, resourceId, bookingType, startTime, endTime, purpose } = req.body;
     const confirmOverlapOwn = req.body.confirmOverlapOwn === true || req.body.confirmOverlapOwn === 'true';
+    const confirmContention =
+      req.body.confirmContention === true || req.body.confirmContention === 'true';
+    const confirmOverlapForeign =
+      req.body.confirmOverlapForeign === true || req.body.confirmOverlapForeign === 'true';
     const rebookedFromBookingIdRaw = req.body.rebookedFromBookingId;
     const userId = req.user.id;
 
@@ -275,6 +279,9 @@ const createBooking = async (req, res) => {
 
     if (!['pencil', 'firm'].includes(bookingType)) {
       return res.status(400).json({ error: api.create.invalidBookingType });
+    }
+    if (bookingType === 'firm' && !hasAuthDoc(authorizationDocUrl)) {
+      return res.status(400).json({ error: api.create.firmAuthRequired });
     }
 
     const start = new Date(startTime);
@@ -405,13 +412,34 @@ const createBooking = async (req, res) => {
 
     const firmBlockers = await Booking.findFirmBlockers(resourceType, resourceId, start, end);
     const pencilOverlaps = await Booking.findActivePencilOverlaps(resourceType, resourceId, start, end);
-
-    const ownPencilOverlaps = pencilOverlaps.filter(
-      (c) => c.userId === userId && c.bookingType === 'pencil'
-    );
+    const ownPencilOverlaps = await Booking.findAll({
+      where: {
+        resourceType,
+        resourceId,
+        bookingType: 'pencil',
+        userId,
+        status: { [Op.in]: ['penciled', 'on_hold'] },
+        [Op.and]: [
+          { startTime: { [Op.lt]: end } },
+          { endTime: { [Op.gt]: start } }
+        ]
+      },
+      include: [
+        {
+          model: User,
+          as: 'user',
+          attributes: ['id', 'email', 'accountType', 'userCategory']
+        }
+      ],
+      order: [
+        ['createdAt', 'ASC'],
+        ['id', 'ASC']
+      ]
+    });
     const otherPencilOverlaps = pencilOverlaps.filter(
       (c) => !(c.userId === userId && c.bookingType === 'pencil')
     );
+    const activeDefenderOverlap = otherPencilOverlaps.find((c) => c.contentionRole === 'defender');
 
     const formatConflicts = (list) =>
       list.map((c) => ({
@@ -441,6 +469,13 @@ const createBooking = async (req, res) => {
           ownPencilConflicts: formatConflicts(ownPencilOverlaps)
         });
       }
+      if (otherPencilOverlaps.length > 0 && !confirmOverlapForeign) {
+        return res.status(409).json({
+          error: api.create.firmForeignPencilOverlapConfirm,
+          requiresForeignOverlapConfirmation: true,
+          foreignPencilConflicts: formatConflicts(otherPencilOverlaps)
+        });
+      }
     }
 
     if (bookingType === 'pencil') {
@@ -456,6 +491,21 @@ const createBooking = async (req, res) => {
           conflicts: formatConflicts(ownPencilOverlaps)
         });
       }
+      if (activeDefenderOverlap) {
+        return res.status(409).json({
+          error: api.create.pencilActiveContentionLocked,
+          code: 'ACTIVE_CONTENTION_LOCKED',
+          contentionDeadlineAt: activeDefenderOverlap.contentionDeadlineAt || null,
+          conflicts: formatConflicts(otherPencilOverlaps)
+        });
+      }
+      if (otherPencilOverlaps.length > 0 && !confirmContention) {
+        return res.status(409).json({
+          error: api.create.pencilForeignOverlapConfirm,
+          requiresContentionConfirmation: true,
+          conflicts: formatConflicts(otherPencilOverlaps)
+        });
+      }
       // 1v1 mode: overlap with foreign pencils is allowed and evaluated in-transaction.
       // If an active contention already exists at commit time, we hard reject with 409.
     }
@@ -465,7 +515,7 @@ const createBooking = async (req, res) => {
       for (const pencilBooking of ownPencilOverlaps) {
         await sequelize.transaction(async (t) => {
           const b = await Booking.findByPk(pencilBooking.id, { transaction: t, lock: t.LOCK.UPDATE });
-          if (!b || b.status !== 'penciled') return;
+          if (!b || !['penciled', 'on_hold'].includes(b.status)) return;
           await contention.onBookingCancelledMidContention(b, {
             transaction: t,
             Booking
@@ -573,7 +623,20 @@ const createBooking = async (req, res) => {
         return res.status(txnErr.statusCode || 409).json({ error: txnErr.message, code: txnErr.code });
       }
       if (txnErr.code === 'ACTIVE_CONTENTION_LOCKED') {
-        return res.status(409).json({ error: txnErr.message, code: txnErr.code });
+        const freshPencilOverlaps = await Booking.findActivePencilOverlaps(
+          resourceType,
+          resourceId,
+          start,
+          end
+        );
+        const freshOther = freshPencilOverlaps.filter((c) => !(c.userId === userId && c.bookingType === 'pencil'));
+        const freshActiveDefender = freshOther.find((c) => c.contentionRole === 'defender');
+        return res.status(409).json({
+          error: api.create.pencilActiveContentionLocked,
+          code: txnErr.code,
+          contentionDeadlineAt: freshActiveDefender?.contentionDeadlineAt || null,
+          conflicts: formatConflicts(freshOther)
+        });
       }
       throw txnErr;
     }
@@ -1206,12 +1269,50 @@ const denyBooking = async (req, res) => {
 const getAvailability = async (req, res) => {
   try {
     const { resourceType, resourceId, startDate, endDate } = req.query;
+    const hasAgendaCheckboxParams =
+      req.query.includeFirms != null ||
+      req.query.includeActivePencils != null ||
+      req.query.includeSecondary != null;
+    const includeFirms = req.query.includeFirms === 'true';
+    const includeActivePencils = req.query.includeActivePencils === 'true';
+    const includeSecondary = req.query.includeSecondary === 'true';
 
-    const whereClause = {
-      status: {
-        [Op.notIn]: ['cancelled', 'denied', 'expired', 'displaced', 'completed']
+    const whereClause = {};
+
+    if (hasAgendaCheckboxParams) {
+      const agendaFilters = [];
+      if (includeFirms) {
+        agendaFilters.push({
+          bookingType: 'firm',
+          status: { [Op.in]: ['approved', 'pending_approval'] }
+        });
       }
-    };
+      if (includeActivePencils) {
+        agendaFilters.push({
+          bookingType: 'pencil',
+          status: 'penciled',
+          [Op.or]: [{ contentionRole: null }, { contentionRole: 'defender' }]
+        });
+      }
+      if (includeSecondary) {
+        agendaFilters.push({
+          bookingType: 'pencil',
+          [Op.or]: [
+            { status: 'on_hold' },
+            { status: 'penciled', contentionRole: 'challenger' }
+          ]
+        });
+      }
+
+      if (agendaFilters.length === 0) {
+        return res.json([]);
+      }
+      whereClause[Op.or] = agendaFilters;
+    } else {
+      whereClause.status = {
+        [Op.notIn]: ['cancelled', 'denied', 'expired', 'displaced', 'completed']
+      };
+    }
 
     if (resourceType) {
       if (!['equipment', 'room'].includes(resourceType)) {

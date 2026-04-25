@@ -319,7 +319,7 @@ module.exports = {
       updatedAt: onHoldOverlapIssued,
     });
 
-    // On-hold pencil (student) overlapping approved firm (staff) — on-hold card lists firms
+    // On-hold pencil (student) overlapping pending firm (staff) — valid on-hold blocker
     const firmBlockStart = createDateAtTime(8, 10, 0);
     const firmBlockEnd = createDateAtTime(8, 15, 0);
     const onHoldStudentStart = createDateAtTime(8, 11, 0);
@@ -329,13 +329,13 @@ module.exports = {
       resourceType: 'room',
       resourceId: preparationRoomId,
       bookingType: 'firm',
-      status: 'approved',
+      status: 'pending_approval',
       startTime: firmBlockStart,
       endTime: firmBlockEnd,
-      purpose: 'Seed: approved firm overlapping student on-hold pencil',
+      purpose: 'Seed: pending firm overlapping student on-hold pencil',
       authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
-      approvedByUserId: adminId,
-      approvedAt: new Date(now.getTime() - 30 * 60 * 1000),
+      approvedByUserId: null,
+      approvedAt: null,
       expiryAt: null,
       createdAt: now,
       updatedAt: now,

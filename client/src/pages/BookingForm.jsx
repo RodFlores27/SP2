@@ -93,7 +93,9 @@ export default function BookingForm() {
   const [existingDocUrl, setExistingDocUrl] = useState(prefilledAuthorizationDocUrl);
   const [docError, setDocError] = useState(null);
   const [pendingConfirmation, setPendingConfirmation] = useState(null);
+  const [pendingForeignOverlapConfirmation, setPendingForeignOverlapConfirmation] = useState(null);
   const [pendingContentionConfirmation, setPendingContentionConfirmation] = useState(null);
+  const [activeContentionNotice, setActiveContentionNotice] = useState(null);
   const [firmPencilOverlapDetailsOpen, setFirmPencilOverlapDetailsOpen] = useState(false);
 
   // Format ISO string to datetime-local value
@@ -106,6 +108,20 @@ export default function BookingForm() {
     } catch {
       return '';
     }
+  };
+
+  const formatDeadlineForNotice = (isoString) => {
+    if (!isoString) return bf.activeContentionUnavailable.deadlineUnknown;
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return bf.activeContentionUnavailable.deadlineUnknown;
+    return date.toLocaleString('en-PH', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    });
   };
 
   const form = useForm({
@@ -129,8 +145,11 @@ export default function BookingForm() {
   useEffect(() => {
     if (watchedBookingType !== 'firm') {
       setFirmPencilOverlapDetailsOpen(false);
+      if (docError === bf.docErrors.requiredForFirm) {
+        setDocError(null);
+      }
     }
-  }, [watchedBookingType]);
+  }, [watchedBookingType, docError]);
 
   const selectedResourceName = useMemo(() => {
     if (!watchedResourceId) return bf.fields.resourceFallback;
@@ -256,14 +275,22 @@ export default function BookingForm() {
   const submitBooking = async (
     data,
     confirmOverlapOwn = false,
-    confirmContention = false
+    confirmContention = false,
+    confirmOverlapForeign = false
   ) => {
     try {
       setIsSubmitting(true);
       setSubmitError(null);
       setSubmitSuccess(null);
       setConflicts(null);
+      setActiveContentionNotice(null);
       clearConvertFirmSuccessSession();
+
+      if (data.bookingType === 'firm' && !docFile && !existingDocUrl) {
+        setDocError(bf.docErrors.requiredForFirm);
+        setSubmitError(bf.docErrors.requiredForFirm);
+        return;
+      }
 
       const startTime = new Date(data.startTime).toISOString();
       const endTime = new Date(data.endTime).toISOString();
@@ -286,6 +313,9 @@ export default function BookingForm() {
         }
         if (confirmContention) {
           formData.append('confirmContention', 'true');
+        }
+        if (confirmOverlapForeign) {
+          formData.append('confirmOverlapForeign', 'true');
         }
         if (rebookedFromBookingId) {
           formData.append('rebookedFromBookingId', rebookedFromBookingId);
@@ -319,10 +349,26 @@ export default function BookingForm() {
               });
               return;
             }
+            if (resData.requiresForeignOverlapConfirmation) {
+              setPendingForeignOverlapConfirmation({
+                formData: data,
+                foreignPencilConflicts: resData.foreignPencilConflicts || [],
+              });
+              return;
+            }
             if (resData.code === 'PENCIL_OVERLAP_CHANGED') {
               setPendingContentionConfirmation(null);
               setConflicts(resData.conflicts || []);
               setSubmitError(resData.error || bf.apiFallbacks.pencilOverlapChanged);
+              return;
+            }
+            if (resData.code === 'ACTIVE_CONTENTION_LOCKED') {
+              setPendingContentionConfirmation(null);
+              setConflicts(null);
+              setSubmitError(null);
+              setActiveContentionNotice({
+                deadlineAt: resData.contentionDeadlineAt || null,
+              });
               return;
             }
             if (resData.requiresContentionConfirmation) {
@@ -356,6 +402,9 @@ export default function BookingForm() {
         if (confirmContention) {
           payload.confirmContention = true;
         }
+        if (confirmOverlapForeign) {
+          payload.confirmOverlapForeign = true;
+        }
         if (rebookedFromBookingId) {
           payload.rebookedFromBookingId = parseInt(rebookedFromBookingId, 10);
         }
@@ -375,10 +424,26 @@ export default function BookingForm() {
             });
             return;
           }
+          if (st === 409 && d?.requiresForeignOverlapConfirmation) {
+            setPendingForeignOverlapConfirmation({
+              formData: data,
+              foreignPencilConflicts: d.foreignPencilConflicts || [],
+            });
+            return;
+          }
           if (st === 409 && d?.code === 'PENCIL_OVERLAP_CHANGED') {
             setPendingContentionConfirmation(null);
             setConflicts(d.conflicts || []);
             setSubmitError(d.error || bf.apiFallbacks.pencilOverlapChanged);
+            return;
+          }
+          if (st === 409 && d?.code === 'ACTIVE_CONTENTION_LOCKED') {
+            setPendingContentionConfirmation(null);
+            setConflicts(null);
+            setSubmitError(null);
+            setActiveContentionNotice({
+              deadlineAt: d.contentionDeadlineAt || null,
+            });
             return;
           }
           if (st === 409 && d?.requiresContentionConfirmation) {
@@ -395,6 +460,8 @@ export default function BookingForm() {
       const result = response.data;
       setPendingContentionConfirmation(null);
       setPendingConfirmation(null);
+      setPendingForeignOverlapConfirmation(null);
+      setActiveContentionNotice(null);
 
       const b = result.booking;
       const contentionSuccess =
@@ -415,6 +482,8 @@ export default function BookingForm() {
         isContested: contentionSuccess,
         cancelledPencilBookings: result.cancelledPencilBookings || [],
         overlappingPencils: result.overlappingPencils || [],
+        confirmedForeignOverlap: confirmOverlapForeign,
+        confirmedContention: confirmContention,
       });
     } catch (err) {
       console.error('Error creating booking:', err);
@@ -433,29 +502,43 @@ export default function BookingForm() {
 
   const onSubmit = async (data) => {
     setPendingConfirmation(null);
+    setPendingForeignOverlapConfirmation(null);
     setPendingContentionConfirmation(null);
+    setActiveContentionNotice(null);
     await submitBooking(data, false, false);
   };
 
   const handleConfirmOverlap = async () => {
     if (!pendingConfirmation) return;
     setPendingConfirmation(null);
-    await submitBooking(pendingConfirmation.formData, true, false);
+    await submitBooking(pendingConfirmation.formData, true, false, false);
   };
 
   const handleCancelOverlap = () => {
     setPendingConfirmation(null);
   };
 
+  const handleConfirmForeignOverlap = async () => {
+    if (!pendingForeignOverlapConfirmation) return;
+    const { formData: fd } = pendingForeignOverlapConfirmation;
+    setPendingForeignOverlapConfirmation(null);
+    await submitBooking(fd, false, false, true);
+  };
+
+  const handleCancelForeignOverlap = () => {
+    setPendingForeignOverlapConfirmation(null);
+  };
+
   const handleConfirmContention = async () => {
     if (!pendingContentionConfirmation) return;
     const { formData: fd } = pendingContentionConfirmation;
-    await submitBooking(fd, false, true);
+    await submitBooking(fd, false, true, false);
   };
 
   const handleCancelContention = () => {
     setPendingContentionConfirmation(null);
     setSubmitError(null);
+    setActiveContentionNotice(null);
   };
 
   if (loadingResources && !submitSuccess) {
@@ -502,7 +585,7 @@ export default function BookingForm() {
                     </p>
                   </div>
                 )}
-                {submitSuccess.isContested && (
+                {submitSuccess.isContested && !submitSuccess.confirmedContention && (
                   <div className="flex items-start gap-2 mt-2 p-2 bg-orange-50 border border-orange-200 rounded">
                     <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
                     <div className="text-sm text-orange-700 space-y-2 min-w-0">
@@ -526,6 +609,7 @@ export default function BookingForm() {
                   </div>
                 )}
                 {submitSuccess.booking?.bookingType === 'firm' &&
+                  !submitSuccess.confirmedForeignOverlap &&
                   submitSuccess.overlappingPencils?.length > 0 && (
                     <div className="flex items-start gap-2 mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
                       <Info className="h-4 w-4 text-amber-700 mt-0.5 flex-shrink-0" />
@@ -634,6 +718,10 @@ export default function BookingForm() {
                   {pendingConfirmation.ownPencilConflicts.map((c) => (
                     <div key={c.id} className="text-sm bg-white/60 border border-orange-200 rounded px-3 py-2">
                       <p className="font-medium">{bf.confirmOwnPencilOverlap.pencilCardTitle({ id: c.id })}</p>
+                      <p className="text-xs text-orange-700">
+                        Status: {formatStatusLabel(c.status)}
+                        {c.status === 'on_hold' ? ' (currently on hold)' : ''}
+                      </p>
                       <p className="text-xs text-orange-600">
                         {formatBookingDateRange(c.startTime, c.endTime)}
                       </p>
@@ -655,6 +743,52 @@ export default function BookingForm() {
                     disabled={isSubmitting}
                   >
                     {bf.confirmOwnPencilOverlap.goBack}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {pendingForeignOverlapConfirmation && (
+        <Card className="mb-6 border-amber-200 bg-amber-50">
+          <CardContent className="pt-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
+              <div className="space-y-3">
+                <p className="font-medium text-amber-900">{bf.confirmForeignPencilOverlap.title()}</p>
+                <p className="text-sm text-amber-800">{bf.confirmForeignPencilOverlap.subtitle()}</p>
+                <div className="space-y-1">
+                  {pendingForeignOverlapConfirmation.foreignPencilConflicts.map((c) => (
+                    <div
+                      key={c.id}
+                      className="text-sm bg-white/60 border border-amber-200 rounded px-3 py-2"
+                    >
+                      <p className="font-medium">
+                        {bf.confirmForeignPencilOverlap.pencilCardTitle({ id: c.id })}
+                      </p>
+                      <p className="text-xs text-amber-700">Status: {formatStatusLabel(c.status)}</p>
+                      <p className="text-xs text-amber-700">{c.user?.email || 'Unknown user'}</p>
+                      <p className="text-xs text-amber-600">
+                        {formatBookingDateRange(c.startTime, c.endTime)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-3 pt-1">
+                  <Button size="sm" onClick={handleConfirmForeignOverlap} disabled={isSubmitting}>
+                    {isSubmitting
+                      ? bf.confirmForeignPencilOverlap.confirmLoading
+                      : bf.confirmForeignPencilOverlap.confirm}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCancelForeignOverlap}
+                    disabled={isSubmitting}
+                  >
+                    {bf.confirmForeignPencilOverlap.goBack}
                   </Button>
                 </div>
               </div>
@@ -703,7 +837,10 @@ export default function BookingForm() {
         </Card>
       )}
 
-      {!submitSuccess && !pendingConfirmation && !pendingContentionConfirmation && (
+      {!submitSuccess &&
+        !pendingConfirmation &&
+        !pendingForeignOverlapConfirmation &&
+        !pendingContentionConfirmation && (
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">{bf.formCard.title()}</CardTitle>
@@ -713,6 +850,23 @@ export default function BookingForm() {
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {/* Error display */}
+                {activeContentionNotice && (
+                  <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-md text-sm">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-700" />
+                      <div className="space-y-1.5">
+                        <p className="font-semibold">{bf.activeContentionUnavailable.title()}</p>
+                        <p>{bf.activeContentionUnavailable.body()}</p>
+                        <p>
+                          {bf.activeContentionUnavailable.recommendation({
+                            formattedDeadline: formatDeadlineForNotice(activeContentionNotice.deadlineAt),
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {submitError && (
                   <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm">
                     <div className="flex items-start gap-2">

@@ -61,7 +61,9 @@ export default function Calendar() {
     setResourceType(value);
     setResourceId('');
     
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams);
+    params.delete('resourceType');
+    params.delete('resourceId');
     if (value) params.set('resourceType', value);
     setSearchParams(params);
   };
@@ -70,7 +72,8 @@ export default function Calendar() {
     const value = e.target.value;
     setResourceId(value);
     
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams);
+    params.delete('resourceId');
     if (resourceType) params.set('resourceType', resourceType);
     if (value) params.set('resourceId', value);
     setSearchParams(params);

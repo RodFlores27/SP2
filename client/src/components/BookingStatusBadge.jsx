@@ -1,4 +1,11 @@
-export function BookingStatusBadge({ status, bookingType, showChallengerBadge = false }) {
+export function BookingStatusBadge({
+  status,
+  bookingType,
+  showChallengerBadge = false,
+  showDefenderBadge = false,
+}) {
+  const showPrimaryStatus = !(status === 'penciled' && bookingType === 'pencil');
+
   const getStatusStyles = (s) => {
     switch (s) {
       case 'approved':
@@ -43,11 +50,13 @@ export function BookingStatusBadge({ status, bookingType, showChallengerBadge = 
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusStyles(status)}`}
-      >
-        {formatStatus(status)}
-      </span>
+      {showPrimaryStatus && (
+        <span
+          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusStyles(status)}`}
+        >
+          {formatStatus(status)}
+        </span>
+      )}
       {bookingType && (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-secondary text-secondary-foreground border border-border">
           {formatType(bookingType)}
@@ -56,6 +65,11 @@ export function BookingStatusBadge({ status, bookingType, showChallengerBadge = 
       {showChallengerBadge && (
         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-sky-300 bg-sky-100 text-sky-900">
           Challenger
+        </span>
+      )}
+      {showDefenderBadge && (
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-orange-300 bg-orange-100 text-orange-900">
+          Defender
         </span>
       )}
     </div>

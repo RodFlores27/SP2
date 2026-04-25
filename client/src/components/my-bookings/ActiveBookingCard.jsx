@@ -98,6 +98,8 @@ export function ActiveBookingCard({
   const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
   const [showDefenderChallengerDetail, setShowDefenderChallengerDetail] = useState(false);
   const [showChallengerDetail, setShowChallengerDetail] = useState(false);
+  const [showFirmPendingDetail, setShowFirmPendingDetail] = useState(false);
+  const [showOnHoldDetail, setShowOnHoldDetail] = useState(false);
   const hasExistingAuthDoc = Boolean(
     booking.authorizationDocUrl && String(booking.authorizationDocUrl).trim().length > 0
   );
@@ -125,187 +127,6 @@ export function ActiveBookingCard({
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        {booking.bookingType === 'firm' &&
-          booking.status === 'pending_approval' &&
-          booking.overlappingOnHoldPencils?.length > 0 && (
-            <div className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-950 px-3 py-2 rounded-md text-sm">
-              <AlertIcon
-                icon={alerts.firmPendingOnHold.icon}
-                className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-700"
-              />
-              <div className="min-w-0 space-y-2">
-                <ActiveCardAlertIntro alert={alerts.firmPendingOnHold} />
-                <p className="text-xs font-medium text-amber-900">{alerts.firmPendingOnHold.listHeading()}</p>
-                <ul className="list-disc pl-4 space-y-1 text-xs text-amber-900">
-                  {booking.overlappingOnHoldPencils.map((p) => (
-                    <li key={p.id}>
-                      #{p.id} — {formatBookingDateRange(p.startTime, p.endTime)}
-                      {p.user?.email ? ` (${p.user.email})` : ''}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          )}
-
-        {booking.bookingType === 'pencil' && booking.status === 'on_hold' && (
-          <div className="mb-3 flex items-start gap-2 bg-amber-50 border border-amber-300 text-amber-950 px-3 py-2 rounded-md text-sm">
-            <AlertIcon
-              icon={alerts.pencilOnHold.icon}
-              className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-800"
-            />
-            <div className="min-w-0 space-y-2">
-              <ActiveCardAlertIntro alert={alerts.pencilOnHold} />
-              {booking.overlappingFirmBookings?.length > 0 && (
-                <>
-                  <p className="text-xs font-medium text-amber-900">
-                    {alerts.pencilOnHold.overlappingFirmsListHeading()}
-                  </p>
-                  <ul className="list-disc pl-4 space-y-1 text-xs text-amber-900">
-                    {booking.overlappingFirmBookings.map((f) => (
-                      <li key={f.id}>
-                        #{f.id} — {formatBookingTypeLabel(f.bookingType)} ({formatStatusLabel(f.status)}) —{' '}
-                        {formatBookingDateRange(f.startTime, f.endTime)}
-                        {f.user?.email ? ` (${f.user.email})` : ''}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {booking.contentionChallenger === true && (
-          <div className="mb-3 flex items-start gap-2 bg-sky-50 border border-sky-200 text-sky-950 px-3 py-2 rounded-md text-sm">
-            <AlertIcon
-              icon={alerts.challenger.icon}
-              className="h-4 w-4 mt-0.5 flex-shrink-0 text-sky-700"
-            />
-            <div className="min-w-0 space-y-2">
-              <ActiveCardAlertIntro alert={alerts.challenger} />
-              {detail?.defender && (
-                <>
-                  <p className="text-xs">
-                    {alerts.challenger.challengingLine({
-                      bookingId: detail.defender.bookingId,
-                      timeRange: formatBookingDateRange(
-                        detail.defender.startTime,
-                        detail.defender.endTime
-                      ),
-                      email: detail.defender.user?.email,
-                    })}
-                  </p>
-                  {detail.deadlineAt && (
-                    <p className="text-xs">
-                      {alerts.challenger.deadlineLine({
-                        formattedDeadline: format(new Date(detail.deadlineAt), 'MMM d, yyyy h:mm a'),
-                      })}
-                      {contentionDeadlineQualifierSentence(challengerDeadlineQualifier) && (
-                        <span className="block mt-1 text-sky-900/90">
-                          {contentionDeadlineQualifierSentence(challengerDeadlineQualifier)}
-                        </span>
-                      )}
-                    </p>
-                  )}
-                  <div className="border-t border-sky-200/80 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowChallengerDetail((prev) => !prev)}
-                      aria-expanded={showChallengerDetail}
-                      aria-label={
-                        showChallengerDetail
-                          ? alerts.challenger.toggleAriaHide
-                          : alerts.challenger.toggleAriaView
-                      }
-                      className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-sky-950"
-                    >
-                      {showChallengerDetail
-                        ? alerts.challenger.toggleHideDetails
-                        : alerts.challenger.toggleViewDetails}
-                      {showChallengerDetail ? (
-                        <ChevronUp className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
-                      ) : (
-                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
-                      )}
-                    </button>
-                    {showChallengerDetail && (
-                      <p className="mt-2 text-xs text-sky-900">{alerts.challenger.expandNote()}</p>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-        {isDefenderInContention && (
-          <div className="mb-3 flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2 rounded-md text-sm">
-            <AlertIcon
-              icon={alerts.defender.icon}
-              className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600"
-            />
-            <div className="min-w-0 space-y-2">
-              <ActiveCardAlertIntro alert={alerts.defender} />
-              {(detail?.deadlineAt || booking.contentionDeadlineAt) && (
-                <p className="text-xs">
-                  {alerts.defender.deadlineLine({
-                    formattedDeadline: format(
-                      new Date(detail?.deadlineAt ?? booking.contentionDeadlineAt),
-                      'MMM d, yyyy h:mm a'
-                    ),
-                  })}
-                  {contentionDeadlineQualifierSentence(defenderDeadlineQualifier) && (
-                    <span className="block mt-1 text-orange-900/90">
-                      {contentionDeadlineQualifierSentence(defenderDeadlineQualifier)}
-                    </span>
-                  )}
-                </p>
-              )}
-              {detail?.challenger && (
-                <div className="border-t border-orange-200/80 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowDefenderChallengerDetail((prev) => !prev)}
-                    aria-expanded={showDefenderChallengerDetail}
-                    aria-label={
-                      showDefenderChallengerDetail
-                        ? alerts.defender.toggleAriaHide
-                        : alerts.defender.toggleAriaView
-                    }
-                    className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-orange-900"
-                  >
-                    {alerts.defender.toggleViewDetails}
-                    {showDefenderChallengerDetail ? (
-                      <ChevronUp className="h-3.5 w-3.5 shrink-0 text-orange-700" aria-hidden />
-                    ) : (
-                      <ChevronDown className="h-3.5 w-3.5 shrink-0 text-orange-700" aria-hidden />
-                    )}
-                  </button>
-                  {showDefenderChallengerDetail && (
-                    <div className="mt-2 text-xs text-orange-900 space-y-2">
-                      <p className="font-semibold text-orange-950">
-                        {alerts.defender.whoChallengesHeading()}
-                      </p>
-                      <ul className="list-disc pl-4 space-y-1">
-                        <li>
-                          {alerts.defender.challengerSummaryLine({
-                            bookingId: detail.challenger.bookingId,
-                            timeRange: formatBookingDateRange(
-                              detail.challenger.startTime,
-                              detail.challenger.endTime
-                            ),
-                          })}
-                        </li>
-                        {detail.challenger.user?.email && <li>{detail.challenger.user.email}</li>}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
@@ -318,7 +139,274 @@ export function ActiveBookingCard({
               status={booking.status}
               bookingType={booking.bookingType}
               showChallengerBadge={booking.contentionChallenger === true}
+              showDefenderBadge={isDefenderInContention}
             />
+
+            {booking.bookingType === 'firm' &&
+              booking.status === 'pending_approval' &&
+              booking.overlappingOnHoldPencils?.length > 0 && (
+                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-950 px-3 py-2 rounded-md text-sm">
+                  <AlertIcon
+                    icon={alerts.firmPendingOnHold.icon}
+                    className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-700"
+                  />
+                  <div className="min-w-0 space-y-2">
+                    <p>
+                      {alerts.firmPendingOnHold.summaryLine({
+                        count: booking.overlappingOnHoldPencils.length,
+                      })}
+                    </p>
+                    <div className="border-t border-amber-200/80 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowFirmPendingDetail((prev) => !prev)}
+                        aria-expanded={showFirmPendingDetail}
+                        aria-label={
+                          showFirmPendingDetail
+                            ? alerts.firmPendingOnHold.toggleAriaHide
+                            : alerts.firmPendingOnHold.toggleAriaView
+                        }
+                        className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-amber-900"
+                      >
+                        {showFirmPendingDetail
+                          ? alerts.firmPendingOnHold.toggleHideDetails
+                          : alerts.firmPendingOnHold.toggleViewDetails}
+                        {showFirmPendingDetail ? (
+                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                        )}
+                      </button>
+                      {showFirmPendingDetail && (
+                        <div className="mt-2 space-y-2 text-xs text-amber-900">
+                          <p>{alerts.firmPendingOnHold.detailsBody()}</p>
+                          <p className="font-medium text-amber-900">
+                            {alerts.firmPendingOnHold.listHeading()}
+                          </p>
+                          <ul className="list-disc pl-4 space-y-1">
+                            {booking.overlappingOnHoldPencils.map((p) => (
+                              <li key={p.id}>
+                                #{p.id} — {formatBookingDateRange(p.startTime, p.endTime)}
+                                {p.user?.email ? ` (${p.user.email})` : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+            {booking.bookingType === 'pencil' && booking.status === 'on_hold' && (
+              <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 text-amber-950 px-3 py-2 rounded-md text-sm">
+                <AlertIcon
+                  icon={alerts.pencilOnHold.icon}
+                  className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-800"
+                />
+                <div className="min-w-0 space-y-2">
+                  <p>
+                    {alerts.pencilOnHold.summaryLine({
+                      count: booking.overlappingFirmBookings?.length ?? 0,
+                    })}
+                  </p>
+                  <div className="border-t border-amber-200/80 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowOnHoldDetail((prev) => !prev)}
+                      aria-expanded={showOnHoldDetail}
+                      aria-label={
+                        showOnHoldDetail
+                          ? alerts.pencilOnHold.toggleAriaHide
+                          : alerts.pencilOnHold.toggleAriaView
+                      }
+                      className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-amber-900"
+                    >
+                      {showOnHoldDetail
+                        ? alerts.pencilOnHold.toggleHideDetails
+                        : alerts.pencilOnHold.toggleViewDetails}
+                      {showOnHoldDetail ? (
+                        <ChevronUp className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                      ) : (
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                      )}
+                    </button>
+                    {showOnHoldDetail && (
+                      <div className="mt-2 space-y-2 text-xs text-amber-900">
+                        <p>{alerts.pencilOnHold.detailsBody()}</p>
+                        {booking.overlappingFirmBookings?.length > 0 && (
+                          <>
+                            <p className="font-medium text-amber-900">
+                              {alerts.pencilOnHold.overlappingFirmsListHeading()}
+                            </p>
+                            <ul className="list-disc pl-4 space-y-1">
+                              {booking.overlappingFirmBookings.map((f) => (
+                                <li key={f.id}>
+                                  #{f.id} — {formatBookingTypeLabel(f.bookingType)} (
+                                  {formatStatusLabel(f.status)}) —{' '}
+                                  {formatBookingDateRange(f.startTime, f.endTime)}
+                                  {f.user?.email ? ` (${f.user.email})` : ''}
+                                </li>
+                              ))}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {booking.contentionChallenger === true && (
+              <div className="flex items-start gap-2 bg-sky-50 border border-sky-200 text-sky-950 px-3 py-2 rounded-md text-sm">
+                <AlertIcon
+                  icon={alerts.challenger.icon}
+                  className="h-4 w-4 mt-0.5 flex-shrink-0 text-sky-700"
+                />
+                <div className="min-w-0 space-y-2">
+                  {detail?.defender && detail?.deadlineAt ? (
+                    <p>
+                      {alerts.challenger.summaryLine({
+                        bookingId: detail.defender.bookingId,
+                        formattedDeadline: format(new Date(detail.deadlineAt), 'MMM d, yyyy h:mm a'),
+                      })}
+                    </p>
+                  ) : (
+                    <ActiveCardAlertIntro alert={alerts.challenger} />
+                  )}
+                  {detail?.defender && (
+                    <div className="border-t border-sky-200/80 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowChallengerDetail((prev) => !prev)}
+                        aria-expanded={showChallengerDetail}
+                        aria-label={
+                          showChallengerDetail
+                            ? alerts.challenger.toggleAriaHide
+                            : alerts.challenger.toggleAriaView
+                        }
+                        className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-sky-950"
+                      >
+                        {showChallengerDetail
+                          ? alerts.challenger.toggleHideDetails
+                          : alerts.challenger.toggleViewDetails}
+                        {showChallengerDetail ? (
+                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
+                        )}
+                      </button>
+                      {showChallengerDetail && (
+                        <div className="mt-2 space-y-2 text-xs text-sky-900">
+                          <p>{alerts.challenger.detailsBody()}</p>
+                          {detail.deadlineAt && contentionDeadlineQualifierSentence(challengerDeadlineQualifier) && (
+                            <p className="text-sky-900/90">
+                              {contentionDeadlineQualifierSentence(challengerDeadlineQualifier)}
+                            </p>
+                          )}
+                          <p className="font-semibold text-sky-950">
+                            {alerts.challenger.whoDefenderHeading()}
+                          </p>
+                          <ul className="list-disc pl-4 space-y-1">
+                            <li>
+                              {alerts.challenger.defenderSummaryLine({
+                                bookingId: detail.defender.bookingId,
+                                timeRange: formatBookingDateRange(
+                                  detail.defender.startTime,
+                                  detail.defender.endTime
+                                ),
+                              })}
+                            </li>
+                            {detail.defender.user?.email && <li>{detail.defender.user.email}</li>}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {isDefenderInContention && (
+              <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2 rounded-md text-sm">
+                <AlertIcon
+                  icon={alerts.defender.icon}
+                  className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600"
+                />
+                <div className="min-w-0 space-y-2">
+                  {(detail?.deadlineAt || booking.contentionDeadlineAt) ? (
+                    <p>
+                      {alerts.defender.summaryLine({
+                        formattedDeadline: format(
+                          new Date(detail?.deadlineAt ?? booking.contentionDeadlineAt),
+                          'MMM d, yyyy h:mm a'
+                        ),
+                      })}
+                    </p>
+                  ) : (
+                    <ActiveCardAlertIntro alert={alerts.defender} />
+                  )}
+                  {detail?.challenger && (
+                    <div className="border-t border-orange-200/80 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowDefenderChallengerDetail((prev) => !prev)}
+                        aria-expanded={showDefenderChallengerDetail}
+                        aria-label={
+                          showDefenderChallengerDetail
+                            ? alerts.defender.toggleAriaHide
+                            : alerts.defender.toggleAriaView
+                        }
+                        className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-orange-900"
+                      >
+                        {alerts.defender.toggleViewDetails}
+                        {showDefenderChallengerDetail ? (
+                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-orange-700" aria-hidden />
+                        ) : (
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-orange-700" aria-hidden />
+                        )}
+                      </button>
+                      {showDefenderChallengerDetail && (
+                        <div className="mt-2 text-xs text-orange-900 space-y-2">
+                          <p>{alerts.defender.detailsBody()}</p>
+                          {(detail?.deadlineAt || booking.contentionDeadlineAt) && (
+                            <p>
+                              {alerts.defender.deadlineLine({
+                                formattedDeadline: format(
+                                  new Date(detail?.deadlineAt ?? booking.contentionDeadlineAt),
+                                  'MMM d, yyyy h:mm a'
+                                ),
+                              })}
+                              {contentionDeadlineQualifierSentence(defenderDeadlineQualifier) && (
+                                <span className="block mt-1 text-orange-900/90">
+                                  {contentionDeadlineQualifierSentence(defenderDeadlineQualifier)}
+                                </span>
+                              )}
+                            </p>
+                          )}
+                          <p className="font-semibold text-orange-950">
+                            {alerts.defender.whoChallengesHeading()}
+                          </p>
+                          <ul className="list-disc pl-4 space-y-1">
+                            <li>
+                              {alerts.defender.challengerSummaryLine({
+                                bookingId: detail.challenger.bookingId,
+                                timeRange: formatBookingDateRange(
+                                  detail.challenger.startTime,
+                                  detail.challenger.endTime
+                                ),
+                              })}
+                            </li>
+                            {detail.challenger.user?.email && <li>{detail.challenger.user.email}</li>}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
               <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />

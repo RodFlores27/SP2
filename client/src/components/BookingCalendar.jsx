@@ -7,6 +7,7 @@ import {
   createContext,
   useContext,
 } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, isToday } from 'date-fns';
 import { enUS } from 'date-fns/locale';
@@ -37,6 +38,17 @@ const localizer = dateFnsLocalizer({
 });
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+function parseAgendaFiltersFromParams(params) {
+  return {
+    includeFirms: params.get('includeFirms')
+      ? params.get('includeFirms') === 'true'
+      : true,
+    includeActivePencils: params.get('includeActivePencils')
+      ? params.get('includeActivePencils') === 'true'
+      : true,
+    includeSecondary: params.get('includeSecondary') === 'true',
+  };
+}
 
 const BookingCalendarUiContext = createContext(null);
 
@@ -362,6 +374,38 @@ function MonthDateHeader({ date, label }) {
   );
 }
 
+function AgendaDateCell({ day, event }) {
+  const showDate = event?.resource?.showAgendaDate !== false;
+  if (!showDate) {
+    return <span className="ptcf-agenda-date-duplicate" aria-hidden />;
+  }
+  return (
+    <span className="ptcf-agenda-date-text">
+      {format(day, 'EEE MMM d')}
+    </span>
+  );
+}
+
+function AgendaTimeCell({ event }) {
+  return (
+    <span className="ptcf-agenda-time-text">
+      {formatCalendarEventTimeRange(event.start, event.end)}
+    </span>
+  );
+}
+
+function AgendaEventCell({ event }) {
+  const booking = event?.resource;
+
+  return (
+    <div className="ptcf-agenda-event-row">
+      <span className="ptcf-agenda-event-title">
+        #{booking?.id} {booking?.resourceName ? `[${booking.resourceName}]` : ''}
+      </span>
+    </div>
+  );
+}
+
 export function BookingCalendar({
   resourceType = null,
   resourceId = null,
@@ -370,11 +414,13 @@ export function BookingCalendar({
   onSelectSlot = null,
   ariaDescribedBy = null,
 }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [currentView, setCurrentView] = useState('month');
+  const [agendaFilters, setAgendaFilters] = useState(parseAgendaFiltersFromParams(searchParams));
   const [overlapPanel, setOverlapPanel] = useState(null);
   const calendarHostRef = useRef(null);
 
@@ -415,6 +461,10 @@ export function BookingCalendar({
     onSelectEvent,
   });
 
+  useEffect(() => {
+    setAgendaFilters(parseAgendaFiltersFromParams(searchParams));
+  }, [searchParams]);
+
   const fetchBookings = useCallback(async (date) => {
     setLoading(true);
     setError(null);
@@ -432,6 +482,11 @@ export function BookingCalendar({
       }
       if (resourceId) {
         params.append('resourceId', resourceId.toString());
+      }
+      if (currentView === 'agenda') {
+        params.append('includeFirms', String(agendaFilters.includeFirms));
+        params.append('includeActivePencils', String(agendaFilters.includeActivePencils));
+        params.append('includeSecondary', String(agendaFilters.includeSecondary));
       }
 
       const response = await fetch(`${BASE_URL}/bookings/availability?${params}`);
@@ -462,7 +517,30 @@ export function BookingCalendar({
         }
       }
 
-      const baseEvents = bookings.map((booking) => {
+      const filteredBookings =
+        currentView === 'agenda'
+          ? bookings.filter((booking) => {
+              const isFirm =
+                booking.bookingType === 'firm' &&
+                ['approved', 'pending_approval'].includes(booking.status);
+              const isActivePencil =
+                booking.bookingType === 'pencil' &&
+                booking.status === 'penciled' &&
+                (booking.contentionRole == null || booking.contentionRole === 'defender');
+              const isSecondary =
+                booking.bookingType === 'pencil' &&
+                (booking.status === 'on_hold' ||
+                  (booking.status === 'penciled' && booking.contentionRole === 'challenger'));
+
+              return (
+                (agendaFilters.includeFirms && isFirm) ||
+                (agendaFilters.includeActivePencils && isActivePencil) ||
+                (agendaFilters.includeSecondary && isSecondary)
+              );
+            })
+          : bookings;
+
+      const baseEvents = filteredBookings.map((booking) => {
         const resourceData =
           booking.resourceType === 'equipment'
             ? equipmentMap[booking.resourceId]
@@ -473,6 +551,15 @@ export function BookingCalendar({
         return toBaseCalendarEvent(booking, resourceName, resourceStatus);
       });
 
+      if (currentView === 'agenda') {
+        let previousDayKey = null;
+        for (const event of baseEvents) {
+          const dayKey = format(event.start, 'yyyy-MM-dd');
+          event.resource.showAgendaDate = dayKey !== previousDayKey;
+          previousDayKey = dayKey;
+        }
+      }
+
       const calendarEvents =
         currentView === 'month' ? groupContendedMonthEvents(baseEvents) : baseEvents;
       setEvents(calendarEvents);
@@ -482,7 +569,7 @@ export function BookingCalendar({
     } finally {
       setLoading(false);
     }
-  }, [resourceType, resourceId, currentView]);
+  }, [resourceType, resourceId, currentView, agendaFilters]);
 
   useEffect(() => {
     fetchBookings(currentDate);
@@ -497,10 +584,35 @@ export function BookingCalendar({
     closeOverlapPanel();
   };
 
+  const handleAgendaFilterToggle = (key) => (e) => {
+    const checked = e.target.checked;
+    setAgendaFilters((prev) => {
+      const next = { ...prev, [key]: checked };
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('includeFirms', String(next.includeFirms));
+      nextParams.set('includeActivePencils', String(next.includeActivePencils));
+      nextParams.set('includeSecondary', String(next.includeSecondary));
+      setSearchParams(nextParams);
+      return next;
+    });
+  };
+
   const eventStyleGetter = (event) => {
     const b = event.resource;
     const calendarStatus = toCalendarStatus(b);
     const styles = CALENDAR_STATUS_STYLES[calendarStatus] || CALENDAR_STATUS_STYLES.penciled;
+
+    if (currentView === 'agenda') {
+      return {
+        className: `ptcf-agenda-status-${calendarStatus}`,
+        style: {
+          backgroundColor: styles.backgroundColor,
+          color: styles.color,
+          border: 'none',
+          borderColor: 'transparent',
+        },
+      };
+    }
 
     return {
       style: {
@@ -594,6 +706,36 @@ export function BookingCalendar({
             <span>{cal.legend.contentionGroup()}</span>
           </div>
         </div>
+        {currentView === 'agenda' && (
+          <div className="mb-4 flex flex-wrap items-center gap-5 text-sm">
+            <span className="font-medium">{cal.agendaScope.label()}</span>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={agendaFilters.includeFirms}
+                onChange={handleAgendaFilterToggle('includeFirms')}
+              />
+              <span>{cal.agendaScope.options.firms()}</span>
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={agendaFilters.includeActivePencils}
+                onChange={handleAgendaFilterToggle('includeActivePencils')}
+              />
+              <span>{cal.agendaScope.options.activePencils()}</span>
+            </label>
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={agendaFilters.includeSecondary}
+                onChange={handleAgendaFilterToggle('includeSecondary')}
+              />
+              <span>{cal.agendaScope.options.secondaryBackup()}</span>
+            </label>
+            <p className="text-muted-foreground">{cal.agendaScope.help()}</p>
+          </div>
+        )}
 
         <div
           ref={calendarHostRef}
@@ -641,6 +783,11 @@ export function BookingCalendar({
               eventWrapper: BookingEventShellWrapper,
               month: {
                 dateHeader: MonthDateHeader,
+              },
+              agenda: {
+                date: AgendaDateCell,
+                time: AgendaTimeCell,
+                event: AgendaEventCell,
               },
             }}
             defaultView="month"

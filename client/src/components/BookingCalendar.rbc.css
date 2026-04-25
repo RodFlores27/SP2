@@ -266,3 +266,174 @@
   > .rbc-day-bg:nth-child(7).rbc-off-range-bg {
   background-color: #d4d4d4;
 }
+
+/* -------------------------------------------------------------------------- */
+/* Agenda view                                                                 */
+/* Column-driven architecture:                                                  */
+/* - Date column is fully isolated and always neutral.                          */
+/* - Time/Event columns can be color-coded by booking status.                   */
+/* -------------------------------------------------------------------------- */
+
+.rbc-agenda-view {
+  --ptcf-agenda-date-border-color: #b8b2a1;
+  --ptcf-agenda-column-divider-color: #94a3b8;
+}
+
+.rbc-agenda-view .rbc-agenda-table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/* Kill any row-level border/outline artifacts that can tint whole row. */
+.rbc-agenda-view .rbc-agenda-table tbody tr {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Keep agenda header visible while scrolling long lists. */
+.rbc-agenda-view table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: hsl(var(--background));
+}
+
+/* Remove grid borders in agenda body (fill-only look). */
+.rbc-agenda-view .rbc-agenda-table tbody td {
+  border: 0 !important;
+}
+
+/* DATE COLUMN (col 1): always neutral, independent from row colors. */
+.rbc-agenda-view .rbc-agenda-table tbody tr > .rbc-agenda-date-cell {
+  position: relative;
+  background: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  font-weight: 600;
+  vertical-align: top;
+  z-index: 3;
+  overflow: hidden;
+  border-top: 0 !important;
+  border-bottom: 1px solid var(--ptcf-agenda-date-border-color) !important;
+  border-left: 1px solid var(--ptcf-agenda-date-border-color) !important;
+  border-right: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+/*
+ * Paint a dedicated white layer inside date cells.
+ * This prevents any bleed from neighboring colored cells/rows.
+ */
+.rbc-agenda-view .rbc-agenda-table tbody tr > .rbc-agenda-date-cell::before {
+  content: '';
+  position: absolute;
+  /* Expand mask to cover any row border tint passing through the date cell. */
+  inset: -2px 0 -2px -2px;
+  background: hsl(var(--background));
+  border-top: 0;
+  border-bottom: 1px solid var(--ptcf-agenda-date-border-color);
+  border-left: 1px solid var(--ptcf-agenda-date-border-color);
+  border-right: 1px solid var(--ptcf-agenda-date-border-color);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* First date cell only: restore top border for table start edge. */
+.rbc-agenda-view .rbc-agenda-table tbody tr:first-child > .rbc-agenda-date-cell {
+  border-top: 1px solid var(--ptcf-agenda-date-border-color) !important;
+}
+
+.rbc-agenda-view .rbc-agenda-table tbody tr:first-child > .rbc-agenda-date-cell::before {
+  border-top: 1px solid var(--ptcf-agenda-date-border-color);
+}
+
+.rbc-agenda-view .rbc-agenda-table tbody tr > .rbc-agenda-date-cell > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* TIME + EVENT COLUMNS (col 2/3): preserve status fill color, no borders. */
+.rbc-agenda-view .rbc-agenda-table tbody tr > td:nth-child(2),
+.rbc-agenda-view .rbc-agenda-table tbody tr > td:nth-child(3),
+.rbc-agenda-view .rbc-agenda-time-cell,
+.rbc-agenda-view .rbc-agenda-event-cell {
+  border: 0 !important;
+}
+
+/* Agenda body column separators (rowspan-safe). */
+/* Date | Time separator:
+   - first row in a day: date cell exists, so target the next td
+   - subsequent rows: date cell is absent, so time is first td
+   This is the single source of truth for separator thickness. */
+.rbc-agenda-view .rbc-agenda-table tbody tr > .rbc-agenda-date-cell + td,
+.rbc-agenda-view .rbc-agenda-table tbody tr > td:first-child:not(.rbc-agenda-date-cell) {
+  position: relative;
+  border-left: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Time | Event separator: always put a left border on event cell. */
+.rbc-agenda-view .rbc-agenda-table tbody tr > .rbc-agenda-event-cell,
+.rbc-agenda-view .rbc-agenda-table tbody tr > td:last-child {
+  position: relative;
+  border-left: 0 !important;
+  box-shadow: none !important;
+}
+
+.rbc-agenda-view .rbc-agenda-table tbody tr > .rbc-agenda-event-cell::before,
+.rbc-agenda-view .rbc-agenda-table tbody tr > td:last-child::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  bottom: -1px;
+  width: 1px;
+  background: var(--ptcf-agenda-column-divider-color);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.rbc-agenda-view .ptcf-agenda-date-text {
+  display: inline-block;
+  color: hsl(var(--foreground));
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* Visual merge effect for same-day rows: hide repeated date text. */
+.rbc-agenda-view .ptcf-agenda-date-duplicate {
+  display: inline-block;
+  min-height: 1rem;
+}
+
+.rbc-agenda-view .ptcf-agenda-time-text {
+  color: inherit;
+  font-weight: 500;
+}
+
+.rbc-agenda-view .ptcf-agenda-event-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+}
+
+.rbc-agenda-view .ptcf-agenda-event-title {
+  color: inherit;
+  font-weight: 500;
+}
+
+/* Agenda status borders: apply on all NON-date cells (rowspan-safe). */
+.rbc-agenda-view .rbc-agenda-table tbody tr[class*='ptcf-agenda-status-'] > td:not(.rbc-agenda-date-cell) {
+  border-bottom: 1px solid var(--ptcf-agenda-border-color) !important;
+}
+
+.rbc-agenda-view .ptcf-agenda-status-approved { --ptcf-agenda-border-color: #16a34a; }
+.rbc-agenda-view .ptcf-agenda-status-pending_approval { --ptcf-agenda-border-color: #ca8a04; }
+.rbc-agenda-view .ptcf-agenda-status-penciled { --ptcf-agenda-border-color: #9ca3af; }
+.rbc-agenda-view .ptcf-agenda-status-on_hold { --ptcf-agenda-border-color: #fcd34d; }
+.rbc-agenda-view .ptcf-agenda-status-contesting { --ptcf-agenda-border-color: #0284c7; }
+.rbc-agenda-view .ptcf-agenda-status-contested { --ptcf-agenda-border-color: #ea580c; }
+.rbc-agenda-view .ptcf-agenda-status-completed { --ptcf-agenda-border-color: #34d399; }
+.rbc-agenda-view .ptcf-agenda-status-displaced { --ptcf-agenda-border-color: #64748b; }

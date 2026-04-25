@@ -25,48 +25,78 @@ export const bookingMessages = {
           body: () => (
             <> can give the slot to on-hold pencils that are waiting on this same window.</>
           ),
+          summaryLine: ({ count }) => (
+            <>
+              This firm request currently {count === 1 ? 'puts' : 'put'} <strong>{count}</strong>{' '}
+              pencil booking{count === 1 ? '' : 's'} on hold.
+            </>
+          ),
+          detailsBody: () => (
+            <>
+              If this firm request is denied or cancelled, the overlapping on-hold pencils can become
+              active again based on the current schedule state.
+            </>
+          ),
           listHeading: () => <>On-hold pencil bookings:</>,
+          toggleHideDetails: 'Hide details',
+          toggleViewDetails: 'View details',
+          toggleAriaHide: 'Hide on-hold pencil details',
+          toggleAriaView: 'View on-hold pencil details',
         },
         pencilOnHold: {
           icon: Info,
-          title: () => null,
+          title: () => <strong>This pencil booking is on hold</strong>,
           body: () => (
             <>
-              This pencil is <strong>on hold</strong>; it is not treated like an active pencil while a firm
-              booking blocks this time. If it no longer overlaps those firms, it can become a free pencil or
-              enter contention again.
+              This pencil booking is <strong>on hold</strong> because a <strong>firm booking</strong> currently takes priority. 
+              It is inactive and does not block others from requesting this slot. If the firm booking is cancelled or denied, 
+              your pencil will automatically reactivate and may enter contention again.
+            </>
+          ),
+          summaryLine: ({ count }) => (
+            <>
+              This pencil booking is currently <strong>on hold</strong> due to overlapping firm booking
+              {count === 1 ? '' : 's'}.
+            </>
+          ),
+          detailsBody: () => (
+            <>
+              While on hold, this pencil is inactive and users can book over your schedule. If overlapping firm bookings are cancelled or denied,
+              this pencil can reactivate or re-enter contention depending on current overlaps. It's recommended to just cancel and rebook to another schedule.
             </>
           ),
           overlappingFirmsListHeading: () => <>Overlapping firm bookings:</>,
+          toggleHideDetails: 'Hide details',
+          toggleViewDetails: 'View details',
+          toggleAriaHide: 'Hide overlapping firm details',
+          toggleAriaView: 'View overlapping firm details',
         },
         challenger: {
           icon: Info,
           introInSingleParagraph: false,
-          title: () => (
-            <>
-              <strong>Challenger</strong> can&apos;t convert to firm due to contention.
-            </>
-          ),
+          title: () => <strong>You are currently the challenger</strong>,
           body: () => (
             <>
               You are challenging another pencil holder for this slot. They must convert to firm before the
-              contention deadline, or you receive the slot.
+              contention deadline, or you receive the slot. <strong>Convert to Firm</strong> is only enabled for the defender.
             </>
           ),
-          challengingLine: ({ bookingId, timeRange, email }) => (
+          summaryLine: ({ bookingId, formattedDeadline }) => (
             <>
-              You are challenging booking <strong>#{bookingId}</strong> — {timeRange}
-              {email ? ` (${email}).` : '.'}
+              You are currently challenging Booking <strong>#{bookingId}</strong>. You will win this contention if the holder does not
+              confirm by <strong>{formattedDeadline}</strong>.
             </>
           ),
-          deadlineLine: ({ formattedDeadline }) => (
+          detailsBody: () => (
             <>
-              Contention deadline: <strong>{formattedDeadline}</strong>
+              In a contention round, the <strong>Defender</strong> (first-in-line for this slot) has until the deadline to
+              convert to a <strong>Firm</strong> booking. If they fail to do so, you will win the contention. If there are no further contentions that needs resolution, the slot is yours.
             </>
           ),
-          expandNote: () => (
+          whoDefenderHeading: () => <>Booking you are challenging</>,
+          defenderSummaryLine: ({ bookingId, timeRange }) => (
             <>
-              <strong>Convert to Firm</strong> stays disabled until this contention round finishes.
+              Booking #{bookingId} — {timeRange}
             </>
           ),
           toggleHideDetails: 'Hide details',
@@ -87,6 +117,20 @@ export const bookingMessages = {
           deadlineLine: ({ formattedDeadline }) => (
             <>
               Contention deadline: <strong>{formattedDeadline}</strong>
+            </>
+          ),
+          summaryLine: ({ formattedDeadline }) => (
+            <>
+              Your booking is being challenged. Convert to firm before{' '}
+              <strong>{formattedDeadline}</strong> to keep this slot.
+            </>
+          ),
+          detailsBody: () => (
+            <>
+              In this contention round, you are the <strong>Defender</strong> (first-in-line for this slot). If you do not
+              convert to a <strong>Firm</strong> booking before the deadline, the challenger wins this contention and your booking will be displaced.
+
+              
             </>
           ),
           whoChallengesHeading: () => <>Booking challenging you</>,
@@ -176,6 +220,7 @@ export const bookingMessages = {
     docErrors: {
       invalidType: 'Invalid file type. Only PDF, DOC, DOCX, JPG, and PNG are allowed.',
       tooLarge: 'File size exceeds 5MB limit.',
+      requiredForFirm: 'Authorization document is required for firm bookings.',
     },
     apiFallbacks: {
       pencilOverlapChanged:
@@ -235,6 +280,23 @@ export const bookingMessages = {
       confirm: 'Confirm & Cancel Pencil Booking(s)',
       goBack: 'Go Back',
     },
+    confirmForeignPencilOverlap: {
+      title: () => (
+        <>This firm booking overlaps with another user&apos;s pencil booking(s).</>
+      ),
+      subtitle: () => (
+        <>
+          By confirming, overlapping pencil bookings will be placed <strong>on hold</strong>. 
+    If staff <strong>approves</strong> your request, they will be displaced; however, 
+    if your request is <strong>denied</strong> or <strong>cancelled</strong>, those bookings will automatically resume 
+    their active status.
+        </>
+      ),
+      pencilCardTitle: ({ id }) => <>Pencil Booking #{id}</>,
+      confirmLoading: 'Submitting...',
+      confirm: 'Confirm & Submit Firm Request',
+      goBack: 'Go Back',
+    },
 
     confirmContention: {
       title: () => (
@@ -243,13 +305,30 @@ export const bookingMessages = {
       subtitle: () => (
         <>
           Contention is resolved automatically: the holder must convert to a firm booking before the deadline,
-          or you receive the slot.
+          or you receive the slot. The deadline is set to the earliest of: <strong>24 hours from now</strong>,
+          <strong> 24 hours before the schedule start</strong>, or <strong>the current holder&apos;s pencil expiry time</strong>.
         </>
       ),
       conflictCardTitle: ({ id }) => <>Booking #{id}</>,
       confirmLoading: 'Creating...',
       confirm: 'Confirm & start contention',
       goBack: 'Go Back',
+    },
+    activeContentionUnavailable: {
+      title: () => <>Slot Unavailable (Active Contention)</>,
+      body: () => (
+        <>
+          This time slot is currently being contested by two other users. Our system only allows one
+          challenger per slot at a time.
+        </>
+      ),
+      recommendation: ({ formattedDeadline }) => (
+        <>
+          Recommendation: Please choose a different time window or check back after the deadline (
+          <strong>{formattedDeadline}</strong>) to see if the slot becomes available (not guaranteed).
+        </>
+      ),
+      deadlineUnknown: 'the current contention deadline',
     },
 
     formCard: {
@@ -364,6 +443,15 @@ export const bookingMessages = {
       penciled: () => <>Penciled</>,
       onHold: () => <>On Hold (firm overlap)</>,
       contentionGroup: () => <>Contention group</>,
+    },
+    agendaScope: {
+      label: () => <>Agenda filters</>,
+      help: () => <>Firms and Active Pencils are enabled by default; Secondary/Backup is hidden to reduce clutter.</>,
+      options: {
+        firms: () => <>Firms</>,
+        activePencils: () => <>Active Pencils</>,
+        secondaryBackup: () => <>Secondary/Backup</>,
+      },
     },
     flyout: {
       ariaDialog: 'Contention overlaps',

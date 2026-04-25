@@ -41,12 +41,12 @@ These rules use **wall-clock time** relative to the booking **start time**:
 | **Firm** overlaps **another firm** (pending or approved) | The new booking is **rejected**. Two firms cannot share the same window.                                                                                                         |
 | **Pencil** overlaps a **firm** (pending or approved)     | The pencil is **rejected**. Firm blocks the slot.                                                                                                                                |
 | **Firm** overlaps someone else’s **pencils**             | The firm request **can still be submitted**. Those pencils are **not** removed at submit time. If you **approve** the firm, overlapping pencils are handled as in **Section 7**. |
-| **Pencil** overlaps **another user’s pencil**            | The system enters **contention** (see **Section 5**). The user must confirm they accept contention when submitting.                                                              |
+| **Pencil** overlaps **another user’s pencil**            | If the slot is not yet in active 1v1, the user is asked to confirm contention before submit. If the slot is already in active contention, the request is blocked and the user is told to return after the shown deadline. |
 
 **Same person, same slot:**
 
-- Users are not allowed to place a second **pencil** on top of their own pencil for the same window.
-- **Firm** submissions that would overlap the user’s own pencil will require their confirmation; behavior is enforced in the app. Doing so cancels the user's own overlapped pencils.
+- Users are not allowed to place a second **pencil** on top of their own pencil for the same window, including when their existing pencil is currently **on hold**.
+- **Firm** submissions that would overlap the user’s own pencil (`penciled` or `on_hold`) will require their confirmation; behavior is enforced in the app. Doing so cancels the user's own overlapped pencils.
 
 ---
 

@@ -24,7 +24,7 @@ penciled | on_hold | pending_approval | approved | denied | cancelled | expired 
 
 Notes:
 - `on_hold` means pencil exists on calendar but is firm-blocked.
-- `on_hold` is non-blocking for new pencils (it does not participate in active-pencil overlap checks).
+- `on_hold` is non-blocking for foreign-contention overlap checks, but it **does** block same-user duplicate pencil creation.
 - `contested` remains deprecated/backward-compat terminology in some surfaces; runtime role source of truth is `contentionRole`.
 
 ## Create Rules
@@ -33,8 +33,9 @@ Notes:
 1. Reject if overlapping firm blocker (`pending_approval` / `approved`) -> `409`.
 2. Reject if overlapping own active pencil -> `409`.
 3. Evaluate foreign active pencil overlaps (`status='penciled'` only):
-   - if any overlapping `defender` exists -> `409 ACTIVE_CONTENTION_LOCKED`
-   - otherwise start 1v1 with earliest `createdAt` defender election.
+   - if any overlapping `defender` exists -> `409 ACTIVE_CONTENTION_LOCKED` (include `contentionDeadlineAt` for UI notice).
+   - otherwise, require explicit user confirmation (`requiresContentionConfirmation`) before starting contention.
+   - after confirmation, start 1v1 with earliest `createdAt` defender election.
 
 Defender election rule:
 - election pool includes the current booking and free overlapping foreign pencils.
@@ -42,7 +43,7 @@ Defender election rule:
 
 ### Create firm
 1. Reject if overlapping active firm blocker.
-2. Own-pencil overlaps require explicit confirmation (`confirmOverlapOwn`), then own overlapping pencils are cancelled.
+2. Own-pencil overlaps (`penciled` or `on_hold`) require explicit confirmation (`confirmOverlapOwn`), then own overlapping pencils are cancelled.
 3. Firm is created as `pending_approval`.
 4. Post-create firm hooks re-evaluate overlapping pencils:
    - dissolve unwinnable active defenders/challengers
@@ -59,8 +60,8 @@ Defender election rule:
   - `contentionRole='challenger'`
   - `challengingBookingId = defender.id`
 
-### Defender loses (deadline / cancel / expiry)
-1. Defender becomes terminal (`displaced` / `cancelled` / `expired`).
+### Defender loses (deadline / cancel / expiry-boundary)
+1. Defender becomes terminal (`displaced` / `cancelled` only).
 2. Defender contention fields cleared.
 3. Challenger contention fields cleared.
 4. Challenger runs rebuild:
