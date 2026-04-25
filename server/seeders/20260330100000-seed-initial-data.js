@@ -358,6 +358,108 @@ module.exports = {
       createdAt: studentHoldIssued,
       updatedAt: studentHoldIssued,
     });
+
+    // --- Calendar month-view grouping demo (Autoclave): two separate 1v1 pairs, one time cluster ---
+    // Month view should show two "Contention (1/1)" aggregate blocks (defender+challenger each), not one merged group.
+    const calDemoDay = 9;
+    const gIssued1 = new Date(now.getTime() - 3 * 60 * 60 * 1000);
+    const gIssued2 = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+    const gIssued3 = new Date(now.getTime() - 1 * 60 * 60 * 1000);
+    const gIssued4 = new Date(now.getTime() - 30 * 60 * 1000);
+
+    const gDefAStart = createDateAtTime(calDemoDay, 8, 0);
+    const gDefAEnd = createDateAtTime(calDemoDay, 14, 0);
+    const gChAStart = createDateAtTime(calDemoDay, 9, 0);
+    const gChAEnd = createDateAtTime(calDemoDay, 12, 0);
+    const gDefBStart = createDateAtTime(calDemoDay, 11, 0);
+    const gDefBEnd = createDateAtTime(calDemoDay, 17, 0);
+    const gChBStart = createDateAtTime(calDemoDay, 13, 0);
+    const gChBEnd = createDateAtTime(calDemoDay, 16, 0);
+
+    const gExpA = computePencilExpiryAt(gIssued1, gDefAStart);
+    const gExpB = computePencilExpiryAt(gIssued3, gDefBStart);
+    const gDeadA = computeContentionDeadline(gIssued1, gDefAStart, gExpA);
+    const gDeadB = computeContentionDeadline(gIssued3, gDefBStart, gExpB);
+
+    const groupDefAId = await insertBooking({
+      userId: researcher1Id,
+      resourceType: 'equipment',
+      resourceId: autoclaveId,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: gDefAStart,
+      endTime: gDefAEnd,
+      purpose: 'DEMO: Autoclave pair A (defender) — calendar grouping: two 1v1 blocks same day',
+      authorizationDocUrl: null,
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: gExpA,
+      contentionRole: 'defender',
+      contentionDeadlineAt: gDeadA,
+      challengingBookingId: null,
+      createdAt: gIssued1,
+      updatedAt: gIssued1,
+    });
+
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: autoclaveId,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: gChAStart,
+      endTime: gChAEnd,
+      purpose: 'DEMO: Autoclave pair A (challenger vs # above)',
+      authorizationDocUrl: null,
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: computePencilExpiryAt(gIssued2, gChAStart),
+      contentionRole: 'challenger',
+      contentionDeadlineAt: null,
+      challengingBookingId: groupDefAId,
+      createdAt: gIssued2,
+      updatedAt: gIssued2,
+    });
+
+    const groupDefBId = await insertBooking({
+      userId: researcher2Id,
+      resourceType: 'equipment',
+      resourceId: autoclaveId,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: gDefBStart,
+      endTime: gDefBEnd,
+      purpose: 'DEMO: Autoclave pair B (defender) — separate contention block from pair A',
+      authorizationDocUrl: null,
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: gExpB,
+      contentionRole: 'defender',
+      contentionDeadlineAt: gDeadB,
+      challengingBookingId: null,
+      createdAt: gIssued3,
+      updatedAt: gIssued3,
+    });
+
+    await insertBooking({
+      userId: staffId,
+      resourceType: 'equipment',
+      resourceId: autoclaveId,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: gChBStart,
+      endTime: gChBEnd,
+      purpose: 'DEMO: Autoclave pair B (challenger vs # above)',
+      authorizationDocUrl: null,
+      approvedByUserId: null,
+      approvedAt: null,
+      expiryAt: computePencilExpiryAt(gIssued4, gChBStart),
+      contentionRole: 'challenger',
+      contentionDeadlineAt: null,
+      challengingBookingId: groupDefBId,
+      createdAt: gIssued4,
+      updatedAt: gIssued4,
+    });
   },
 
   async down(queryInterface, Sequelize) {

@@ -70,7 +70,7 @@ export function getFirmCancelBlockedMessage(reason) {
 export function isConvertible(booking) {
   return (
     booking.bookingType === 'pencil' &&
-    !['cancelled', 'denied', 'expired', 'displaced', 'completed', 'queued', 'on_hold'].includes(booking.status)
+    !['cancelled', 'denied', 'expired', 'displaced', 'completed', 'on_hold'].includes(booking.status)
   );
 }
 

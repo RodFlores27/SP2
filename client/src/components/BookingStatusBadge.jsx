@@ -18,8 +18,6 @@ export function BookingStatusBadge({
         return 'bg-amber-100 text-amber-900 border-amber-300';
       case 'contested':
         return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'queued':
-        return 'bg-violet-100 text-violet-800 border-violet-200';
       case 'displaced':
         return 'bg-slate-100 text-slate-700 border-slate-200';
       case 'denied':

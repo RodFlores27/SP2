@@ -4,8 +4,8 @@ import { Input } from '@/components/ui/input';
 const ACTIVE_STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
   { value: 'contested', label: 'Contested' },
-  { value: 'queued', label: 'Queued' },
   { value: 'pending_approval', label: 'Pending Approval' },
+  { value: 'on_hold', label: 'On hold' },
   { value: 'penciled', label: 'Penciled' },
   { value: 'approved', label: 'Approved' },
 ];
@@ -25,10 +25,24 @@ const RESOURCE_TYPE_OPTIONS = [
   { value: 'room', label: 'Room' },
 ];
 
-const SORT_OPTIONS = [
-  { value: 'soonest', label: 'Soonest First' },
-  { value: 'latest', label: 'Latest First' },
-  { value: 'newest', label: 'Recently Created' },
+const ACTIVE_SORT_OPTIONS = [
+  { value: 'event_date_closest', label: 'Event Date: Closest' },
+  { value: 'event_date_furthest', label: 'Event Date: Furthest' },
+  { value: 'recently_created', label: 'Recently Created' },
+  { value: 'recently_updated', label: 'Recently Updated' },
+  { value: 'duration_longest', label: 'Longest Duration' },
+  { value: 'duration_shortest', label: 'Shortest Duration' },
+  { value: 'expiring_soon', label: 'Expiring Soon' },
+  { value: 'active_conflicts', label: 'Active Conflicts' },
+];
+
+const PAST_SORT_OPTIONS = [
+  { value: 'event_date_closest', label: 'Event Date: Closest' },
+  { value: 'event_date_furthest', label: 'Event Date: Furthest' },
+  { value: 'recently_created', label: 'Recently Created' },
+  { value: 'recently_updated', label: 'Recently Updated' },
+  { value: 'duration_longest', label: 'Longest Duration' },
+  { value: 'duration_shortest', label: 'Shortest Duration' },
 ];
 
 const selectClass =
@@ -36,6 +50,7 @@ const selectClass =
 
 export function BookingToolbar({ tab, filters, onFiltersChange }) {
   const statusOptions = tab === 'active' ? ACTIVE_STATUS_OPTIONS : PAST_STATUS_OPTIONS;
+  const sortOptions = tab === 'active' ? ACTIVE_SORT_OPTIONS : PAST_SORT_OPTIONS;
 
   const set = (key, value) => onFiltersChange({ ...filters, [key]: value });
 
@@ -90,7 +105,7 @@ export function BookingToolbar({ tab, filters, onFiltersChange }) {
         className={selectClass}
         aria-label="Sort order"
       >
-        {SORT_OPTIONS.map((o) => (
+        {sortOptions.map((o) => (
           <option key={o.value} value={o.value}>
             {o.label}
           </option>

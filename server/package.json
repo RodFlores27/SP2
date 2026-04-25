@@ -9,7 +9,10 @@
     "dev": "nodemon index.js",
     "clear:bookings": "node scripts/clear-bookings.js",
     "reset:mvp-demo": "node scripts/reset-mvp-demo-data.js",
-    "seed:all:local": "sequelize-cli db:seed:all --env development"
+    "seed:all:local": "sequelize-cli db:seed:all --env development",
+    "seed:foundation:local": "node scripts/seed-foundation-only.js",
+    "seed:showcase:local": "sequelize-cli db:seed --seed 20260425130000-seed-calendar-showcase-day.js --env development",
+    "seed:calendar:demo:local": "npm run clear:bookings && npm run seed:showcase:local"
   },
   "keywords": [],
   "author": "",

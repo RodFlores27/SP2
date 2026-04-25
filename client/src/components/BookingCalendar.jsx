@@ -733,7 +733,6 @@ export function BookingCalendar({
               />
               <span>{cal.agendaScope.options.secondaryBackup()}</span>
             </label>
-            <p className="text-muted-foreground">{cal.agendaScope.help()}</p>
           </div>
         )}
 

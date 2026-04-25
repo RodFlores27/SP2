@@ -446,7 +446,6 @@ export const bookingMessages = {
     },
     agendaScope: {
       label: () => <>Agenda filters</>,
-      help: () => <>Firms and Active Pencils are enabled by default; Secondary/Backup is hidden to reduce clutter.</>,
       options: {
         firms: () => <>Firms</>,
         activePencils: () => <>Active Pencils</>,

@@ -7,12 +7,12 @@ export const MY_BOOKINGS_DEFAULT_ACTIVE_FILTERS = {
   query: '',
   statusFilter: '',
   resourceTypeFilter: '',
-  sort: 'soonest',
+  sort: 'event_date_closest',
 };
 
 export const MY_BOOKINGS_DEFAULT_PAST_FILTERS = {
   ...MY_BOOKINGS_DEFAULT_ACTIVE_FILTERS,
-  sort: 'latest',
+  sort: 'event_date_furthest',
 };
 
 const STORAGE_KEYS = {
@@ -23,8 +23,41 @@ const STORAGE_KEYS = {
   tab: 'ptcf.myBookings.tab.v1',
 };
 
-const VALID_SORTS = new Set(['soonest', 'latest', 'newest']);
 const VALID_TABS = new Set(['active', 'past']);
+const VALID_SORTS_ACTIVE = new Set([
+  'event_date_closest',
+  'event_date_furthest',
+  'recently_created',
+  'recently_updated',
+  'duration_longest',
+  'duration_shortest',
+  'expiring_soon',
+  'active_conflicts',
+]);
+const VALID_SORTS_PAST = new Set([
+  'event_date_closest',
+  'event_date_furthest',
+  'recently_created',
+  'recently_updated',
+  'duration_longest',
+  'duration_shortest',
+]);
+const VALID_STATUS_FILTER_ACTIVE = new Set([
+  '',
+  'contested',
+  'pending_approval',
+  'on_hold',
+  'penciled',
+  'approved',
+]);
+const VALID_STATUS_FILTER_PAST = new Set([
+  '',
+  'denied',
+  'displaced',
+  'cancelled',
+  'expired',
+  'completed',
+]);
 
 function safeParseObject(raw) {
   if (!raw) return null;
@@ -40,7 +73,7 @@ function safeParseObject(raw) {
 /** --- Accordion --- */
 
 export function getDefaultAccordionOpenActive(status) {
-  return status === 'contested' || status === 'queued';
+  return status === 'contested' || status === 'on_hold';
 }
 
 export function getDefaultAccordionOpenPast(status) {
@@ -84,12 +117,18 @@ function normalizeFilters(tab, raw) {
     tab === 'past' ? MY_BOOKINGS_DEFAULT_PAST_FILTERS : MY_BOOKINGS_DEFAULT_ACTIVE_FILTERS;
   if (!raw || typeof raw !== 'object') return { ...defaults };
 
-  const sort = typeof raw.sort === 'string' && VALID_SORTS.has(raw.sort) ? raw.sort : defaults.sort;
+  const validSorts = tab === 'past' ? VALID_SORTS_PAST : VALID_SORTS_ACTIVE;
+  const sort = typeof raw.sort === 'string' && validSorts.has(raw.sort) ? raw.sort : defaults.sort;
+
+  const validStatuses =
+    tab === 'past' ? VALID_STATUS_FILTER_PAST : VALID_STATUS_FILTER_ACTIVE;
+  const rawStatus =
+    typeof raw.statusFilter === 'string' ? raw.statusFilter : defaults.statusFilter;
+  const statusFilter = validStatuses.has(rawStatus) ? rawStatus : defaults.statusFilter;
 
   return {
     query: typeof raw.query === 'string' ? raw.query : defaults.query,
-    statusFilter:
-      typeof raw.statusFilter === 'string' ? raw.statusFilter : defaults.statusFilter,
+    statusFilter,
     resourceTypeFilter:
       typeof raw.resourceTypeFilter === 'string'
         ? raw.resourceTypeFilter

@@ -46,9 +46,61 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
 function sortBookings(bookings, sort) {
   const list = [...bookings];
-  if (sort === 'soonest') return list.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-  if (sort === 'latest') return list.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-  if (sort === 'newest') return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  if (sort === 'event_date_closest') {
+    return list.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+  }
+  if (sort === 'event_date_furthest') {
+    return list.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+  }
+  if (sort === 'recently_created') {
+    return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+  if (sort === 'recently_updated') {
+    return list.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+  }
+  if (sort === 'duration_longest') {
+    return list.sort((a, b) => {
+      const aDuration = new Date(a.endTime) - new Date(a.startTime);
+      const bDuration = new Date(b.endTime) - new Date(b.startTime);
+      if (aDuration !== bDuration) return bDuration - aDuration;
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+  }
+  if (sort === 'duration_shortest') {
+    return list.sort((a, b) => {
+      const aDuration = new Date(a.endTime) - new Date(a.startTime);
+      const bDuration = new Date(b.endTime) - new Date(b.startTime);
+      if (aDuration !== bDuration) return aDuration - bDuration;
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+  }
+  if (sort === 'expiring_soon') {
+    return list.sort((a, b) => {
+      const aExpiry = a.expiryAt ? new Date(a.expiryAt).getTime() : Number.POSITIVE_INFINITY;
+      const bExpiry = b.expiryAt ? new Date(b.expiryAt).getTime() : Number.POSITIVE_INFINITY;
+      if (aExpiry !== bExpiry) return aExpiry - bExpiry;
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+  }
+  if (sort === 'active_conflicts') {
+    const isConflict = (booking) =>
+      booking.status === 'contested' || booking.status === 'on_hold' || !!booking.contentionRole;
+    return list.sort((a, b) => {
+      const aConflict = isConflict(a) ? 0 : 1;
+      const bConflict = isConflict(b) ? 0 : 1;
+      if (aConflict !== bConflict) return aConflict - bConflict;
+
+      const aDeadline = a.contentionDeadlineAt
+        ? new Date(a.contentionDeadlineAt).getTime()
+        : Number.POSITIVE_INFINITY;
+      const bDeadline = b.contentionDeadlineAt
+        ? new Date(b.contentionDeadlineAt).getTime()
+        : Number.POSITIVE_INFINITY;
+      if (aDeadline !== bDeadline) return aDeadline - bDeadline;
+
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+  }
   return list;
 }
 
@@ -834,7 +886,7 @@ function PastTabContent({
 function StatusGroup({ status, count, children, open, onToggle }) {
   const labelMap = {
     contested: 'Contested',
-    queued: 'Queued',
+    on_hold: 'On hold',
     pending_approval: 'Pending Approval',
     penciled: 'Penciled',
     approved: 'Approved',
@@ -842,12 +894,13 @@ function StatusGroup({ status, count, children, open, onToggle }) {
     denied: 'Denied',
     displaced: 'Displaced',
     expired: 'Expired',
+    completed: 'Completed',
     other: 'Other',
   };
 
   const accentMap = {
     contested: 'text-orange-700 border-orange-200 bg-orange-50',
-    queued: 'text-violet-800 border-violet-200 bg-violet-50',
+    on_hold: 'text-amber-800 border-amber-200 bg-amber-50',
     pending_approval: 'text-yellow-700 border-yellow-200 bg-yellow-50',
     penciled: 'text-blue-700 border-blue-200 bg-blue-50',
     approved: 'text-green-700 border-green-200 bg-green-50',
@@ -855,6 +908,7 @@ function StatusGroup({ status, count, children, open, onToggle }) {
     denied: 'text-red-700 border-red-200 bg-red-50',
     displaced: 'text-slate-700 border-slate-200 bg-slate-50',
     expired: 'text-gray-400 border-gray-200 bg-gray-50',
+    completed: 'text-emerald-800 border-emerald-200 bg-emerald-50',
     other: 'text-gray-600 border-gray-200 bg-gray-50',
   };
 
