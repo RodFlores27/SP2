@@ -192,10 +192,12 @@ async function tryAttachPencilToContention(pencilBooking, { transaction, Booking
   const foreign = overlaps.filter((b) => b.userId !== pencilBooking.userId);
   if (foreign.length === 0) return null;
 
-  // Hard reject only when overlapping an active defender.
-  // Overlaps with challengers are allowed (they represent in-flight battle paths).
-  const activeDefender = foreign.find((b) => b.contentionRole === 'defender');
-  if (activeDefender) {
+  // Hard reject when overlapping any active contention participant.
+  // New pencils cannot enter while a defender/challenger pair is already in progress.
+  const activeContentionParticipant = foreign.find(
+    (b) => b.contentionRole === 'defender' || b.contentionRole === 'challenger'
+  );
+  if (activeContentionParticipant) {
     const err = new Error(domain.activeContentionLocked);
     err.code = 'ACTIVE_CONTENTION_LOCKED';
     err.statusCode = 409;

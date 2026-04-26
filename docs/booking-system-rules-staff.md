@@ -1,174 +1,195 @@
-# Booking system rules (staff and administrators)
+# Booking system rules (staff and administrators) — v2
 
-This document describes how reservations behave in the PTCF Room and Equipment system, in everyday language. It is meant for **facility staff**, **system administrators**, and anyone explaining the rules to users. **Pencil–pencil contention (defender, challenger, queue, timer):** read **Section 5** first. For technical transition IDs and implementation detail, see [`booking-transition-catalog-seed.md`](booking-transition-catalog-seed.md).
+This guide explains current booking behavior in plain language for **facility staff** and **system administrators**.
 
----
+It is aligned with the strict **1v1 contention + `on_hold`** model used by the live system.
 
-## 1. Two kinds of reservation
-
-| Kind       | Plain meaning                                                                                                          | Needs staff approval?                                         |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| **Pencil** | A **soft hold** on a time slot. It reserves the slot tentatively and can expire or be bumped by rules below.           | No                                                            |
-| **Firm**   | A **formal request** to use the facility for that window. It is treated as a real scheduling commitment once approved. | **Yes** (status _Pending approval_ until you approve or deny) |
-
-There is **no separate “confirmed” status**. An approved firm booking is **Approved**.
+For technical transitions and code-level lifecycle details, see [`booking-transition-catalog-v2.md`](booking-transition-catalog-v2.md).
 
 ---
 
-## 2. The 24-hour lock window
+## 1) Booking types
 
-These rules use **wall-clock time** relative to the booking **start time**:
+| Kind | Meaning | Needs staff approval? |
+| --- | --- | --- |
+| **Pencil** | Soft hold on a slot. Can expire, enter contention, or be displaced by approved firms. | No |
+| **Firm** | Formal request for the slot. Becomes final once staff approves. | **Yes** (`pending_approval`) |
 
-- **New bookings** (pencil or firm) **cannot be created** if the start time is **within 24 hours** of now (or in the past).
-- **Firm** bookings in _Pending approval_ must be **approved by staff at least 24 hours before** the scheduled start. If they are still pending once that cutoff is reached, the system marks them **Expired** automatically (scheduled job). Staff **cannot** approve after that cutoff; **Deny** remains available if you need to close the row with a remark.
-
----
-
-## 3. Pencil lifetime and reminders
-
-- A pencil has an **expiry time** computed as the **earlier** of: **three days after it was created**, or **24 hours before the slot starts**.
-- After expiry, the system can mark the pencil **Expired** (and related contention logic may run).
-- Users may receive **warning emails** before a pencil expires, when applicable.
+There is **no** separate `confirmed` status. Approved firm = `approved`.
 
 ---
 
-## 4. What can overlap what?
+## 2) 24-hour lock window
 
-**Same room or equipment, overlapping times:**
+Rules tied to the booking start time:
 
-| Situation                                                | Result                                                                                                                                                                           |
-| -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Firm** overlaps **another firm** (pending or approved) | The new booking is **rejected**. Two firms cannot share the same window.                                                                                                         |
-| **Pencil** overlaps a **firm** (pending or approved)     | The pencil is **rejected**. Firm blocks the slot.                                                                                                                                |
-| **Firm** overlaps someone else’s **pencils**             | The firm request **can still be submitted**. Those pencils are **not** removed at submit time. If you **approve** the firm, overlapping pencils are handled as in **Section 7**. |
-| **Pencil** overlaps **another user’s pencil**            | If the slot is not yet in active 1v1, the user is asked to confirm contention before submit. If the slot is already in active contention, the request is blocked and the user is told to return after the shown deadline. |
-
-**Same person, same slot:**
-
-- Users are not allowed to place a second **pencil** on top of their own pencil for the same window, including when their existing pencil is currently **on hold**.
-- **Firm** submissions that would overlap the user’s own pencil (`penciled` or `on_hold`) will require their confirmation; behavior is enforced in the app. Doing so cancels the user's own overlapped pencils.
+- Users cannot create **new** pencil or firm bookings when start time is within 24 hours.
+- Staff can approve a firm only while start time is still **more than 24 hours away**.
+- A firm still `pending_approval` at the cutoff is auto-marked `expired` by cron.
+- `deny` can still be used to close a pending row before cron catches it.
 
 ---
 
-## 5. Pencil–pencil contention (automatic)
+## 3) Pencil expiry and warnings
 
-When two **different users** pencil the **same resource** for **overlapping times**, the system runs an **automated** process. **Staff do not pick a winner** for pencil-versus-pencil disputes.
-
-**Roles (helpful vocabulary):**
-
-- **Defender** — The pencil that was **first in line** for that overlap (the one being “challenged”).
-- **Challenger** — The **newer** overlapping pencil that triggered the contest.
-- **Defender status (`contested`)** — The defender’s booking carries this status while the episode is open.
-- **Queued** — Additional overlapping pencils will wait **in line** had they agree to enter contention versus a booking that's under a contention. The booking which they contest may be a defender, a challenger, or another queued booking.
-
-**Timer:**
-
-- Each open contest has a **resolution deadline**. It is the **earliest** of these 3 time constraints:
-  - **24 hours from when the contest opened**,
-  - **24 hours before the slot starts**, and
-  - The **defender’s pencil expiry** (and similarly bounded for the challenger’s pencil where rules apply).
-- When the deadline passes without the defender winning by converting into a firm (below), the **challenger wins** and the system promotes the next waiter, and so on.
-
-**Staff role here:** None, except general support and explaining the process. **Do not** treat pencil contention like a staff approval queue.
-
-**What users now see in My Bookings (for explanations/support):**
-
-- **Defender (`contested`)** and **queued** cards show a short summary first, with a **View details** toggle for deeper context.
-- **Active challenger** cards now show a dedicated top alert that combines:
-  - what is happening (automatic challenger flow and fairness timer),
-  - who they are currently challenging,
-  - the **current step deadline** for the holder being challenged,
-  - and the overall overlap sequence.
-- On challenger cards, **Convert to Firm** is intentionally disabled until the overlap sequence clears. This is to prevent challengers from overtaking by converting to firm, allowing defenders to exert their authority of the slot because they issued first.
+- Pencil expiry = earlier of:
+  - 3 days after creation, or
+  - 24 hours before scheduled start.
+- Expiry is processed by scheduled jobs.
+- Users can receive 48h / 24h warning emails for eligible pencils.
 
 ---
 
-## 6. Converting a pencil to firm
+## 4) Overlap rules (same resource, overlapping time)
 
-- With/out contentions:
-  - Conversion requires an **authorization document** upload (handled through the system).
-- With contentions:
-  - Only the **defender** (the `contested` pencil holder) may **convert to firm** during an open contest, not the challenger.
-  - A booking that is only **Queued** cannot be converted until it is an active pencil in the right state; the app enforces this.
-  - A booking flagged as **active challenger** shows **Convert to Firm** as disabled; the user must wait for current contention steps to resolve.
-  - When the defender converts, the open contest is **closed** and the **challenger** and **waitlisted** pencils are returned to normal **penciled** flow (they may re-enter contention with each other if their slots still overlap). They are **not** marked **Displaced** at that moment.
+| Scenario | Result |
+| --- | --- |
+| Firm vs firm (`pending_approval` or `approved`) | New booking is rejected. |
+| Pencil vs firm (`pending_approval` or `approved`) | Pencil is rejected. |
+| Firm vs other users’ pencils | Firm submission allowed (with user confirmation in foreign-pencil overlap cases). No displacement yet at submit time. |
+| Pencil vs other users’ pencils | May start strict 1v1 contention after confirmation only when no active contention pair overlaps. If an overlapping active defender **or** challenger already exists, creation is hard-rejected (`ACTIVE_CONTENTION_LOCKED`). |
 
-After conversion, the firm booking is **Pending approval** until staff act. **If you approve** that firm, overlapping pencils (including former challenger and queue members in that window) are then **displaced** (**Section 7**). **If you deny** it, those users keep their pencils as active holds (unless something else applies, such as expiry) and the denied booking loses priority if they choose to re-submit and their schedule overlaps a contention group.
+Same-user rules:
 
----
-
-## 7. Displacement
-
-**Displacement** means a pencil (or queued slot) **loses the slot** because a **firm** booking **takes priority**:
-
-- When staff **approve** a firm booking, any **active pencil** (or queued item) that **overlaps** that firm’s time on the same resource is marked **Displaced** and linked to the firm booking that caused it. This is the **only** moment those users are displaced for that firm—including when the firm started as a **defender convert-to-firm** from a contention episode.
-- Submitting or converting to a firm in **Pending approval** does **not** by itself displace other users’ pencils; it only requests the slot until you approve.
-
-**Displaced** is a **terminal** outcome for that pencil entry (like cancelled or expired): it stops competing for the slot.
-
-**Rebooking:** Users may start a **new** booking after displacement, but if the displacing firm is still **pending or approved**, the system will **block** an immediate rebook of that displaced lineage until that situation changes (users see messaging in the app regarding this).
+- User cannot create a duplicate overlapping pencil against their own active pencil (`penciled` or `on_hold`).
+- Creating a firm over own overlapping pencils (`penciled`/`on_hold`) requires confirmation; those own pencils are auto-cancelled.
 
 ---
 
-## 8. Staff actions on firm bookings
+## 5) Pencil contention (strict 1v1, automatic)
 
-**Approve**
+When two different users pencil-overlap the same resource:
 
-- Only for **Firm** + **Pending approval**.
-- Only while the start time is **more than 24 hours away** (same boundary as **Section 2**). After that, the request is past the approval deadline and will **expire** if still pending.
-- Approving runs displacement cleanup for overlapping pencils and open contests on that resource, as designed.
+- System chooses **defender** deterministically (earliest `createdAt` then tie-breaker `id`).
+- Other side becomes **challenger**.
+- There is **no queue/waitlist/group ladder** in runtime behavior.
+- Third entrant while an overlapping defender is active is hard-rejected (`ACTIVE_CONTENTION_LOCKED`).
 
-**Deny**
+Deadline for a defender episode:
 
-- Only for **Firm** + **Pending approval**.
-- Denied firm bookings do not displace pencils.
+- `minimum(now + 24h, start - 24h, defender expiryAt)`
 
-**Important:** **Deny** does **not** apply to pencil **defender** state (`contested`) as a workflow. Defender pencils are **not** firm requests awaiting your deny action.
+Staff role:
 
----
+- Staff do not manually decide defender/challenger winners.
+- Staff primarily act on firm approvals/denials.
 
-## 9. Cancellation
+Non-cancel loser outcomes in contention:
 
-- **Cancelled** bookings are final for that entry.
-  - Meaning even if users choose to rebook the entry with the same details (a clone), the new rebooked booking will have a different unique booking id.
-- When a booking involved in a contest is cancelled, the system **reopens or rewires** contention according to automated rules (who was defender vs challenger, waitlist, overlaps). Staff do not manually reassign those steps.
-
-If an **approved firm** is cancelled, users whose bookings were **displaced** by that firm will be **notified** that the slot situation have changed giving them another chance.
+- Defender loses by deadline/expiry-boundary -> defender is marked `displaced`.
+- Challenger loses by expiry -> challenger is marked `expired` (not `on_hold`).
 
 ---
 
-## 10. Status glossary (user-visible)
+## 6) `on_hold` state (important)
 
-| Status                         | Short explanation                                                                                                                                                       |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Penciled**                   | Active soft hold; subject to expiry and overlap rules.                                                                                                                  |
-| **Defender** (`contested`)     | Pencil is the **defender** in an open automated contest.                                                                                                                |
-| **Challenger** (calendar hint) | Same as penciled for the database, but the calendar highlights the **challenger** for clarity.                                                                          |
-| **Queued**                     | Waiting behind others in the same contention group.                                                                                                                     |
-| **Pending approval**           | Firm request submitted; **staff** must approve or deny with optional remark.                                                                                            |
-| **Approved**                   | Firm booking is confirmed for scheduling.                                                                                                                               |
-| **Denied**                     | Firm request rejected by staff.                                                                                                                                         |
-| **Cancelled**                  | User cancelled an active booking.                                                                                                                                       |
-| **Expired**                    | Pencil ran past its lifetime / contention paths, **or** a **firm** request was still _Pending approval_ inside the 24-hour pre-start window (missed approval deadline). |
-| **Displaced**                  | Pencil removed in favor of an overlapping **approved** **firm** (includes firms that were converted from pencil and then approved).                                     |
+`on_hold` means a pencil is currently blocked by overlapping firm blockers.
 
----
+- Caused by:
+  - Firm created over a pencil.
+  - Challenger pencil losing due to defender converting to firm during contention. 
+- `on_hold` pencils stay visible but are not treated as free active pencils.
+- If the blocking firm disappears (denied/cancelled), `on_hold` pencils are rebuilt:
+  - remain `on_hold` if still blocked by another firm, or
+  - return to `penciled` and may re-enter 1v1 contention.
 
-## 11. Practical checklist for staff
+Important nuance:
 
-1. **Approvals tab:** Work **firm** bookings in _Pending approval_ well **before** the 24-hour pre-start cutoff. Check authorization documentation per facility policy.
-2. **Do not** expect to “resolve” pencil–pencil overlaps manually; explain the **timer** and **defender / challenger** roles if users ask.
-3. **Explain displacement** when users are bumped: it happens on your **approval** of a firm (including one that came from **convert-to-firm** after a contest), not when the request is only pending.
-4. **24-hour rule:** Remind users they cannot **create** last-minute bookings; for firms, **approval** and **convert-to-firm** are deadline-bound, while cancel remains allowed before start.
-5. If the database is **re-seeded** or reset for demos, everyone may need to **log in again**; old sessions can stop working.
+- `on_hold` does **not** participate in active-pencil contention overlap checks.
+- But new pencil creation is still be rejected if overlapping firm blockers are found.
 
 ---
 
-## 12. Related documents
+## 7) Convert pencil to firm
 
-| Document                                                                   | Audience                                                             |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| [`booking-transition-catalog-seed.md`](booking-transition-catalog-seed.md) | Developers and technical testers (state transitions, IDs, changelog) |
-| [`AGENTS.md`](../AGENTS.md)                                                | Project index for developers                                         |
+Conversion basics:
 
-If this plain-language guide and the live app ever disagree, **the running system and `AGENTS.md` business notes take precedence** until the documentation is updated.
+- Requires authorization document.
+- Allowed only from eligible pencil states.
+- Challenger conversion is blocked; defender (or free pencil) can convert based on current rules.
+
+When a defender converts:
+
+- Converted row becomes `firm + pending_approval`.
+- Challenger is released from contention and rebuilt (`on_hold` or `penciled`).
+- No one is displaced at conversion moment.
+
+Displacement happens only when staff approves the firm.
+
+---
+
+## 8) Staff actions on firm bookings
+
+### Approve
+
+- Valid only for `firm + pending_approval`.
+- Must be outside 24-hour pre-start lock window.
+- On approval, overlapping active pencils are displaced.
+
+### Deny
+
+- Valid only for `firm + pending_approval`.
+- Does not displace pencils.
+- Triggers rebuild pass for overlapping `on_hold` pencils (same post-firm cleanup path used by cancel).
+
+---
+
+## 9) Displacement and rebooking
+
+Displacement is a terminal outcome for that booking row:
+
+- Trigger: staff approval of overlapping firm.
+- Result: overlapping active pencils become `displaced` and linked to the firm.
+
+Rebooking note:
+
+- Users can create a new booking attempt, but rebook constraints apply while the displacing firm remains active.
+
+---
+
+## 10) Cancellation behavior
+
+- `cancelled` is terminal for that booking row.
+- Cancelling bookings involved in contention triggers automatic contention rebuild logic.
+- If an approved firm is cancelled, previously displaced users can be notified that slot conditions changed.
+
+---
+
+## 11) Status glossary (current)
+
+| Status | Meaning |
+| --- | --- |
+| `penciled` | Active soft hold. |
+| `on_hold` | Pencil is firm-blocked temporarily. |
+| `pending_approval` | Firm request awaiting staff decision. |
+| `approved` | Firm accepted and active. |
+| `denied` | Firm rejected by staff. |
+| `cancelled` | User/staff cancelled the booking row. |
+| `expired` | Booking passed allowed lifetime/deadline (includes pending firm hitting approval deadline). |
+| `displaced` | Pencil lost to an approved overlapping firm. |
+| `completed` | Approved firm ended and was marked complete by cron. |
+
+Legacy note:
+
+- `contested` may appear in legacy data/surfaces, but runtime contention source of truth is `contentionRole` (`defender` / `challenger`).
+
+---
+
+## 12) Practical staff checklist
+
+1. Prioritize `pending_approval` firms before the 24-hour cutoff.
+2. Do not manually arbitrate pencil-vs-pencil contention outcomes.
+3. Explain that displacement occurs on **firm approval**, not on submit/convert alone.
+4. Use deny/remarks clearly when rejecting firm requests.
+5. If demo reseed/reset happened, ask users to re-login if sessions become stale.
+
+---
+
+## 13) Related documents
+
+| Document | Audience |
+| --- | --- |
+| [`booking-transition-catalog-v2.md`](booking-transition-catalog-v2.md) | Developers/testers (technical transitions and hooks) |
+| [`AGENTS.md`](../AGENTS.md) | Project-wide implementation reference |
+
+If this guide and live behavior differ, treat runtime behavior as source of truth and update docs immediately.

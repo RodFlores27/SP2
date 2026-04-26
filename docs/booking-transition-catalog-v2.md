@@ -12,7 +12,7 @@ Purpose: technical reference for the current strict 1v1 contention model with ex
 - Explicit pencil hold status:
   - `status='on_hold'` for pencils blocked by overlapping firm blockers
 - Third entrant rule:
-  - new pencil is hard-rejected if overlapping an active `defender` (`409 ACTIVE_CONTENTION_LOCKED`)
+- new pencil is hard-rejected if overlapping any active contention participant (`defender` or `challenger`) (`409 ACTIVE_CONTENTION_LOCKED`)
 
 ## Status Model
 
@@ -33,7 +33,7 @@ Notes:
 1. Reject if overlapping firm blocker (`pending_approval` / `approved`) -> `409`.
 2. Reject if overlapping own active pencil -> `409`.
 3. Evaluate foreign active pencil overlaps (`status='penciled'` only):
-   - if any overlapping `defender` exists -> `409 ACTIVE_CONTENTION_LOCKED` (include `contentionDeadlineAt` for UI notice).
+   - if any overlapping active contention participant exists (`defender` or `challenger`) -> `409 ACTIVE_CONTENTION_LOCKED` (include `contentionDeadlineAt` for UI notice when available).
    - otherwise, require explicit user confirmation (`requiresContentionConfirmation`) before starting contention.
    - after confirmation, start 1v1 with earliest `createdAt` defender election.
 
@@ -75,6 +75,10 @@ Defender election rule:
 4. Defender runs rebuild:
    - if firm-blocked -> `on_hold`
    - else remains free `penciled` (and may re-attach when eligible).
+
+Explicit non-cancel loser outcomes:
+- defender loss by deadline/expiry-boundary -> defender becomes `displaced`
+- challenger loss by expiry -> challenger becomes `expired` (not `on_hold`)
 
 ## Firm Interaction Rules
 
@@ -157,6 +161,6 @@ Legacy queue/group fields are deprecated and do not drive runtime behavior.
 - [ ] Defender lose path rebuilds challenger (`on_hold` if firm-blocked)
 - [ ] Challenger lose path rebuilds defender (`on_hold` if firm-blocked)
 - [ ] New firm over active 1v1 auto-dissolves unwinnable episode
-- [ ] `on_hold` pencils are non-blocking for new pencil creation
+- [ ] `on_hold` pencils are non-blocking for active-pencil contention checks (`findActivePencilOverlaps`), while firm blockers can still reject new pencil creation
 - [ ] Firm cancel/deny re-evaluates `on_hold` pencils and re-enters contention when unblocked
 - [ ] Firm approval displaces overlapping active pencils

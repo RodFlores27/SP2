@@ -40,6 +40,10 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'approvedByUserId',
         as: 'approvedBy'
       });
+      Booking.belongsTo(models.User, {
+        foreignKey: 'deniedByUserId',
+        as: 'deniedBy'
+      });
       Booking.hasMany(models.Booking, {
         foreignKey: 'displacedByBookingId',
         as: 'displacedBookings'
@@ -274,6 +278,10 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true
     },
     approvedByUserId: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    deniedByUserId: {
       type: DataTypes.INTEGER,
       allowNull: true
     },

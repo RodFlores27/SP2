@@ -28,7 +28,7 @@ async function login(email, password) {
 
 async function testMilestone11() {
   console.log('=== MILESTONE 11 VERIFICATION TEST ===');
-  console.log('Staff Dashboard: Pending Approvals + Pencil contention awareness\n');
+  console.log('Staff Dashboard: Pending Approvals + Active conflicts + Resubmissions\n');
 
   const healthCheck = await checkServerHealth(BASE_URL);
   if (!healthCheck.success) {
@@ -281,15 +281,17 @@ async function testMilestone11() {
     'Navigate to /staff as student — redirected to /dashboard',
     'Navigate to /staff as staff — page loads with tabs',
     '"Pending Approvals" tab shows badge count matching pending_approval bookings',
-    '"Pencil contention" tab shows awareness list (contested + queued)',
+    '"Active conflicts" tab shows one card per contention group',
+    '"Resubmissions" tab shows denied-source rebooks pending review',
+    'Pending Approvals excludes denied-source resubmissions shown in the Resubmissions tab',
     'Pending Approvals: each card shows requester email, resource, time range, booking type badge',
     'Pending Approvals: "Review" button toggles inline approve/deny panel',
     'Pending Approvals: staffRemark textarea present in review panel',
     'Pending Approvals: "Approve" (green) and "Deny" (red) buttons work and refresh list',
     'Pending Approvals: auth doc link visible when booking has authorizationDocUrl',
     'Pending Approvals: empty state shown when no pending bookings',
-    'Pencil contention: informational cards only (no staff approve/deny for pencils)',
-    'Refresh button reloads pending and contention watch lists',
+    'Active conflicts: informational cards only (no staff approve/deny for pencils)',
+    'Refresh button reloads pending, active conflicts, and resubmissions lists',
   ];
   checks.forEach((c) => console.log(`  [ ] ${c}`));
 

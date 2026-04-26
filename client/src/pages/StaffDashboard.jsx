@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { useAuth } from '@/contexts/useAuth';
 import axiosInstance from '@/lib/axios';
 import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { BookingStatusBadge } from '@/components/BookingStatusBadge';
 import { AuthorizationDocButton } from '@/components/my-bookings/AuthorizationDocButton';
@@ -17,11 +17,88 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronUp,
+  SlidersHorizontal,
   Users,
   CornerDownRight,
 } from 'lucide-react';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const selectClass =
+  'h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[140px]';
+
+const APPROVALS_FILTER_DEFAULTS = {
+  query: '',
+  resourceType: '',
+  sort: 'event_date_closest',
+  requesterCategory: '',
+  startWindow: '',
+};
+
+const RESUBMISSIONS_FILTER_DEFAULTS = {
+  query: '',
+  resourceType: '',
+  sort: 'recently_created',
+  startWindow: '',
+  sourceDeniedBy: '',
+};
+
+const CONTENTION_FILTER_DEFAULTS = {
+  query: '',
+  resourceType: '',
+  sort: 'defender_deadline_soonest',
+  participantEmail: '',
+};
+
+const APPROVED_FILTER_DEFAULTS = {
+  query: '',
+  resourceType: '',
+  sort: 'recently_updated',
+  approvedAtRange: '',
+  requesterCategory: '',
+  hasStaffRemark: '',
+};
+
+const RESOURCE_TYPE_OPTIONS = [
+  { value: '', label: 'All Types' },
+  { value: 'equipment', label: 'Equipment' },
+  { value: 'room', label: 'Room' },
+];
+
+const BOOKING_SORT_OPTIONS = [
+  { value: 'event_date_closest', label: 'Event Date: Closest' },
+  { value: 'event_date_furthest', label: 'Event Date: Furthest' },
+  { value: 'recently_created', label: 'Recently Created' },
+  { value: 'recently_updated', label: 'Recently Updated' },
+  { value: 'duration_longest', label: 'Longest Duration' },
+  { value: 'duration_shortest', label: 'Shortest Duration' },
+];
+
+const CONTENTION_SORT_OPTIONS = [
+  { value: 'defender_deadline_soonest', label: 'Defender Deadline: Soonest' },
+  { value: 'defender_deadline_latest', label: 'Defender Deadline: Latest' },
+  { value: 'event_date_closest', label: 'Event Date: Closest' },
+  { value: 'event_date_furthest', label: 'Event Date: Furthest' },
+];
+
+const START_WINDOW_OPTIONS = [
+  { value: '', label: 'Any Start Window' },
+  { value: 'within_24h', label: 'Starts Within 24h' },
+  { value: '24h_to_72h', label: 'Starts 24h to 72h' },
+  { value: 'later_than_72h', label: 'Starts After 72h' },
+];
+
+const APPROVED_AT_RANGE_OPTIONS = [
+  { value: '', label: 'Any Approval Date' },
+  { value: 'today', label: 'Approved Today' },
+  { value: 'last_7_days', label: 'Approved Last 7 Days' },
+  { value: 'last_30_days', label: 'Approved Last 30 Days' },
+];
+
+const HAS_STAFF_REMARK_OPTIONS = [
+  { value: '', label: 'Staff Remark: Any' },
+  { value: 'with', label: 'With Staff Remark' },
+  { value: 'without', label: 'Without Staff Remark' },
+];
 
 function formatUserCategory(cat) {
   if (!cat) return '';
@@ -37,6 +114,444 @@ function formatAccountType(type) {
     .split('_')
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ');
+}
+
+function normalizeText(value) {
+  return String(value ?? '').toLowerCase();
+}
+
+function getStartWindowBucket(startTime, nowMs = Date.now()) {
+  const diffHours = (new Date(startTime).getTime() - nowMs) / (1000 * 60 * 60);
+  if (diffHours <= 24) return 'within_24h';
+  if (diffHours <= 72) return '24h_to_72h';
+  return 'later_than_72h';
+}
+
+function matchesApprovedAtRange(approvedAt, range, now = new Date()) {
+  if (!range) return true;
+  if (!approvedAt) return false;
+  const date = new Date(approvedAt);
+  if (Number.isNaN(date.getTime())) return false;
+
+  if (range === 'today') {
+    return (
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate()
+    );
+  }
+  if (range === 'last_7_days') {
+    return date.getTime() >= now.getTime() - 7 * 24 * 60 * 60 * 1000;
+  }
+  if (range === 'last_30_days') {
+    return date.getTime() >= now.getTime() - 30 * 24 * 60 * 60 * 1000;
+  }
+  return true;
+}
+
+function sortBookingRows(rows, sortKey) {
+  const list = [...rows];
+  if (sortKey === 'event_date_furthest') {
+    return list.sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+  }
+  if (sortKey === 'recently_created') {
+    return list.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+  if (sortKey === 'recently_updated') {
+    return list.sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt));
+  }
+  if (sortKey === 'duration_longest') {
+    return list.sort((a, b) => {
+      const aDuration = new Date(a.endTime) - new Date(a.startTime);
+      const bDuration = new Date(b.endTime) - new Date(b.startTime);
+      if (aDuration !== bDuration) return bDuration - aDuration;
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+  }
+  if (sortKey === 'duration_shortest') {
+    return list.sort((a, b) => {
+      const aDuration = new Date(a.endTime) - new Date(a.startTime);
+      const bDuration = new Date(b.endTime) - new Date(b.startTime);
+      if (aDuration !== bDuration) return aDuration - bDuration;
+      return new Date(a.startTime) - new Date(b.startTime);
+    });
+  }
+  return list.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+}
+
+function getSourceDeniedByInfo(booking) {
+  if (!booking?.rebookedFromBookingId) return null;
+  const sourceAttempt = booking.threadBookings?.find((attempt) => attempt.id === booking.rebookedFromBookingId);
+  const deniedBy = sourceAttempt?.deniedBy;
+  if (deniedBy?.id && deniedBy?.email) {
+    return { id: String(deniedBy.id), email: deniedBy.email };
+  }
+  return { id: 'unknown', email: 'Unknown/Legacy' };
+}
+
+function getConflictParticipants(group) {
+  const defenderBookingIdFromDetail =
+    group.bookings.find((booking) => booking?.contentionDetail?.defender?.bookingId)?.contentionDetail?.defender?.bookingId || null;
+  const defenderBooking =
+    group.bookings.find((booking) => booking.contentionRole === 'defender') ||
+    group.bookings.find((booking) => booking.id === defenderBookingIdFromDetail) ||
+    group.bookings[0] ||
+    null;
+  const challengerBooking =
+    group.bookings.find(
+      (booking) =>
+        booking.id !== defenderBooking?.id &&
+        (booking.contentionRole === 'challenger' ||
+          booking.contentionChallenger === true ||
+          booking.challengingBookingId === defenderBooking?.id)
+    ) ||
+    group.bookings.find((booking) => booking.id !== defenderBooking?.id) ||
+    null;
+  return { defenderBooking, challengerBooking };
+}
+
+function sortConflictGroups(groups, sortKey) {
+  const list = [...groups];
+  if (sortKey === 'defender_deadline_latest') {
+    return list.sort((a, b) => {
+      const aTime = a.urgencyAt ? new Date(a.urgencyAt).getTime() : Number.NEGATIVE_INFINITY;
+      const bTime = b.urgencyAt ? new Date(b.urgencyAt).getTime() : Number.NEGATIVE_INFINITY;
+      if (aTime !== bTime) return bTime - aTime;
+      return new Date(a.windowStart) - new Date(b.windowStart);
+    });
+  }
+  if (sortKey === 'event_date_furthest') {
+    return list.sort((a, b) => new Date(b.windowStart) - new Date(a.windowStart));
+  }
+  if (sortKey === 'event_date_closest') {
+    return list.sort((a, b) => new Date(a.windowStart) - new Date(b.windowStart));
+  }
+  return list.sort((a, b) => {
+    const aTime = a.urgencyAt ? new Date(a.urgencyAt).getTime() : Number.POSITIVE_INFINITY;
+    const bTime = b.urgencyAt ? new Date(b.urgencyAt).getTime() : Number.POSITIVE_INFINITY;
+    if (aTime !== bTime) return aTime - bTime;
+    return new Date(a.windowStart) - new Date(b.windowStart);
+  });
+}
+
+function StaffBookingToolbar({
+  tab,
+  filters,
+  defaultFilters,
+  onFiltersChange,
+  requesterCategoryOptions = [],
+  sourceDeniedByOptions = [],
+  approvedByFilter = '',
+  onApprovedByFilterChange = () => {},
+  approverOptions = [],
+  currentUserEmail = '',
+}) {
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const set = (key, value) => onFiltersChange({ ...filters, [key]: value });
+  const hasLocalFilters = Object.keys(defaultFilters).some((key) => filters[key] !== defaultFilters[key]);
+  const hasAnyFilter = hasLocalFilters || (tab === 'approved' && approvedByFilter !== '');
+  const sortOptions = tab === 'contention' ? CONTENTION_SORT_OPTIONS : BOOKING_SORT_OPTIONS;
+  const isCollapsibleTab = ['approvals', 'resubmissions', 'contention', 'approved'].includes(tab);
+
+  if (isCollapsibleTab) {
+    return (
+      <div className="space-y-2">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <input
+            type="search"
+            placeholder="Search by ID, resource, email, purpose..."
+            value={filters.query || ''}
+            onChange={(e) => set('query', e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm flex-1 min-w-[220px]"
+          />
+          <button
+            type="button"
+            onClick={() => setShowAdvancedFilters((prev) => !prev)}
+            className={`inline-flex items-center justify-center gap-1 px-3 h-9 text-sm border rounded-md transition-colors ${
+              hasAnyFilter
+                ? 'border-blue-300 text-blue-700 bg-blue-50/40 hover:bg-blue-50'
+                : 'hover:bg-accent'
+            }`}
+            aria-expanded={showAdvancedFilters}
+            aria-label="Toggle filters"
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+            Filters
+            {!showAdvancedFilters && hasAnyFilter && (
+              <span className="inline-block h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />
+            )}
+            {showAdvancedFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
+
+        {showAdvancedFilters && (
+          <div className="rounded-md border border-border p-3 bg-muted/20">
+            <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+              <select
+                value={filters.resourceType || ''}
+                onChange={(e) => set('resourceType', e.target.value)}
+                className={selectClass}
+                aria-label="Filter by resource type"
+              >
+                {RESOURCE_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {tab !== 'contention' && (tab === 'approvals' || tab === 'approved') && (
+                <select
+                  value={filters.requesterCategory || ''}
+                  onChange={(e) => set('requesterCategory', e.target.value)}
+                  className={selectClass}
+                  aria-label="Filter by requester category"
+                >
+                  <option value="">All Requester Categories</option>
+                  {requesterCategoryOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {(tab === 'approvals' || tab === 'resubmissions') && (
+                <select
+                  value={filters.startWindow || ''}
+                  onChange={(e) => set('startWindow', e.target.value)}
+                  className={selectClass}
+                  aria-label="Filter by start window"
+                >
+                  {START_WINDOW_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {tab === 'resubmissions' && (
+                <select
+                  value={filters.sourceDeniedBy || ''}
+                  onChange={(e) => set('sourceDeniedBy', e.target.value)}
+                  className={selectClass}
+                  aria-label="Filter by source denied by"
+                >
+                  <option value="">Denied By: Any</option>
+                  {sourceDeniedByOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {tab === 'contention' && (
+                <input
+                  type="search"
+                  placeholder="Participant email..."
+                  value={filters.participantEmail || ''}
+                  onChange={(e) => set('participantEmail', e.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[220px]"
+                />
+              )}
+              {tab === 'approved' && (
+                <select
+                  value={filters.approvedAtRange || ''}
+                  onChange={(e) => set('approvedAtRange', e.target.value)}
+                  className={selectClass}
+                  aria-label="Filter by approved at date"
+                >
+                  {APPROVED_AT_RANGE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {tab === 'approved' && (
+                <select
+                  value={approvedByFilter}
+                  onChange={(e) => onApprovedByFilterChange(e.target.value)}
+                  className={selectClass}
+                  aria-label="Filter by approved by"
+                >
+                  <option value="">All staff</option>
+                  <option value="me">Me ({currentUserEmail || 'current user'})</option>
+                  {approverOptions.map((option) => (
+                    <option key={option.id} value={String(option.id)}>
+                      {option.email}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {tab === 'approved' && (
+                <select
+                  value={filters.hasStaffRemark || ''}
+                  onChange={(e) => set('hasStaffRemark', e.target.value)}
+                  className={selectClass}
+                  aria-label="Filter by staff remark"
+                >
+                  {HAS_STAFF_REMARK_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <select
+                value={filters.sort || ''}
+                onChange={(e) => set('sort', e.target.value)}
+                className={selectClass}
+                aria-label="Sort results"
+              >
+                {sortOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {hasAnyFilter && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onFiltersChange({ ...defaultFilters });
+                    if (tab === 'approved') onApprovedByFilterChange('');
+                  }}
+                  className="inline-flex items-center px-2.5 py-1.5 text-xs text-muted-foreground border rounded-md hover:bg-accent transition-colors"
+                >
+                  Clear filters
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
+      <input
+        type="search"
+        placeholder="Search by ID, resource, email, purpose..."
+        value={filters.query || ''}
+        onChange={(e) => set('query', e.target.value)}
+        className="h-9 rounded-md border border-input bg-background px-3 text-sm flex-1 min-w-[220px]"
+      />
+      <select
+        value={filters.resourceType || ''}
+        onChange={(e) => set('resourceType', e.target.value)}
+        className={selectClass}
+        aria-label="Filter by resource type"
+      >
+        {RESOURCE_TYPE_OPTIONS.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {tab !== 'contention' && (tab === 'approvals' || tab === 'approved') && (
+        <select
+          value={filters.requesterCategory || ''}
+          onChange={(e) => set('requesterCategory', e.target.value)}
+          className={selectClass}
+          aria-label="Filter by requester category"
+        >
+          <option value="">All Requester Categories</option>
+          {requesterCategoryOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
+      {(tab === 'approvals' || tab === 'resubmissions') && (
+        <select
+          value={filters.startWindow || ''}
+          onChange={(e) => set('startWindow', e.target.value)}
+          className={selectClass}
+          aria-label="Filter by start window"
+        >
+          {START_WINDOW_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
+      {tab === 'resubmissions' && (
+        <select
+          value={filters.sourceDeniedBy || ''}
+          onChange={(e) => set('sourceDeniedBy', e.target.value)}
+          className={selectClass}
+          aria-label="Filter by source denied by"
+        >
+          <option value="">Denied By: Any</option>
+          {sourceDeniedByOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
+      {tab === 'contention' && (
+        <input
+          type="search"
+          placeholder="Participant email..."
+          value={filters.participantEmail || ''}
+          onChange={(e) => set('participantEmail', e.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm min-w-[220px]"
+        />
+      )}
+      {tab === 'approved' && (
+        <select
+          value={filters.approvedAtRange || ''}
+          onChange={(e) => set('approvedAtRange', e.target.value)}
+          className={selectClass}
+          aria-label="Filter by approved at date"
+        >
+          {APPROVED_AT_RANGE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
+      {tab === 'approved' && (
+        <select
+          value={filters.hasStaffRemark || ''}
+          onChange={(e) => set('hasStaffRemark', e.target.value)}
+          className={selectClass}
+          aria-label="Filter by staff remark"
+        >
+          {HAS_STAFF_REMARK_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
+      <select
+        value={filters.sort || ''}
+        onChange={(e) => set('sort', e.target.value)}
+        className={selectClass}
+        aria-label="Sort results"
+      >
+        {sortOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      {hasAnyFilter && (
+        <button
+          type="button"
+          onClick={() => onFiltersChange({ ...defaultFilters })}
+          className="inline-flex items-center px-2.5 py-1.5 text-xs text-muted-foreground border rounded-md hover:bg-accent transition-colors"
+        >
+          Clear filters
+        </button>
+      )}
+    </div>
+  );
 }
 
 async function fetchResources() {
@@ -170,14 +685,116 @@ function getEffectiveRebookSourceStatus(booking) {
   return sourceAttempt?.status || null;
 }
 
+function getConflictAnchorId(booking) {
+  const defenderId = booking?.contentionDetail?.defender?.bookingId;
+  if (defenderId) return `defender-${defenderId}`;
+  if (booking?.contentionRole === 'defender') return `defender-${booking.id}`;
+  if (booking?.challengingBookingId) return `defender-${booking.challengingBookingId}`;
+  return null;
+}
+
+function overlapsRange(aStart, aEnd, bStart, bEnd) {
+  return new Date(aStart) < new Date(bEnd) && new Date(aEnd) > new Date(bStart);
+}
+
+function computeActiveConflictGroups(bookings, equipment, rooms) {
+  if (!bookings.length) return [];
+
+  const groups = [];
+  const keyedGroups = new Map();
+
+  const putBookingInGroup = (booking, groupKey) => {
+    if (groupKey && keyedGroups.has(groupKey)) {
+      keyedGroups.get(groupKey).bookings.push(booking);
+      return;
+    }
+    const nextGroup = { key: groupKey ?? `resource-${groups.length + 1}`, bookings: [booking] };
+    groups.push(nextGroup);
+    if (groupKey) keyedGroups.set(groupKey, nextGroup);
+  };
+
+  for (const booking of bookings) {
+    const anchorKey = getConflictAnchorId(booking);
+    if (anchorKey) {
+      putBookingInGroup(booking, anchorKey);
+      continue;
+    }
+
+    const matched = groups.find((group) => {
+      const candidate = group.bookings[0];
+      const sameResource =
+        candidate.resourceType === booking.resourceType && candidate.resourceId === booking.resourceId;
+      if (!sameResource) return false;
+      return group.bookings.some((member) =>
+        overlapsRange(member.startTime, member.endTime, booking.startTime, booking.endTime)
+      );
+    });
+
+    if (matched) {
+      matched.bookings.push(booking);
+      continue;
+    }
+    putBookingInGroup(booking, null);
+  }
+
+  return groups
+    .map((group, index) => {
+      const sorted = [...group.bookings].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+      const starts = sorted.map((entry) => new Date(entry.startTime).getTime());
+      const ends = sorted.map((entry) => new Date(entry.endTime).getTime());
+      const deadlines = sorted
+        .map((entry) => entry?.contentionDetail?.deadlineAt || entry?.contentionDeadlineAt || entry?.expiryAt || null)
+        .filter(Boolean)
+        .map((raw) => new Date(raw).getTime());
+      const topBooking = sorted[0];
+      const resourceName = getResourceName(topBooking, equipment, rooms);
+
+      return {
+        id: `${group.key}-${index + 1}`,
+        resourceName,
+        resourceType: topBooking.resourceType,
+        bookings: sorted,
+        windowStart: new Date(Math.min(...starts)).toISOString(),
+        windowEnd: new Date(Math.max(...ends)).toISOString(),
+        urgencyAt: deadlines.length ? new Date(Math.min(...deadlines)).toISOString() : null,
+      };
+    })
+    .sort((a, b) => {
+      const aUrgency = a.urgencyAt ? new Date(a.urgencyAt).getTime() : Number.MAX_SAFE_INTEGER;
+      const bUrgency = b.urgencyAt ? new Date(b.urgencyAt).getTime() : Number.MAX_SAFE_INTEGER;
+      if (aUrgency !== bUrgency) return aUrgency - bUrgency;
+      return new Date(a.windowStart) - new Date(b.windowStart);
+    });
+}
+
+function isActiveContentionBooking(booking) {
+  return Boolean(
+    booking?.contentionRole ||
+    booking?.contentionDetail ||
+    booking?.challengingBookingId ||
+    booking?.contentionDeadlineAt
+  );
+}
+
+function mergeUniqueBookings(bookings) {
+  const deduped = new Map();
+  for (const booking of bookings) {
+    if (!booking?.id) continue;
+    deduped.set(booking.id, booking);
+  }
+  return [...deduped.values()];
+}
+
 export default function StaffDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('approvals');
 
   const [pendingBookings, setPendingBookings] = useState([]);
   const [approvedBookings, setApprovedBookings] = useState([]);
+  const [staffApprovers, setStaffApprovers] = useState([]);
   const [contestedBookings, setContestedBookings] = useState([]);
   const [queuedPencilBookings, setQueuedPencilBookings] = useState([]);
+  const [activePenciledContentions, setActivePenciledContentions] = useState([]);
   const [deniedRebookPending, setDeniedRebookPending] = useState([]);
   const [approvedByFilter, setApprovedByFilter] = useState('');
   const [equipment, setEquipment] = useState([]);
@@ -189,6 +806,10 @@ export default function StaffDashboard() {
   const [remarkMap, setRemarkMap] = useState({});
   const [actionLoading, setActionLoading] = useState(null);
   const [actionError, setActionError] = useState(null);
+  const [approvalsFilters, setApprovalsFilters] = useState(() => ({ ...APPROVALS_FILTER_DEFAULTS }));
+  const [resubmissionsFilters, setResubmissionsFilters] = useState(() => ({ ...RESUBMISSIONS_FILTER_DEFAULTS }));
+  const [contentionFilters, setContentionFilters] = useState(() => ({ ...CONTENTION_FILTER_DEFAULTS }));
+  const [approvedFilters, setApprovedFilters] = useState(() => ({ ...APPROVED_FILTER_DEFAULTS }));
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -201,18 +822,24 @@ export default function StaffDashboard() {
         approvedParams.set('approvedByUserId', approvedByFilter);
       }
 
-      const [pendingRes, approvedRes, contestedRes, queuedRes, deniedPendRes, resources] = await Promise.all([
-        axiosInstance.get('/bookings?status=pending_approval'),
+      const [pendingRes, approvedRes, approversRes, contestedRes, queuedRes, penciledRes, deniedPendRes, resources] = await Promise.all([
+        axiosInstance.get('/bookings?status=pending_approval&excludeRebookSourceDenied=true'),
         axiosInstance.get(`/bookings?${approvedParams.toString()}`),
+        axiosInstance.get('/bookings/approvers'),
         axiosInstance.get('/bookings?status=contested'),
         axiosInstance.get('/bookings?status=queued'),
+        axiosInstance.get('/bookings?status=penciled'),
         axiosInstance.get('/bookings?status=pending_approval&rebookSourceDenied=true'),
         fetchResources(),
       ]);
       setPendingBookings(pendingRes.data);
       setApprovedBookings(approvedRes.data);
+      setStaffApprovers(Array.isArray(approversRes.data) ? approversRes.data : []);
       setContestedBookings(contestedRes.data);
       setQueuedPencilBookings(queuedRes.data);
+      setActivePenciledContentions(
+        Array.isArray(penciledRes.data) ? penciledRes.data.filter(isActiveContentionBooking) : []
+      );
       setDeniedRebookPending(deniedPendRes.data);
       setEquipment(resources.equipment);
       setRooms(resources.rooms);
@@ -256,13 +883,144 @@ export default function StaffDashboard() {
     setActionError(null);
   };
 
-  const contentionWatchCount = contestedBookings.length + queuedPencilBookings.length;
+  const activeConflictGroups = useMemo(
+    () =>
+      computeActiveConflictGroups(
+        mergeUniqueBookings([...contestedBookings, ...queuedPencilBookings, ...activePenciledContentions]),
+        equipment,
+        rooms
+      ),
+    [contestedBookings, queuedPencilBookings, activePenciledContentions, equipment, rooms]
+  );
+  const activeConflictGroupCount = activeConflictGroups.length;
   const deniedRebookQueueCount = deniedRebookPending.length;
   const approverOptions = [...new Map(
-    approvedBookings
-      .filter((b) => b.approvedBy?.id)
-      .map((b) => [b.approvedBy.id, { id: b.approvedBy.id, email: b.approvedBy.email }])
+    staffApprovers
+      .filter((u) => u?.id && u?.email)
+      .map((u) => [u.id, { id: u.id, email: u.email }])
   ).values()].filter((opt) => opt.email !== user?.email);
+  const approvalsRequesterCategoryOptions = useMemo(() => {
+    const unique = [...new Set(
+      pendingBookings.map((booking) => booking.user?.userCategory).filter(Boolean)
+    )];
+    return unique.map((value) => ({ value, label: formatUserCategory(value) }));
+  }, [pendingBookings]);
+  const approvedRequesterCategoryOptions = useMemo(() => {
+    const unique = [...new Set(
+      approvedBookings.map((booking) => booking.user?.userCategory).filter(Boolean)
+    )];
+    return unique.map((value) => ({ value, label: formatUserCategory(value) }));
+  }, [approvedBookings]);
+  const sourceDeniedByOptions = useMemo(() => {
+    const map = new Map();
+    deniedRebookPending.forEach((booking) => {
+      const info = getSourceDeniedByInfo(booking);
+      if (!info) return;
+      map.set(info.id, info.email);
+    });
+    return [...map.entries()].map(([value, label]) => ({ value, label }));
+  }, [deniedRebookPending]);
+  const filteredPendingBookings = useMemo(() => {
+    const query = normalizeText(approvalsFilters.query);
+    const filtered = pendingBookings.filter((booking) => {
+      if (approvalsFilters.resourceType && booking.resourceType !== approvalsFilters.resourceType) return false;
+      if (approvalsFilters.requesterCategory && booking.user?.userCategory !== approvalsFilters.requesterCategory) return false;
+      if (approvalsFilters.startWindow && getStartWindowBucket(booking.startTime) !== approvalsFilters.startWindow) return false;
+      if (query) {
+        const searchable = [
+          String(booking.id),
+          getResourceName(booking, equipment, rooms),
+          booking.purpose || '',
+          booking.user?.email || '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
+      return true;
+    });
+    return sortBookingRows(filtered, approvalsFilters.sort);
+  }, [approvalsFilters, pendingBookings, equipment, rooms]);
+  const filteredDeniedRebookPending = useMemo(() => {
+    const query = normalizeText(resubmissionsFilters.query);
+    const filtered = deniedRebookPending.filter((booking) => {
+      if (resubmissionsFilters.resourceType && booking.resourceType !== resubmissionsFilters.resourceType) return false;
+      if (resubmissionsFilters.startWindow && getStartWindowBucket(booking.startTime) !== resubmissionsFilters.startWindow) return false;
+      if (resubmissionsFilters.sourceDeniedBy) {
+        const info = getSourceDeniedByInfo(booking);
+        if ((info?.id || 'unknown') !== resubmissionsFilters.sourceDeniedBy) return false;
+      }
+      if (query) {
+        const sourceInfo = getSourceDeniedByInfo(booking);
+        const searchable = [
+          String(booking.id),
+          getResourceName(booking, equipment, rooms),
+          booking.purpose || '',
+          booking.user?.email || '',
+          sourceInfo?.email || '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
+      return true;
+    });
+    return sortBookingRows(filtered, resubmissionsFilters.sort);
+  }, [resubmissionsFilters, deniedRebookPending, equipment, rooms]);
+  const filteredActiveConflictGroups = useMemo(() => {
+    const query = normalizeText(contentionFilters.query);
+    const participantEmailQuery = normalizeText(contentionFilters.participantEmail);
+    const filtered = activeConflictGroups.filter((group) => {
+      if (contentionFilters.resourceType && group.resourceType !== contentionFilters.resourceType) return false;
+      const { defenderBooking, challengerBooking } = getConflictParticipants(group);
+      const defenderEmail = defenderBooking?.user?.email || '';
+      const challengerEmail = challengerBooking?.user?.email || '';
+      if (participantEmailQuery) {
+        const participants = `${defenderEmail} ${challengerEmail}`.toLowerCase();
+        if (!participants.includes(participantEmailQuery)) return false;
+      }
+      if (query) {
+        const bookingIds = group.bookings.map((booking) => `#${booking.id}`).join(' ');
+        const searchable = [
+          group.resourceName,
+          group.resourceType,
+          defenderEmail,
+          challengerEmail,
+          bookingIds,
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
+      return true;
+    });
+    return sortConflictGroups(filtered, contentionFilters.sort);
+  }, [contentionFilters, activeConflictGroups]);
+  const filteredApprovedBookings = useMemo(() => {
+    const query = normalizeText(approvedFilters.query);
+    const filtered = approvedBookings.filter((booking) => {
+      if (approvedFilters.resourceType && booking.resourceType !== approvedFilters.resourceType) return false;
+      if (approvedFilters.requesterCategory && booking.user?.userCategory !== approvedFilters.requesterCategory) return false;
+      if (approvedFilters.approvedAtRange && !matchesApprovedAtRange(booking.approvedAt, approvedFilters.approvedAtRange)) return false;
+      if (approvedFilters.hasStaffRemark === 'with' && !booking.staffRemark) return false;
+      if (approvedFilters.hasStaffRemark === 'without' && booking.staffRemark) return false;
+      if (query) {
+        const searchable = [
+          String(booking.id),
+          getResourceName(booking, equipment, rooms),
+          booking.purpose || '',
+          booking.user?.email || '',
+          booking.approvedBy?.email || '',
+          booking.staffRemark || '',
+        ]
+          .join(' ')
+          .toLowerCase();
+        if (!searchable.includes(query)) return false;
+      }
+      return true;
+    });
+    return sortBookingRows(filtered, approvedFilters.sort);
+  }, [approvedFilters, approvedBookings, equipment, rooms]);
 
   if (loading) {
     return (
@@ -314,23 +1072,8 @@ export default function StaffDashboard() {
         >
           Pending Approvals
           {pendingBookings.length > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs w-5 h-5">
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-xs w-5 h-5">
               {pendingBookings.length}
-            </span>
-          )}
-        </button>
-        <button
-          onClick={() => setActiveTab('contention')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === 'contention'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          Pencil contention
-          {contentionWatchCount > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-xs min-w-5 h-5 px-1">
-              {contentionWatchCount}
             </span>
           )}
         </button>
@@ -342,10 +1085,25 @@ export default function StaffDashboard() {
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
-          Denied rebooks
+          Resubmissions
           {deniedRebookQueueCount > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-xs min-w-5 h-5 px-1">
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-violet-600 text-white text-xs min-w-5 h-5 px-1">
               {deniedRebookQueueCount}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('contention')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'contention'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          Active conflicts
+          {activeConflictGroupCount > 0 && (
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-xs min-w-5 h-5 px-1">
+              {activeConflictGroupCount}
             </span>
           )}
         </button>
@@ -369,6 +1127,17 @@ export default function StaffDashboard() {
       {/* Pending Approvals Tab */}
       {activeTab === 'approvals' && (
         <section className="space-y-3">
+          <Card className="border-muted">
+            <CardContent className="py-4">
+              <StaffBookingToolbar
+                tab="approvals"
+                filters={approvalsFilters}
+                defaultFilters={APPROVALS_FILTER_DEFAULTS}
+                onFiltersChange={setApprovalsFilters}
+                requesterCategoryOptions={approvalsRequesterCategoryOptions}
+              />
+            </CardContent>
+          </Card>
           {pendingBookings.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
@@ -377,8 +1146,15 @@ export default function StaffDashboard() {
                 <p className="text-sm mt-1">All firm bookings have been reviewed.</p>
               </CardContent>
             </Card>
+          ) : filteredPendingBookings.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No pending approvals match the current filters</p>
+              </CardContent>
+            </Card>
           ) : (
-            pendingBookings.map((booking) => (
+            filteredPendingBookings.map((booking) => (
               <ApprovalCard
                 key={booking.id}
                 booking={booking}
@@ -401,36 +1177,43 @@ export default function StaffDashboard() {
       {activeTab === 'contention' && (
         <section className="space-y-4">
           <Card className="border-muted">
-            <CardContent className="py-4 text-sm text-muted-foreground">
+            <CardContent className="py-4 text-sm text-muted-foreground space-y-3">
               <p className="text-foreground font-medium mb-1">Automated pencil contention</p>
               <p>
                 Overlapping pencil bookings are resolved automatically by timers and conversion to firm. Staff
-                no longer approve or deny contested pencils. Use this tab for situational awareness only.
+                no longer approve or deny contested pencils. Each card below summarizes one active contention group.
               </p>
+              <div className="text-foreground">
+                <StaffBookingToolbar
+                  tab="contention"
+                  filters={contentionFilters}
+                  defaultFilters={CONTENTION_FILTER_DEFAULTS}
+                  onFiltersChange={setContentionFilters}
+                />
+              </div>
             </CardContent>
           </Card>
-          {contentionWatchCount === 0 ? (
+          {activeConflictGroupCount === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No active pencil contests in the latest-attempt view</p>
-                <p className="text-sm mt-1">Contested or queued pencils will appear here when present.</p>
+                <p className="font-medium">No active conflicts in the latest-attempt view</p>
+                <p className="text-sm mt-1">Contention groups will appear here when present.</p>
+              </CardContent>
+            </Card>
+          ) : filteredActiveConflictGroups.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No active conflicts match the current filters</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-3">
-              {contestedBookings.map((booking) => (
-                <ContentionSnapshotCard
-                  key={`c-${booking.id}`}
-                  booking={booking}
-                  resourceName={getResourceName(booking, equipment, rooms)}
-                />
-              ))}
-              {queuedPencilBookings.map((booking) => (
-                <ContentionSnapshotCard
-                  key={`q-${booking.id}`}
-                  booking={booking}
-                  resourceName={getResourceName(booking, equipment, rooms)}
+              {filteredActiveConflictGroups.map((group) => (
+                <ActiveConflictGroupCard
+                  key={group.id}
+                  group={group}
                 />
               ))}
             </div>
@@ -442,30 +1225,20 @@ export default function StaffDashboard() {
         <section className="space-y-4">
           <Card className="border-muted">
             <CardContent className="py-4 space-y-3">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Master list of approved firm bookings. Use filters for personal review or staff-level audits.
-                </p>
-                <div className="flex items-center gap-2">
-                  <label htmlFor="approved-by-filter" className="text-sm text-muted-foreground">
-                    Approved by
-                  </label>
-                  <select
-                    id="approved-by-filter"
-                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                    value={approvedByFilter}
-                    onChange={(e) => setApprovedByFilter(e.target.value)}
-                  >
-                    <option value="">All staff</option>
-                    <option value="me">Me ({user?.email || 'current user'})</option>
-                    {approverOptions.map((opt) => (
-                      <option key={opt.id} value={String(opt.id)}>
-                        {opt.email}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Master list of approved firm bookings. Use filters for personal review or staff-level audits.
+              </p>
+              <StaffBookingToolbar
+                tab="approved"
+                filters={approvedFilters}
+                defaultFilters={APPROVED_FILTER_DEFAULTS}
+                onFiltersChange={setApprovedFilters}
+                requesterCategoryOptions={approvedRequesterCategoryOptions}
+                approvedByFilter={approvedByFilter}
+                onApprovedByFilterChange={setApprovedByFilter}
+                approverOptions={approverOptions}
+                currentUserEmail={user?.email || ''}
+              />
             </CardContent>
           </Card>
           {approvedBookings.length === 0 ? (
@@ -476,9 +1249,16 @@ export default function StaffDashboard() {
                 <p className="text-sm mt-1">Try changing filters or check again later.</p>
               </CardContent>
             </Card>
+          ) : filteredApprovedBookings.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No approved bookings match the current filters</p>
+              </CardContent>
+            </Card>
           ) : (
             <div className="space-y-3">
-              {approvedBookings.map((booking) => (
+              {filteredApprovedBookings.map((booking) => (
                 <ApprovedBookingCard
                   key={booking.id}
                   booking={booking}
@@ -492,24 +1272,42 @@ export default function StaffDashboard() {
 
       {activeTab === 'deniedRebooks' && (
         <section className="space-y-6">
-          <p className="text-sm text-muted-foreground">
-            Latest attempts that were rebooked after a <span className="font-medium text-foreground">denied</span>{' '}
-            decision (firm bookings pending approval).
-          </p>
+          <Card className="border-muted">
+            <CardContent className="py-4 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Latest attempts that were rebooked after a <span className="font-medium text-foreground">denied</span>{' '}
+                decision and are now waiting for staff review.
+              </p>
+              <StaffBookingToolbar
+                tab="resubmissions"
+                filters={resubmissionsFilters}
+                defaultFilters={RESUBMISSIONS_FILTER_DEFAULTS}
+                onFiltersChange={setResubmissionsFilters}
+                sourceDeniedByOptions={sourceDeniedByOptions}
+              />
+            </CardContent>
+          </Card>
           {deniedRebookQueueCount === 0 ? (
             <Card>
               <CardContent className="py-12 text-center text-muted-foreground">
                 <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                <p className="font-medium">No denied-origin rebooks in queue</p>
+                <p className="font-medium">No resubmissions in queue</p>
                 <p className="text-sm mt-1">Nothing needs attention here right now.</p>
+              </CardContent>
+            </Card>
+          ) : filteredDeniedRebookPending.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                <CheckCircle className="h-10 w-10 mx-auto mb-3 opacity-30" />
+                <p className="font-medium">No resubmissions match the current filters</p>
               </CardContent>
             </Card>
           ) : (
             <>
-              {deniedRebookPending.length > 0 && (
+              {filteredDeniedRebookPending.length > 0 && (
                 <div className="space-y-3">
                   <h2 className="text-sm font-semibold text-foreground">Pending approval</h2>
-                  {deniedRebookPending.map((booking) => (
+                  {filteredDeniedRebookPending.map((booking) => (
                     <ApprovalCard
                       key={booking.id}
                       booking={booking}
@@ -538,6 +1336,9 @@ export default function StaffDashboard() {
 function ApprovedBookingCard({ booking, resourceName }) {
   const approvedAt = booking.approvedAt ? format(new Date(booking.approvedAt), 'MMM d, yyyy h:mm a') : '—';
   const approvedBy = booking.approvedBy?.email || 'Unknown';
+  const requesterLine = booking.user?.userCategory
+    ? `${booking.user?.email || 'Unknown user'} (${formatUserCategory(booking.user.userCategory)})`
+    : booking.user?.email || 'Unknown user';
 
   return (
     <Card className="border-emerald-200/60">
@@ -549,22 +1350,24 @@ function ApprovedBookingCard({ booking, resourceName }) {
             <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
           </div>
           <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <Users className="h-3.5 w-3.5 flex-shrink-0" />
-            <span className="truncate">{booking.user?.email}</span>
+          <div className="space-y-1.5 pt-1">
+            <p className="text-sm">
+              <span className="font-medium text-foreground">Requester:</span>{' '}
+              <span className="text-muted-foreground">{requesterLine}</span>
+            </p>
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
+            </div>
           </div>
-          <div className="flex items-center gap-1 text-sm text-muted-foreground">
-            <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-            <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
-          </div>
-          <div className="pt-1 text-sm">
+          <div className="border-t border-border/70 pt-2 mt-1 text-xs text-muted-foreground space-y-1">
             <p>
-              <span className="font-medium">Approved by:</span>{' '}
-              <span className="text-muted-foreground">{approvedBy}</span>
+              <span className="font-medium text-foreground/80">Approved by:</span>{' '}
+              <span>{approvedBy}</span>
             </p>
             <p>
-              <span className="font-medium">Approved at:</span>{' '}
-              <span className="text-muted-foreground">{approvedAt}</span>
+              <span className="font-medium text-foreground/80">Approved at:</span>{' '}
+              <span>{approvedAt}</span>
             </p>
           </div>
           {booking.staffRemark && (
@@ -580,23 +1383,94 @@ function ApprovedBookingCard({ booking, resourceName }) {
   );
 }
 
-function ContentionSnapshotCard({ booking, resourceName }) {
+function ActiveConflictGroupCard({ group }) {
+  const [showDetails, setShowDetails] = useState(false);
+  const { defenderBooking, challengerBooking } = getConflictParticipants(group);
+  const defenderDeadline = group.urgencyAt ? format(new Date(group.urgencyAt), 'MMM d, yyyy h:mm a') : 'No active deadline';
+
   return (
     <Card className="border-orange-200/60">
-      <CardContent className="py-3 space-y-1.5">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-sm">#{booking.id}</span>
-          <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
-          <span className="text-sm font-medium truncate">{resourceName}</span>
+      <CardContent className="pt-4 pb-4 space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold">{group.resourceName}</span>
+              <span className="text-xs text-muted-foreground capitalize">{group.resourceType}</span>
+            </div>
+            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+              <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>{formatBookingDateRange(group.windowStart, group.windowEnd)}</span>
+            </div>
+          </div>
+          <div className="flex gap-1.5 flex-wrap justify-end">
+            <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-800">
+              Defender deadline: {defenderDeadline}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <Users className="h-3.5 w-3.5 flex-shrink-0" />
-          <span className="truncate">{booking.user?.email}</span>
+
+        <div className="rounded-md border border-orange-200/70 bg-orange-50/40 px-3 py-2 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-orange-900">Defender</span>
+            <span className="font-semibold text-sm">#{defenderBooking?.id || '—'}</span>
+            {defenderBooking ? (
+              <BookingStatusBadge status={defenderBooking.status} bookingType={defenderBooking.bookingType} />
+            ) : (
+              <span className="text-xs text-muted-foreground">Missing booking</span>
+            )}
+            <span className="text-sm text-muted-foreground">{defenderBooking?.user?.email || 'Unknown user'}</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-orange-900">Challenger</span>
+            <span className="font-semibold text-sm">#{challengerBooking?.id || '—'}</span>
+            {challengerBooking ? (
+              <BookingStatusBadge status={challengerBooking.status} bookingType={challengerBooking.bookingType} />
+            ) : (
+              <span className="text-xs text-muted-foreground">Missing booking</span>
+            )}
+            <span className="text-sm text-muted-foreground">{challengerBooking?.user?.email || 'Unknown user'}</span>
+          </div>
         </div>
-        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-          <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
-        </div>
+
+        <button
+          type="button"
+          onClick={() => setShowDetails((prev) => !prev)}
+          className="inline-flex items-center gap-1 text-xs font-medium text-orange-900"
+          aria-expanded={showDetails}
+        >
+          {showDetails ? 'Hide member bookings' : 'View member bookings'}
+          {showDetails ? (
+            <ChevronUp className="h-3.5 w-3.5" />
+          ) : (
+            <ChevronDown className="h-3.5 w-3.5" />
+          )}
+        </button>
+
+        {showDetails && (
+          <div className="rounded-md border border-orange-200/70 bg-orange-50/40 px-3 py-2 space-y-2">
+            {group.bookings.map((booking) => (
+              <div key={booking.id} className="space-y-1 border-b border-orange-100 pb-2 last:border-b-0 last:pb-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-sm">#{booking.id}</span>
+                  <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
+                  {booking.contentionRole && (
+                    <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[10px] font-medium capitalize text-orange-900 border border-orange-200">
+                      {booking.contentionRole}
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Users className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>{booking.user?.email || 'Unknown user'}</span>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+                  <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -1347,7 +1347,7 @@
       "get": {
         "tags": ["Bookings"],
         "summary": "Get bookings",
-        "description": "Returns bookings based on user role. Regular users see only their own bookings. Staff and admins see all bookings by default. Use mine=true to force own-bookings-only regardless of role. Supports filtering by status and resourceType. Staff/admin only: rebookSourceDenied=true limits results to latest thread attempts that were rebooked from a denied attempt (rebookedFromStatus=denied).",
+        "description": "Returns bookings based on user role. Regular users see only their own bookings. Staff and admins see all bookings by default. Use mine=true to force own-bookings-only regardless of role. Supports filtering by status and resourceType. Staff/admin only: rebookSourceDenied=true limits results to latest thread attempts that were rebooked from a denied attempt (rebookedFromStatus=denied). Use excludeRebookSourceDenied=true to exclude those denied-source resubmissions from broader queues (for example pending approvals).",
         "operationId": "getAllBookings",
         "security": [
           {
@@ -1386,6 +1386,15 @@
             "name": "rebookSourceDenied",
             "in": "query",
             "description": "When true, only return bookings whose prior attempt was denied (rebookedFromStatus=denied). Staff and system_admin only; returns 403 for other roles.",
+            "schema": {
+              "type": "boolean",
+              "example": true
+            }
+          },
+          {
+            "name": "excludeRebookSourceDenied",
+            "in": "query",
+            "description": "When true, exclude bookings rebooked from denied attempts (rebookedFromStatus=denied). Useful to keep pending_approval queues free of resubmissions while still querying resubmissions separately.",
             "schema": {
               "type": "boolean",
               "example": true

@@ -97,6 +97,7 @@ const THREAD_BOOKING_ATTRIBUTES = [
   'purpose',
   'staffRemark',
   'rebookedFromStatus',
+  'deniedByUserId',
   'createdAt',
 ];
 
@@ -114,6 +115,13 @@ const buildBookingIncludes = ({ includeThreadHistory = false } = {}) => {
     attributes: ['id', 'email', 'accountType', 'userCategory']
   });
 
+  includes.push({
+    model: User,
+    as: 'deniedBy',
+    required: false,
+    attributes: ['id', 'email', 'accountType', 'userCategory']
+  });
+
   if (includeThreadHistory) {
     includes.push({
       model: Booking,
@@ -124,6 +132,11 @@ const buildBookingIncludes = ({ includeThreadHistory = false } = {}) => {
       include: [{
         model: User,
         as: 'user',
+        attributes: ['id', 'email', 'accountType', 'userCategory']
+      }, {
+        model: User,
+        as: 'deniedBy',
+        required: false,
         attributes: ['id', 'email', 'accountType', 'userCategory']
       }]
     });
@@ -439,7 +452,25 @@ const createBooking = async (req, res) => {
     const otherPencilOverlaps = pencilOverlaps.filter(
       (c) => !(c.userId === userId && c.bookingType === 'pencil')
     );
-    const activeDefenderOverlap = otherPencilOverlaps.find((c) => c.contentionRole === 'defender');
+    const activeContentionOverlap = otherPencilOverlaps.find(
+      (c) => c.contentionRole === 'defender' || c.contentionRole === 'challenger'
+    );
+    const getActiveContentionDeadline = async (participant, overlaps) => {
+      if (!participant) return null;
+      if (participant.contentionRole === 'defender') return participant.contentionDeadlineAt || null;
+      if (participant.contentionRole === 'challenger' && participant.challengingBookingId) {
+        const linkedDefender = overlaps.find((c) => c.id === participant.challengingBookingId);
+        if (linkedDefender?.contentionDeadlineAt) return linkedDefender.contentionDeadlineAt;
+
+        // If only challenger overlaps the new slot, defender might be outside this overlap set.
+        // Fetch defender directly so UI can still show contention deadline.
+        const defender = await Booking.findByPk(participant.challengingBookingId, {
+          attributes: ['contentionDeadlineAt']
+        });
+        return defender?.contentionDeadlineAt || null;
+      }
+      return null;
+    };
 
     const formatConflicts = (list) =>
       list.map((c) => ({
@@ -491,11 +522,15 @@ const createBooking = async (req, res) => {
           conflicts: formatConflicts(ownPencilOverlaps)
         });
       }
-      if (activeDefenderOverlap) {
+      if (activeContentionOverlap) {
+        const contentionDeadlineAt = await getActiveContentionDeadline(
+          activeContentionOverlap,
+          otherPencilOverlaps
+        );
         return res.status(409).json({
           error: api.create.pencilActiveContentionLocked,
           code: 'ACTIVE_CONTENTION_LOCKED',
-          contentionDeadlineAt: activeDefenderOverlap.contentionDeadlineAt || null,
+          contentionDeadlineAt,
           conflicts: formatConflicts(otherPencilOverlaps)
         });
       }
@@ -630,11 +665,17 @@ const createBooking = async (req, res) => {
           end
         );
         const freshOther = freshPencilOverlaps.filter((c) => !(c.userId === userId && c.bookingType === 'pencil'));
-        const freshActiveDefender = freshOther.find((c) => c.contentionRole === 'defender');
+        const freshActiveContention = freshOther.find(
+          (c) => c.contentionRole === 'defender' || c.contentionRole === 'challenger'
+        );
+        const contentionDeadlineAt = await getActiveContentionDeadline(
+          freshActiveContention,
+          freshOther
+        );
         return res.status(409).json({
           error: api.create.pencilActiveContentionLocked,
           code: txnErr.code,
-          contentionDeadlineAt: freshActiveDefender?.contentionDeadlineAt || null,
+          contentionDeadlineAt,
           conflicts: formatConflicts(freshOther)
         });
       }
@@ -705,6 +746,9 @@ const getAllBookings = async (req, res) => {
         : null;
     const rebookSourceDenied =
       req.query.rebookSourceDenied === 'true' || req.query.rebookSourceDenied === true;
+    const excludeRebookSourceDenied =
+      req.query.excludeRebookSourceDenied === 'true' ||
+      req.query.excludeRebookSourceDenied === true;
 
     if (
       rebookSourceDenied &&
@@ -776,6 +820,14 @@ const getAllBookings = async (req, res) => {
     if (rebookSourceDenied) {
       finalWhereClause.rebookedFromStatus = 'denied';
     }
+    if (excludeRebookSourceDenied) {
+      finalWhereClause.rebookedFromStatus = {
+        [Op.or]: [
+          { [Op.ne]: 'denied' },
+          { [Op.is]: null }
+        ]
+      };
+    }
 
     if (status === 'approved') {
       if (approvedBy === 'me') {
@@ -813,6 +865,23 @@ const getAllBookings = async (req, res) => {
   } catch (error) {
     console.error('Error fetching bookings:', error);
     res.status(500).json({ error: api.list.fetchFailed });
+  }
+};
+
+const getBookingApprovers = async (req, res) => {
+  try {
+    const approvers = await User.findAll({
+      where: {
+        accountType: { [Op.in]: ['ptcf_staff', 'system_admin'] },
+      },
+      attributes: ['id', 'email', 'accountType'],
+      order: [['email', 'ASC']],
+    });
+
+    res.json(approvers);
+  } catch (error) {
+    console.error('Error fetching booking approvers:', error);
+    res.status(500).json({ error: 'Failed to fetch booking approvers.' });
   }
 };
 
@@ -1192,6 +1261,7 @@ const denyBooking = async (req, res) => {
       return res.status(400).json({ error: api.approve.invalidId });
     }
     const { staffRemark } = req.body;
+    const deniedByUserId = req.user.id;
 
     const booking = await Booking.findByPk(id, {
       attributes: ['id', 'status', 'bookingType', 'contentionRole']
@@ -1207,7 +1277,7 @@ const denyBooking = async (req, res) => {
       });
     }
 
-    const updatePayload = { status: 'denied' };
+    const updatePayload = { status: 'denied', deniedByUserId };
     if (staffRemark) {
       updatePayload.staffRemark = staffRemark;
     }
@@ -1234,12 +1304,10 @@ const denyBooking = async (req, res) => {
           lock: t.LOCK.UPDATE
         });
 
-        if (deniedRow.contentionRole === 'defender') {
-          await contention.onFirmDeniedOrCancelled(deniedRow, {
-            transaction: t,
-            Booking
-          });
-        }
+        await contention.onFirmDeniedOrCancelled(deniedRow, {
+          transaction: t,
+          Booking
+        });
       });
     } catch (txnErr) {
       if (txnErr.statusCode === 409) {
@@ -1405,6 +1473,7 @@ const getBookingConflicts = async (req, res) => {
 module.exports = {
   createBooking,
   getAllBookings,
+  getBookingApprovers,
   getBookingById,
   getAvailability,
   cancelBooking,

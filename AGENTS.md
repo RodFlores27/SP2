@@ -1,135 +1,211 @@
-# PTCF Project — Agent Reference Index
+# AGENTS.md
 
-This file is the single starting point for any AI assistant working on this project.
-Read this before doing anything else.
+This file is the single source of truth for AI agent behavior in the PTCF project.
+It consolidates prior rules from `.cursor/rules`.
 
----
+## 1) Start Here Before Substantive Work
 
-## What This Project Is
+Read these in order:
 
-**Room and Equipment Reservation System for UPLB ICropS Plant Tissue Culture Facility**
-using Event-Driven Architecture with Apache Kafka.
+1. `C:\BSCS\SP\SP2\AI briefing document.txt` (focus on **TODAY'S GOAL**)
+2. `AGENTS.md` (this file)
+3. `PROJECT-ORGANIZATION.md`
+4. `milestone_reports/README.md`
+5. `docs/workflows/milestone-sync-seal.md`
 
-- Academic solo SP2 project (CMSC 190), 4th year BSCS at UPLB
-- Client: PTCF facility administrator and staff
-- Solo developer with limited full-stack experience
+For small follow-up tweaks after a milestone is already wrapped, avoid reloading historical milestone reports/tests unless needed for debugging.
 
----
+## 2) Non-Negotiable Stack and Architecture Constraints
 
-## Read These Files First (in order)
+- Tailwind CSS v4 only:
+  - Use `@import "tailwindcss";`
+  - Use CSS-first customization with `@theme`
+  - Prefer `@tailwindcss/vite` (Vite) or `@tailwindcss/postcss` (PostCSS)
+  - Do not add v3 directives (`@tailwind base/components/utilities`) in v4 files
+  - Do not add `tailwind.config.js` for theme overrides in this project
+- React Router v7 patterns only (no v6-era `Switch`/`useHistory`)
+- Sequelize ORM for DB access and migrations (avoid raw SQL unless truly necessary)
+- React Hook Form + Zod for frontend forms
+- Cloudinary for uploads via `server/utils/cloudinary.js` (no local disk storage)
+- Resend for emails via `server/utils/email.js` (not nodemailer/mailgun/sendgrid)
 
-| File | Purpose |
-|------|---------|
-| `C:\BSCS\SP\SP2\AI briefing document.txt` | Project briefing, stack, current status, **TODAY'S GOAL** |
-| `PROJECT-ORGANIZATION.md` | Directory structure, naming conventions, seed test data |
-| `milestone_reports/README.md` | Index of all completed milestone reports |
-| `milestone_tests/README.md` | Index of all milestone verification test scripts |
-| `docs/workflows/milestone-sync-seal.md` | What to generate at the end of each milestone |
+## 3) Core Path and Runtime Map
 
----
+- Backend entry: `server/index.js` (port `4000`)
+- Frontend entry: `client/src/main.jsx` (port `5173`)
+- API prefix: `/api/`
+- Auth middleware: `server/middleware/auth.middleware.js`
+- Swagger source: `server/docs/swagger.json`
+- Swagger URL: `http://localhost:4000/api-docs`
 
-## Milestone Context
+## 4) Booking Domain Truths
 
-- **Cadence:** 1 milestone = 1 day of work
-- **Numbering:** Sequential across all weeks (Milestone 8 = Week 2 Day 1, Milestone 9 = Week 2 Day 2, etc.)
-- **Current week plan:** `docs/milestones/week2-daily-brief.md`
-- **Past weeks:** Add `docs/milestones/week{N}-daily-brief.md` as each week starts
+Valid booking statuses:
 
----
+- `penciled`
+- `contested`
+- `pending_approval`
+- `approved`
+- `denied`
+- `cancelled`
+- `expired`
 
-## Stack Summary
+There is no `confirmed` status.
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | React + Vite, Tailwind v4 (CSS-first), shadcn/ui, React Router v7, React Big Calendar, React Hook Form + Zod, Axios |
-| Backend | Node.js, Express.js, Sequelize ORM |
-| Database | PostgreSQL via Supabase |
-| Auth | JWT + bcrypt |
-| Storage | Cloudinary (images + authorization docs) |
-| Email | Resend |
-| Events | KafkaJS (planned for Week 3) |
-| Hosting | Vercel (frontend), Render (backend), UptimeRobot (keep-awake), Supabase (DB) |
+## 5) Booking User-Facing Copy Rules
 
----
+For booking-related user-visible text (UI labels, validation, toasts, dialogs, booking API messages users read, domain errors, booking emails):
 
-## Dev Commands
+- Do not leave long inline literals in components/controllers.
+- Centralize copy here:
+  - Client: `client/src/messages/bookingMessages.jsx`
+  - Server: `server/messages/bookingMessages.js`
+- `bookingMessages.js` in client is re-export compatibility only for `.js` importers.
+- Use descriptive keys and parameterized helper functions for dynamic text.
+- Avoid `dangerouslySetInnerHTML`; prefer JSX fragments (or plain strings where attributes require strings).
 
-```bash
-# Start backend (port 4000)
-cd server && npm run dev
+### My Bookings active warning/notice pattern
 
-# Start frontend (port 5173)
-cd client && npm run dev
+When implementing warning/alert/notice cards in `ActiveBookingCard`:
 
-# Run a milestone verification test (from project root)
-npm run test:milestone-{N}
+1. Place notices inside the booking info column, not floating top blocks.
+2. Show a short summary first.
+3. Use a `View details` / `Hide details` toggle for deeper explanation.
+4. Keep copy centralized under `myBookings.activeCard.alerts.*`.
+5. Keep icon/color/role semantics consistent.
+6. No long hardcoded inline literals.
 
-# Run all milestone tests
-npm run test:all
-```
+### Scope limits
 
----
+- Non-booking features should use their own messages module(s).
+- Developer-only strings (logs/internal assertions/comments) do not need cataloging.
+- Swagger descriptions stay in `server/docs/swagger.json` unless that same sentence is directly shown in UI.
 
-## Key File Paths
+## 6) Tailwind v4 Guidance
 
-| What | Where |
-|------|-------|
-| Backend entry | `server/index.js` |
-| Frontend entry | `client/src/main.jsx` |
-| Auth middleware | `server/middleware/auth.middleware.js` |
-| API routes | `server/routes/` |
-| Controllers | `server/controllers/` |
-| Sequelize models | `server/models/` |
-| DB migrations | `server/migrations/` |
-| Booking & contention transition catalog (IDs like P-01, F-01, EP-01; Section 13 changelog) | `docs/booking-transition-catalog-seed.md` |
-| Staff-facing booking rules (plain language) | `docs/booking-system-rules-staff.md` |
-| API docs (Swagger) | `server/docs/swagger.json` → rendered at `localhost:4000/api-docs` |
-| Frontend pages | `client/src/pages/` |
-| React components | `client/src/components/` |
-| **Booking user-visible copy (UI)** | `client/src/messages/bookingMessages.jsx` (source); `bookingMessages.js` re-exports for tooling |
-| **Booking user-visible copy (API, email, domain errors)** | `server/messages/bookingMessages.js` (`api`, `domain`, `email`; plain strings / string functions, no JSX) |
-| Global styles | `client/src/index.css` |
-| Cloudinary util | `server/utils/cloudinary.js` |
-| Email transport | `server/utils/email.js` |
+When editing frontend styles/components:
 
----
+- Assume v4 conventions unless repo state clearly indicates otherwise.
+- Use v4-native features (container queries, modern gradients, modern variants/data variants) before fallback patterns.
+- Do not add `content` scanning config by default in v4; rely on automatic detection.
+- Use `@source` in CSS only when classes are in paths excluded by default heuristics.
+- Preserve behavior during migration-like edits; avoid broad rewrites when intent is unclear.
 
-## Seed Test Users
+## 7) Database Reseed/Reset Commands (Local Dev)
 
-| Email | Password | Role |
-|-------|----------|------|
-| student@uplb.edu.ph | password123 | regular_user |
-| staff@uplb.edu.ph | staff123 | ptcf_staff |
-| admin@uplb.edu.ph | admin123 | system_admin |
+When suggesting DB reseed/reset/booking cleanup, use `npm run` scripts from:
 
----
+`C:\BSCS\SP\SP2\PTCF Project\server`
 
-## Naming Conventions
+Preferred scripts:
 
-| Artifact | Format | Location |
-|----------|--------|----------|
-| Test scripts | `milestone-{N}-{kebab-case}.js` | `milestone_tests/` |
-| Completion reports | `MILESTONE-{N}-COMPLETION-REPORT.md` | `milestone_reports/` |
-| Backend controllers | `{module}.controller.js` | `server/controllers/` |
-| Backend routes | `{module}.routes.js` | `server/routes/` |
-| Frontend pages | `{PageName}.jsx` (PascalCase) | `client/src/pages/` |
-| Frontend components | `{ComponentName}.jsx` (PascalCase) | `client/src/components/` |
+- `npm run seed:foundation:local` (users/equipment/rooms, no bookings)
+- `npm run seed:showcase:local` (showcase day bookings; foundation required first)
+- `npm run seed:calendar:demo:local` (clear bookings + showcase seeding)
+- `npm run clear:bookings` (delete all bookings rows only)
+- `npm run seed:all:local` (full seeders run)
+- `npm run reset:mvp-demo` (project-specific reset script)
 
----
+Do not invent ad-hoc Sequelize/Node reseed commands when a package script exists.
 
-## Deployment References
+## 8) Milestone Numbering and Wrap-up Protocol
 
-- **`RENDER-SUPABASE-DEPLOYMENT.md`** — Canonical full-stack deploy guide (Vercel + Render + Supabase + UptimeRobot)
-- `DEPLOYMENT-GUIDE.md` — Redirect only; points to the file above
+Milestones:
 
----
+- One milestone equals one day of work.
+- Number milestones sequentially across weeks.
+- Refer to milestones by number, not just date/day.
+- Check completion state in `milestone_reports/README.md`.
 
-## Important Notes
+### Sync & Seal (required when milestone implementation is done)
 
-- Tailwind v4 CSS-first: never use `tailwind.config.js` for theme tokens; use `@theme` in CSS instead.
-- All file uploads go through Cloudinary (`server/utils/cloudinary.js`). Never use local disk storage.
-- All emails go through Resend (`server/utils/email.js`). Not nodemailer, not mailgun, not SendGrid.
-- Firm bookings require staff approval (`pending_approval` → `approved`) **at least 24 hours before** the scheduled start; otherwise pending requests **`expired`** via cron. Approve, convert-to-firm, and create are blocked inside that 24-hour pre-start window. Firm cancellation is allowed anytime before start (including inside 24h). There is no `confirmed` status. A firm request may overlap other users’ pencils; those pencils are **`displaced` when staff approves** the firm—including after a **defender convert-to-firm** from contention—not at submit or at convert. Firm still cannot overlap another firm (`pending_approval` or `approved`). Overlapping pencil–pencil contention is automated (`contested` / `queued`); staff do not resolve pencil contests.
-- `server/docs/swagger.json` must be updated whenever API endpoints are added or modified.
-- After a **database re-seed** or demo reset, an old JWT may be rejected with **401** and `AUTH_USER_MISSING` (user id no longer exists). Sign in again. See `docs/booking-transition-catalog-seed.md` Section 13.2.
-- Documentation files may occasionally lag behind the actual codebase by a small margin.
+Produce all required artifacts:
+
+1. Verification test script:
+   - `milestone_tests/milestone-{N}-{kebab-case-name}.js`
+   - Must import and run `checkServerHealth` first
+   - Must include success and failure scenarios
+   - Use `✅` / `❌` indicators and final summary block
+2. Completion report:
+   - `milestone_reports/MILESTONE-{N}-COMPLETION-REPORT.md`
+   - Include requirements checklist, implementation summary, verification results, quality/security notes, readiness, next steps
+3. Update `milestone_tests/README.md`
+4. Update `milestone_reports/README.md`
+5. Update `PROJECT-ORGANIZATION.md` if structure changed
+6. Update root `package.json` with `"test:milestone-{N}": "node milestone_tests/milestone-{N}-{kebab-case}.js"`
+7. Update `server/docs/swagger.json` if API changed; verify docs rendering at `/api-docs`
+
+After artifacts are generated, run verification test and ensure it passes.
+
+For small post-wrap-up tweaks, only update what changed (typically current milestone test/report), unless explicitly asked for full historical refresh.
+
+## 9) Git/Commit Intent Guardrail
+
+If user asks to "create/make/prepare a commit message", treat it as draft-only:
+
+- Provide proposed message(s)
+- Do not run `git add`, `git commit`, or `git push`
+- Only execute commit commands if explicitly requested (e.g. "commit this now")
+- If intent is ambiguous, ask one-line clarification first
+
+## 10) Deployment Documentation Authority
+
+- Canonical deployment guide: `RENDER-SUPABASE-DEPLOYMENT.md`
+- `DEPLOYMENT-GUIDE.md` is a redirect/stub; do not duplicate full deployment instructions there
+
+## 11) Safety Do-Nots
+
+- Do not push secrets (`.env` files stay ignored).
+- Do not rename/delete existing milestone tests or completion reports.
+- Do not forget Swagger updates when API contracts change.
+
+## 12) How To Prompt Codex In This Repo
+
+Use this quick template when assigning tasks so implementation is fast and accurate.
+
+### Prompt Template
+
+- Goal: what feature/fix/change is needed
+- Scope: exact files/folders allowed to change
+- Non-scope: what must not be touched
+- Constraints: UI/UX, API, DB, validation, performance, deadline rules
+- Acceptance checks: concrete expected outcomes
+- Milestone context: milestone number and whether Sync & Seal is required
+
+Example:
+
+"Implement [feature] in [module].
+Edit only: [file paths].
+Do not modify: [file paths].
+Must follow: Tailwind v4, React Router v7, Sequelize-only DB access, booking message catalogs.
+Acceptance: [testable bullets].
+Milestone: [N], Sync & Seal: [yes/no]."
+
+### Strong Prompt Examples
+
+- "Add [behavior] in `client/src/...` and `server/src/...`; no schema changes."
+- "Refactor only for readability in `server/services/...`; no behavior changes."
+- "Fix bug in booking conflict flow; preserve existing API response shape."
+
+### For Large Tasks (Recommended)
+
+Ask Codex to do work in this order:
+
+1. Read context (`AGENTS.md`, current milestone goal, directly relevant files only)
+2. Share short plan
+3. Implement in small batches
+4. Run or describe verification
+5. Summarize changed files and why
+
+### If You Want Commit Text Only
+
+Say: "Draft commit message only."
+Codex should propose commit text and not run `git commit` unless explicitly asked.
+
+### If You Want Execution
+
+Say explicitly:
+
+- "Run the edits now"
+- "Apply the patch"
+- "Commit this now" (only when you truly want an actual commit command)

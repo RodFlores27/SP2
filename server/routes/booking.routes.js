@@ -4,6 +4,7 @@ const { authenticateToken, authorizeRoles } = require('../middleware/auth.middle
 const {
   createBooking,
   getAllBookings,
+  getBookingApprovers,
   getBookingById,
   getAvailability,
   cancelBooking,
@@ -41,6 +42,7 @@ router.get('/availability', getAvailability);
 
 router.post('/', authenticateToken, upload.single('authorizationDoc'), createBooking);
 router.get('/', authenticateToken, getAllBookings);
+router.get('/approvers', authenticateToken, authorizeRoles(['ptcf_staff', 'system_admin']), getBookingApprovers);
 router.get('/:id', authenticateToken, getBookingById);
 
 router.patch('/:id/cancel', authenticateToken, cancelBooking);
