@@ -242,3 +242,15 @@ These reports serve as:
 - Server startup logs Kafka disabled/enabled state without making Kafka mandatory
 - Kafka foundation check script (`npm run kafka:check` from `server`)
 - Milestone 14 verification script and local Kafka setup guide
+
+### Milestone 15: Booking Event Publishing
+**File:** `MILESTONE-15-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 27, 2026
+**Deliverables:**
+- Booking-specific Kafka event helper with lifecycle event constants
+- Booking controller publishes create, convert, approve, deny, cancel, contention-start, and displaced-slot-reopened events
+- Booking expiry job publishes expired and expiring-soon events
+- Event publishing is non-blocking relative to API responses and logs publish failures clearly
+- Existing Resend email calls remain in place for Milestone 16 migration
+- Milestone 15 verification script with disabled and live Kafka checks

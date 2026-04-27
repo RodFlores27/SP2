@@ -401,6 +401,26 @@ node milestone_tests/milestone-{number}-{description}.js
 - Opt-in Kafka startup path in `server/index.js`
 - Local setup guide in `docs/kafka-local-dev.md`
 
+### Milestone 15: Booking Event Publishing
+**File:** `milestone-15-booking-event-publishing.js`
+**Run:** `npm run test:milestone-15` (from project root; server on `http://localhost:4000`)
+
+**Tests:**
+- Server health check
+- Booking event type contract includes lifecycle events
+- Booking event data builder preserves booking metadata and payload
+- Booking controller publishes lifecycle events after successful DB actions
+- Cron expiry job publishes expiry and warning events
+- Publisher returns a controlled result whether Kafka is disabled or enabled
+- Optional live Kafka publish check when `KAFKA_ENABLED=true`
+
+**Technologies Verified:**
+- `server/utils/kafka/booking-events.js`
+- Booking event publishing from `server/controllers/booking.controller.js`
+- Expiry/warning event publishing from `server/jobs/booking-expiry.js`
+- Kafka topic `booking-events`
+- Event names: `booking.created`, `booking.approved`, `booking.denied`, `booking.cancelled`, `booking.expired`, `booking.expiring_soon`, `booking.contention_started`, `booking.converted_to_firm`, `booking.displaced_slot_reopened`
+
 ## Notes
 
 - Tests use axios for HTTP requests

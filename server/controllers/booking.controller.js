@@ -16,6 +16,10 @@ const {
   notifyContentionStarted,
   notifyDisplacedUsersSlotReopened,
 } = require('../utils/booking-notifications');
+const {
+  BOOKING_EVENT_TYPES,
+  publishBookingLifecycleEvent,
+} = require('../utils/kafka');
 const { computePencilExpiryAt, assertStartNotWithinLockHours, isWithinLockHours } = require('../utils/booking-rules');
 const contention = require('../services/contention.service');
 const { api } = require('../messages/bookingMessages');
@@ -713,6 +717,15 @@ const createBooking = async (req, res) => {
     res.status(201).json(response);
 
     const resourceName = await resolveResourceName(resourceType, resourceId);
+    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CREATED, createdBooking, {
+      actorUserId: userId,
+      resourceName,
+      payload: {
+        rebookedFromBookingId,
+        rebookedFromStatus,
+        cancelledPencilBookings,
+      },
+    });
     notifyBookingCreated(createdBooking, resourceName).catch(() => {});
 
     if (contentionResult?.action === 'challenger') {
@@ -723,6 +736,15 @@ const createBooking = async (req, res) => {
         include: [{ model: User, as: 'user' }]
       });
       if (freshBooking && defender) {
+        publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CONTENTION_STARTED, freshBooking, {
+          actorUserId: userId,
+          resourceName,
+          payload: {
+            defenderBookingId: defender.id,
+            challengerBookingId: freshBooking.id,
+            contentionDeadlineAt: defender.contentionDeadlineAt || null,
+          },
+        });
         notifyContentionStarted({ defender, challenger: freshBooking }, resourceName).catch(() => {});
       }
     }
@@ -1001,9 +1023,25 @@ const cancelBooking = async (req, res) => {
 
     const cancelledById = req.user.id;
     const resourceName = await resolveResourceName(booking.resourceType, booking.resourceId);
+    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CANCELLED, updated, {
+      actorUserId: cancelledById,
+      resourceName,
+      payload: {
+        cancelledByUserId: cancelledById,
+        displacedBookingsToNotify: displacedNotifyList.map((d) => d.id),
+      },
+    });
     notifyBookingCancelled(updated, resourceName, cancelledById).catch(() => {});
 
     for (const d of displacedNotifyList) {
+      publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.DISPLACED_SLOT_REOPENED, d, {
+        actorUserId: cancelledById,
+        resourceName,
+        payload: {
+          reopenedByBookingId: updated.id,
+          firmBookingId: updated.id,
+        },
+      });
       notifyDisplacedUsersSlotReopened(d, updated, resourceName).catch(() => {});
     }
   } catch (error) {
@@ -1157,6 +1195,16 @@ const convertToFirm = async (req, res) => {
       message: api.convert.successMessage,
       booking: updatedBooking
     });
+
+    const resourceName = await resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId);
+    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CONVERTED_TO_FIRM, updatedBooking, {
+      actorUserId: userId,
+      resourceName,
+      payload: {
+        previousBookingType: 'pencil',
+        previousStatus: booking.status,
+      },
+    });
   } catch (error) {
     console.error('Error converting booking to firm:', error);
     res.status(500).json({ error: api.convert.failed });
@@ -1246,6 +1294,14 @@ const approveBooking = async (req, res) => {
     });
 
     resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId).then((resourceName) => {
+      publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.APPROVED, updatedBooking, {
+        actorUserId: approverUserId,
+        resourceName,
+        payload: {
+          approvedByUserId: approverUserId,
+          approvedAt: updatedBooking.approvedAt || null,
+        },
+      });
       notifyBookingApproved(updatedBooking, resourceName).catch(() => {});
     });
   } catch (error) {
@@ -1326,6 +1382,13 @@ const denyBooking = async (req, res) => {
     });
 
     resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId).then((resourceName) => {
+      publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.DENIED, updatedBooking, {
+        actorUserId: deniedByUserId,
+        resourceName,
+        payload: {
+          deniedByUserId,
+        },
+      });
       notifyBookingDenied(updatedBooking, resourceName).catch(() => {});
     });
   } catch (error) {

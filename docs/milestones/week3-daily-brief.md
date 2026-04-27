@@ -103,7 +103,7 @@ Acceptance:
 ### Milestone 15 - Booking Event Publishing (Tue Apr 28)
 
 **Tags:** Backend, Kafka
-**Status:** Not started
+**Status:** Complete (completed Apr 27)
 
 - Publish booking lifecycle events after successful database changes.
 - Cover create, approve, deny, cancel, expiry, contention start, and displaced slot reopened.
@@ -200,7 +200,7 @@ Acceptance:
 | Milestone | Date | Focus | Tags | Status |
 | --------- | ---- | ----- | ---- | ------ |
 | 14 | Apr 27 | Kafka foundation | Backend, Kafka | Complete |
-| 15 | Apr 28 | Booking event publishing | Backend, Kafka | Not started |
+| 15 | Apr 28 | Booking event publishing | Backend, Kafka | Complete |
 | 16 | Apr 29 | Notification consumer | Backend, Kafka, Email | Not started |
 | 17 | Apr 30 | Audit log consumer | Backend, Kafka, Database | Not started |
 | 18 | May 1 | Analytics consumer + admin view | Backend, Frontend, Kafka | Not started |

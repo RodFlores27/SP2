@@ -18,7 +18,8 @@
     "test:milestone-12": "node milestone_tests/milestone-12-cron-and-admin.js",
     "test:milestone-13": "node milestone_tests/milestone-13-booking-contention-rules.js",
     "test:milestone-14": "node milestone_tests/milestone-14-kafka-foundation.js",
-    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3 && npm run test:milestone-4 && npm run test:milestone-5 && npm run test:milestone-6 && npm run test:milestone-7 && npm run test:milestone-8 && npm run test:milestone-9 && npm run test:milestone-10 && npm run test:milestone-11 && npm run test:milestone-12 && npm run test:milestone-13 && npm run test:milestone-14"
+    "test:milestone-15": "node milestone_tests/milestone-15-booking-event-publishing.js",
+    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3 && npm run test:milestone-4 && npm run test:milestone-5 && npm run test:milestone-6 && npm run test:milestone-7 && npm run test:milestone-8 && npm run test:milestone-9 && npm run test:milestone-10 && npm run test:milestone-11 && npm run test:milestone-12 && npm run test:milestone-13 && npm run test:milestone-14 && npm run test:milestone-15"
   },
   "repository": {
     "type": "git",

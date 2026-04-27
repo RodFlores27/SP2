@@ -59,3 +59,17 @@ For now, Kafka is used inside the existing modular monolith:
 - Kafka receives booking lifecycle events after successful app actions.
 - Consumers for notifications, audit logs, and analytics will be added in later milestones.
 - The app must still run when Kafka is disabled.
+
+## Booking Events
+
+Milestone 15 publishes these events to `booking-events`:
+
+- `booking.created`
+- `booking.approved`
+- `booking.denied`
+- `booking.cancelled`
+- `booking.expired`
+- `booking.expiring_soon`
+- `booking.contention_started`
+- `booking.converted_to_firm`
+- `booking.displaced_slot_reopened`
