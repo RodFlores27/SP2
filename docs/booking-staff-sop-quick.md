@@ -1,102 +1,95 @@
 # PTCF Booking Staff SOP (Quick Version)
 
-Use this as a fast operational guide for daily booking decisions.
-
-For full policy context, see:
-
-- `docs/booking-system-rules-staff.md`
-- `docs/booking-transition-catalog-v2.md` (technical)
+Use this as a fast daily guide when deciding on booking requests.
 
 ---
 
-## 1) Daily Priority Order
+## 1) What to handle first
 
-1. Process **firm bookings** in `pending_approval` first.
-2. Focus on requests nearest to the **24-hour pre-start cutoff**.
-3. Add clear `staffRemark` when denying.
-4. Re-check contested/helpdesk cases only after pending firms are handled.
-
----
-
-## 2) Hard Rules You Must Remember
-
-- No new booking (pencil or firm) can be created inside 24 hours before start.
-- Firm approval must happen before the same 24-hour boundary.
-- A firm still pending at the cutoff becomes `expired` automatically.
-- Do not manually choose winners in pencil-vs-pencil contention.
+1. Deal with firm booking requests that are still waiting for staff approval.
+2. Prioritize requests that are closest to the 24-hour cutoff before the booking start time.
+3. Add a clear note when denying a request.
+4. Handle contention and helpdesk issues after the waiting firm requests are cleared.
 
 ---
 
-## 3) Approve / Deny Decision Gate
+## 2) Rules to remember
 
-A booking is approvable only when all are true:
-
-- `bookingType = firm`
-- `status = pending_approval`
-- start time is still more than 24 hours away
-
-### If you APPROVE
-
-- Booking becomes `approved`.
-- Overlapping active pencils are displaced automatically.
-
-### If you DENY
-
-- Booking becomes `denied`.
-- No displacement is applied.
-- Overlapping `on_hold` pencils are rebuilt by system rules.
+- No new booking can be created if the start time is already within 24 hours.
+- Staff can only approve a firm booking while it is still more than 24 hours before the start time.
+- If a firm booking is still waiting when the cutoff is reached, it expires automatically.
+- Staff do not manually choose winners in pencil-to-pencil contention.
 
 ---
 
-## 4) What to Tell Users (Fast Script)
+## 3) Approve or deny
 
-### A) “Why was my pencil blocked?”
+A firm booking can be approved only when all of these are true:
 
-- If overlapping a firm (`pending_approval` or `approved`), pencil create is rejected.
-- If overlapping an active defender, system returns `ACTIVE_CONTENTION_LOCKED`.
+- It is a firm request.
+- It is still waiting for staff approval.
+- The start time is still more than 24 hours away.
 
-### B) “Why can’t I convert to firm?”
+### If you approve
 
-- Challengers cannot convert while they are challenger.
-- Conversion requires authorization document.
-- Conversion/approval must still respect 24-hour lock boundary.
+- The booking becomes approved.
+- Any overlapping pencil bookings are displaced automatically.
 
-### C) “Why was I displaced?”
+### If you deny
 
-- Displacement happens when an overlapping firm is approved.
-- It does not happen just because a firm was submitted.
-
-### D) “Why is my booking on hold?”
-
-- `on_hold` means a pencil is currently blocked by firm overlap.
-- can happen if a firm booking was created over your pencil or you lost a contention as challenger (defender converted to firm).
-- If blockers clear, system rebuilds it to `penciled` when eligible.
+- The booking becomes denied.
+- No pencil bookings are displaced.
+- Any on-hold pencil bookings are checked again by the system.
 
 ---
 
-## 5) Status Cheat Sheet (Staff View)
+## 4) What to tell users
 
-- `penciled` - active soft hold
-- `on_hold` - pencil blocked by pending approval firm overlap
-- `pending_approval` - waiting for staff decision
-- `approved` - accepted firm
-- `denied` - rejected firm
-- `cancelled` - cancelled booking row
-- `expired` - timed out by rules:
-  - failed to reach 'Approved' status before the 24-hour pre-start deadline.
-  - pencil exceeded 3-day expiry.
-- `displaced` - pencil removed due to approved firm or lost contention as defender
-- `completed` - approved firm finished (past end time)
+### A) Why was my pencil booking blocked?
 
-Legacy note:
+- If it overlaps a firm booking, the pencil booking cannot be created.
+- If it overlaps an active contention case, the system blocks it automatically.
 
-- `contested` may appear in old records; current contention logic uses `contentionRole` (`defender` / `challenger`).
+### B) Why can’t I convert it to a firm booking?
+
+- If booking is in contention, the challenger cannot convert while still in the challenger position, only defender can.
+- Conversion needs the required authorization document.
+- Conversion and approval must still follow the 24-hour cutoff rule.
+
+### C) Why was I displaced?
+
+- Displacement happens when:
+    - an overlapping firm booking is approved.
+    - a defender naturally (not due to cancellation) loses during contention.
+- It does not happen just because a firm booking was submitted.
+
+### D) Why is my booking on hold?
+
+- On hold means the pencil booking is temporarily blocked by a firm booking.
+- This can happen when someone creates a firm booking over an existing pencil booking.
+- It can also happen when a challenger loses because the defender converts to firm.
+- If the blocking booking is cancelled or denied, the system checks again and may restore the pencil booking or enter contention with existing pencils.
 
 ---
 
-## 6) End-of-Shift Quick Checklist
+## 5) Status cheat sheet
 
-- [ ] No urgent `pending_approval` firms near 24-hour cutoff left unresolved
-- [ ] Denials include helpful `staffRemark`
-- [ ] Team is aware of any user-facing contention/displacement incidents
-- [ ] Any demo reseed/reset was communicated (users may need to log in again)
+- Pencil booking: a soft hold on a slot
+- On hold: a pencil booking is temporarily blocked by a firm booking
+- Pending approval: the firm request is waiting for staff decision
+- Approved: the firm request has been accepted
+- Denied: the firm request has been rejected
+- Cancelled: the booking was cancelled
+- Expired: the booking timed out by rule
+- Displaced: the pencil booking was removed because another booking took the slot
+- Completed: the approved booking has finished
+
+Older records may still mention “contested,” but the current one-on-one contention system uses defender and challenger roles.
+
+---
+
+## 6) End-of-shift checklist
+
+- [ ] No firm requests close to the 24-hour cutoff were left unresolved
+- [ ] Denied requests include a clear note
+- [ ] The team knows about any user-facing contention or displacement issue
