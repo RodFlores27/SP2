@@ -38,7 +38,7 @@ PTCF Project/
 │   │   │   ├── Calendar.jsx     # Calendar view with availability
 │   │   │   ├── Dashboard.jsx    # User booking dashboard (protected)
 │   │   │   ├── StaffDashboard.jsx  # Staff approvals + conflict resolution (staff/admin only)
-│   │   │   ├── AdminPanel.jsx      # User management + role promotion (system_admin only)
+│   │   │   ├── AdminPanel.jsx      # User management + booking event analytics (system_admin only)
 │   │   │   ├── EquipmentDetail.jsx  # Equipment detail (protected)
 │   │   │   ├── EquipmentList.jsx    # Equipment listing (public)
 │   │   │   ├── Login.jsx        # Login page
@@ -57,7 +57,7 @@ PTCF Project/
 │   │   └── kafka.js             # KafkaJS env config and topic names
 │   ├── controllers/             # Route controllers
 │   │   ├── auth.controller.js   # Auth endpoints (register, login)
-│   │   ├── admin.controller.js  # Admin user management + audit log listing
+│   │   ├── admin.controller.js  # Admin user management, audit logs, and analytics
 │   │   ├── booking.controller.js    # Booking CRUD + conflict detection
 │   │   ├── equipment.controller.js  # Equipment CRUD operations
 │   │   └── room.controller.js   # Room CRUD operations
@@ -67,12 +67,12 @@ PTCF Project/
 │   ├── middleware/              # Auth & other middleware
 │   │   └── auth.middleware.js   # JWT auth & role-based authorization
 │   ├── migrations/              # Database migrations
-│   ├── models/                  # Sequelize models (includes booking + audit logs)
+│   ├── models/                  # Sequelize models (includes booking, audit logs, analytics events)
 │   ├── jobs/                    # Scheduled background jobs
 │   │   └── booking-expiry.js   # node-cron: auto-expire pencil bookings + 48hr/24hr warnings
 │   ├── routes/                  # API routes
 │   │   ├── auth.routes.js       # Auth routes
-│   │   ├── admin.routes.js      # Admin routes (system_admin only, users + audit logs)
+│   │   ├── admin.routes.js      # Admin routes (system_admin only, users, audit logs, analytics)
 │   │   ├── booking.routes.js    # Booking routes
 │   │   ├── equipment.routes.js  # Equipment routes
 │   │   └── room.routes.js       # Room routes
@@ -82,7 +82,7 @@ PTCF Project/
 │   └── utils/                   # Utility functions
 │       ├── cloudinary.js        # Cloudinary image upload utility
 │       ├── email.js             # Resend email transport wrapper
-│       ├── kafka/               # KafkaJS producer + booking event helpers + notification + audit consumers
+│       ├── kafka/               # KafkaJS producer + booking event helpers + notification/audit/analytics consumers
 │       └── booking-notifications.js  # Transactional email templates (created/approved/denied/cancelled/expired/expiringSoon)
 ├── docs/                        # Project planning and workflow docs
 │   ├── milestones/              # Weekly milestone plans and daily routine
@@ -165,6 +165,7 @@ npm run test:milestone-7    # Booking lifecycle & staff approval endpoints
 npm run test:milestone-8    # Calendar view & availability API
 npm run test:milestone-9    # Booking creation form
 npm run test:milestone-10   # User booking dashboard + Resend transactional emails
+npm run test:milestone-18   # Kafka analytics consumer + admin analytics endpoint
 
 # Run all milestone tests
 npm run test:all

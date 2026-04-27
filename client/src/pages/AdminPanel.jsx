@@ -8,7 +8,9 @@ import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import {
   AlertTriangle,
-  Lightbulb,
+  Activity,
+  BarChart3,
+  Clock3,
   RefreshCw,
   Search,
   Shield,
@@ -35,6 +37,15 @@ const EMPTY_ROLE_DIALOG = {
   email: '',
   fromRole: '',
   toRole: '',
+};
+
+const EMPTY_ANALYTICS = {
+  totalEvents: 0,
+  countsByEventType: [],
+  countsByResourceType: [],
+  countsByBookingType: [],
+  countsByStatus: [],
+  recentEvents: [],
 };
 
 function roleChangeConsequence(fromRole, toRole) {
@@ -93,6 +104,51 @@ function formatUserCategory(cat) {
     .join(' ');
 }
 
+function formatAnalyticsLabel(label) {
+  if (!label) return 'Unspecified';
+  return String(label)
+    .replace(/^booking\./, '')
+    .replaceAll('_', ' ')
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function CountList({ title, items }) {
+  const maxCount = Math.max(...items.map((item) => item.count), 1);
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <BarChart3 className="h-4 w-4" />
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {items.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No events recorded yet.</p>
+        ) : (
+          items.map((item) => (
+            <div key={item.label} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3 text-sm">
+                <span className="font-medium truncate">{formatAnalyticsLabel(item.label)}</span>
+                <span className="text-muted-foreground">{item.count}</span>
+              </div>
+              <div className="h-2 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary"
+                  style={{ width: `${Math.max((item.count / maxCount) * 100, 8)}%` }}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function AdminPanel() {
   const { user } = useAuth();
 
@@ -109,6 +165,9 @@ export default function AdminPanel() {
   const [deleteError, setDeleteError] = useState(null);
 
   const [roleDialog, setRoleDialog] = useState(EMPTY_ROLE_DIALOG);
+  const [analytics, setAnalytics] = useState(EMPTY_ANALYTICS);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [analyticsError, setAnalyticsError] = useState(null);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -124,9 +183,28 @@ export default function AdminPanel() {
     }
   }, []);
 
-  useEffect(() => {
+  const fetchAnalytics = useCallback(async () => {
+    setAnalyticsLoading(true);
+    setAnalyticsError(null);
+    try {
+      const res = await axiosInstance.get('/admin/analytics');
+      setAnalytics({ ...EMPTY_ANALYTICS, ...res.data });
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+      setAnalyticsError('Failed to load analytics. Please try again.');
+    } finally {
+      setAnalyticsLoading(false);
+    }
+  }, []);
+
+  const refreshAdminData = useCallback(() => {
     fetchUsers();
-  }, [fetchUsers]);
+    fetchAnalytics();
+  }, [fetchUsers, fetchAnalytics]);
+
+  useEffect(() => {
+    refreshAdminData();
+  }, [refreshAdminData]);
 
   const handleRoleChange = async (userId, newRole) => {
     setRoleLoading(userId);
@@ -190,16 +268,13 @@ export default function AdminPanel() {
           <p className="text-sm text-muted-foreground mt-1">
             {user?.email} &mdash; System Admin
           </p>
-          <div className="mt-3 flex gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-            <Lightbulb className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
-            <p>
-              <span className="font-medium text-foreground">Coming soon:</span>{' '}
-              audit logs for administrative actions, plus reporting and analytics for facility
-              utilization.
-            </p>
-          </div>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading}>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={refreshAdminData}
+          disabled={loading || analyticsLoading}
+        >
           <RefreshCw className="h-4 w-4 mr-2" />
           Refresh
         </Button>
@@ -230,6 +305,15 @@ export default function AdminPanel() {
           </button>
         </div>
       )}
+      {analyticsError && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+          <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <span>{analyticsError}</span>
+          <button onClick={() => setAnalyticsError(null)} className="ml-auto text-amber-700 hover:text-amber-900">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Stats summary */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -244,6 +328,73 @@ export default function AdminPanel() {
           </Card>
         ))}
       </div>
+
+      {/* Analytics */}
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Activity className="h-4 w-4" />
+                Booking Event Analytics
+              </CardTitle>
+              <p className="text-sm text-muted-foreground mt-1">
+                Counts are populated by the Kafka analytics consumer from booking lifecycle events.
+              </p>
+            </div>
+            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+              <p className="text-xs text-muted-foreground">Total events</p>
+              <p className="text-2xl font-bold">{analytics.totalEvents}</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {analyticsLoading ? (
+            <LoadingSpinner />
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <CountList title="By Event Type" items={analytics.countsByEventType} />
+                <CountList title="By Status" items={analytics.countsByStatus} />
+                <CountList title="By Resource Type" items={analytics.countsByResourceType} />
+                <CountList title="By Booking Type" items={analytics.countsByBookingType} />
+              </div>
+
+              <div className="rounded-lg border border-border overflow-hidden">
+                <div className="px-4 py-3 bg-muted/40 flex items-center gap-2">
+                  <Clock3 className="h-4 w-4" />
+                  <h3 className="text-sm font-semibold">Recent Event Summaries</h3>
+                </div>
+                {analytics.recentEvents.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground text-sm">
+                    No analytics events recorded yet.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {analytics.recentEvents.map((event) => (
+                      <div key={event.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">
+                            {formatAnalyticsLabel(event.eventType)}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Booking #{event.bookingId ?? 'n/a'} - {formatAnalyticsLabel(event.resourceType)} - {formatAnalyticsLabel(event.bookingType)} - {formatAnalyticsLabel(event.status)}
+                          </p>
+                        </div>
+                        <div className="text-xs text-muted-foreground sm:text-right">
+                          {event.occurredAt
+                            ? format(new Date(event.occurredAt), 'MMM d, yyyy h:mm a')
+                            : 'Unknown time'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
 
       {/* User list */}
       <Card>

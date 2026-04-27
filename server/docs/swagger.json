@@ -51,7 +51,9 @@
   "paths": {
     "/health": {
       "get": {
-        "tags": ["Health"],
+        "tags": [
+          "Health"
+        ],
         "summary": "Check server health",
         "description": "Returns the current status of the server and confirms it's running.",
         "operationId": "checkHealth",
@@ -81,7 +83,9 @@
     },
     "/auth/register": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "Register a new user",
         "description": "Creates a new user account. Email must be unique. Password is hashed using bcrypt. No JWT token is returned (login-only JWT pattern).",
         "operationId": "registerUser",
@@ -179,7 +183,9 @@
     },
     "/auth/login": {
       "post": {
-        "tags": ["Authentication"],
+        "tags": [
+          "Authentication"
+        ],
         "summary": "User login",
         "description": "Authenticates a user and returns a JWT token for subsequent authenticated requests.",
         "operationId": "loginUser",
@@ -271,7 +277,9 @@
     },
     "/auth/me": {
       "get": {
-        "tags": ["User"],
+        "tags": [
+          "User"
+        ],
         "summary": "Get current user info",
         "description": "Returns the authenticated user's profile information. Requires a valid JWT token.",
         "operationId": "getCurrentUser",
@@ -323,7 +331,9 @@
     },
     "/auth/staff-only": {
       "get": {
-        "tags": ["User"],
+        "tags": [
+          "User"
+        ],
         "summary": "Staff-only endpoint (Test)",
         "description": "Test endpoint accessible only to PTCF staff and system administrators. Used for role-based access control verification.",
         "operationId": "staffOnlyTest",
@@ -380,7 +390,9 @@
     },
     "/auth/admin-only": {
       "get": {
-        "tags": ["User"],
+        "tags": [
+          "User"
+        ],
         "summary": "Admin-only endpoint (Test)",
         "description": "Test endpoint accessible only to system administrators. Used for role-based access control verification.",
         "operationId": "adminOnlyTest",
@@ -437,7 +449,9 @@
     },
     "/equipment": {
       "get": {
-        "tags": ["Equipment"],
+        "tags": [
+          "Equipment"
+        ],
         "summary": "Get all equipment",
         "description": "Returns a list of all equipment items. Accessible to all authenticated users.",
         "operationId": "getAllEquipment",
@@ -466,7 +480,9 @@
         }
       },
       "post": {
-        "tags": ["Equipment"],
+        "tags": [
+          "Equipment"
+        ],
         "summary": "Create new equipment",
         "description": "Creates a new equipment item with optional image upload. Requires staff or admin role.",
         "operationId": "createEquipment",
@@ -481,7 +497,11 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "required": ["name", "category", "description"],
+                "required": [
+                  "name",
+                  "category",
+                  "description"
+                ],
                 "properties": {
                   "name": {
                     "type": "string",
@@ -500,7 +520,11 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["available", "unavailable", "maintenance"],
+                    "enum": [
+                      "available",
+                      "unavailable",
+                      "maintenance"
+                    ],
                     "description": "Availability status (optional, defaults to 'available')",
                     "example": "available"
                   },
@@ -559,7 +583,9 @@
     },
     "/equipment/{id}": {
       "get": {
-        "tags": ["Equipment"],
+        "tags": [
+          "Equipment"
+        ],
         "summary": "Get equipment by ID",
         "description": "Returns a single equipment item by ID. Accessible to all authenticated users.",
         "operationId": "getEquipmentById",
@@ -610,7 +636,9 @@
         }
       },
       "put": {
-        "tags": ["Equipment"],
+        "tags": [
+          "Equipment"
+        ],
         "summary": "Update equipment",
         "description": "Updates an existing equipment item. Can optionally update the image. Requires staff or admin role.",
         "operationId": "updateEquipment",
@@ -652,7 +680,11 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["available", "unavailable", "maintenance"],
+                    "enum": [
+                      "available",
+                      "unavailable",
+                      "maintenance"
+                    ],
                     "description": "Availability status (optional)"
                   },
                   "image": {
@@ -705,7 +737,9 @@
         }
       },
       "delete": {
-        "tags": ["Equipment"],
+        "tags": [
+          "Equipment"
+        ],
         "summary": "Delete equipment",
         "description": "Deletes an equipment item by ID. Requires staff or admin role.",
         "operationId": "deleteEquipment",
@@ -764,7 +798,9 @@
     },
     "/rooms": {
       "get": {
-        "tags": ["Rooms"],
+        "tags": [
+          "Rooms"
+        ],
         "summary": "Get all rooms",
         "description": "Returns a list of all rooms. Accessible to all authenticated users.",
         "operationId": "getAllRooms",
@@ -793,7 +829,9 @@
         }
       },
       "post": {
-        "tags": ["Rooms"],
+        "tags": [
+          "Rooms"
+        ],
         "summary": "Create new room",
         "description": "Creates a new room with optional image upload. Requires staff or admin role.",
         "operationId": "createRoom",
@@ -808,7 +846,12 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "required": ["name", "description", "location", "capacity"],
+                "required": [
+                  "name",
+                  "description",
+                  "location",
+                  "capacity"
+                ],
                 "properties": {
                   "name": {
                     "type": "string",
@@ -832,7 +875,11 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["available", "unavailable", "maintenance"],
+                    "enum": [
+                      "available",
+                      "unavailable",
+                      "maintenance"
+                    ],
                     "description": "Availability status (optional, defaults to 'available')",
                     "example": "available"
                   },
@@ -891,7 +938,9 @@
     },
     "/rooms/{id}": {
       "get": {
-        "tags": ["Rooms"],
+        "tags": [
+          "Rooms"
+        ],
         "summary": "Get room by ID",
         "description": "Returns a single room by ID. Accessible to all authenticated users.",
         "operationId": "getRoomById",
@@ -942,7 +991,9 @@
         }
       },
       "put": {
-        "tags": ["Rooms"],
+        "tags": [
+          "Rooms"
+        ],
         "summary": "Update room",
         "description": "Updates an existing room. Can optionally update the image. Requires staff or admin role.",
         "operationId": "updateRoom",
@@ -988,7 +1039,11 @@
                   },
                   "status": {
                     "type": "string",
-                    "enum": ["available", "unavailable", "maintenance"],
+                    "enum": [
+                      "available",
+                      "unavailable",
+                      "maintenance"
+                    ],
                     "description": "Availability status (optional)"
                   },
                   "image": {
@@ -1041,7 +1096,9 @@
         }
       },
       "delete": {
-        "tags": ["Rooms"],
+        "tags": [
+          "Rooms"
+        ],
         "summary": "Delete room",
         "description": "Deletes a room by ID. Requires staff or admin role.",
         "operationId": "deleteRoom",
@@ -1100,7 +1157,9 @@
     },
     "/bookings/availability": {
       "get": {
-        "tags": ["Bookings"],
+        "tags": [
+          "Bookings"
+        ],
         "summary": "Get booking availability",
         "description": "Returns bookings for calendar display. Public endpoint (no authentication required). Excludes cancelled, denied, and expired bookings. Does not include sensitive user information.",
         "operationId": "getAvailability",
@@ -1111,7 +1170,10 @@
             "description": "Filter by resource type",
             "schema": {
               "type": "string",
-              "enum": ["equipment", "room"]
+              "enum": [
+                "equipment",
+                "room"
+              ]
             }
           },
           {
@@ -1173,7 +1235,9 @@
     },
     "/bookings": {
       "post": {
-        "tags": ["Bookings"],
+        "tags": [
+          "Bookings"
+        ],
         "summary": "Create a new booking",
         "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention plus expectedWillBeQueued matching the prior 409 when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings cannot start within 24 hours of now. Firm pending requests must be staff-approved before that same 24-hour cutoff or they expire automatically.",
         "operationId": "createBooking",
@@ -1218,11 +1282,20 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "required": ["resourceType", "resourceId", "bookingType", "startTime", "endTime"],
+                "required": [
+                  "resourceType",
+                  "resourceId",
+                  "bookingType",
+                  "startTime",
+                  "endTime"
+                ],
                 "properties": {
                   "resourceType": {
                     "type": "string",
-                    "enum": ["equipment", "room"],
+                    "enum": [
+                      "equipment",
+                      "room"
+                    ],
                     "description": "Type of resource to book"
                   },
                   "resourceId": {
@@ -1231,7 +1304,10 @@
                   },
                   "bookingType": {
                     "type": "string",
-                    "enum": ["pencil", "firm"],
+                    "enum": [
+                      "pencil",
+                      "firm"
+                    ],
                     "description": "Booking type (pencil = tentative, firm = confirmed)"
                   },
                   "startTime": {
@@ -1250,17 +1326,26 @@
                   },
                   "confirmOverlapOwn": {
                     "type": "string",
-                    "enum": ["true", "false"],
+                    "enum": [
+                      "true",
+                      "false"
+                    ],
                     "description": "Firm: confirm superseding own pencils (multipart sends string)"
                   },
                   "confirmContention": {
                     "type": "string",
-                    "enum": ["true", "false"],
+                    "enum": [
+                      "true",
+                      "false"
+                    ],
                     "description": "Pencil: confirm challenging another pencil"
                   },
                   "expectedWillBeQueued": {
                     "type": "string",
-                    "enum": ["true", "false"],
+                    "enum": [
+                      "true",
+                      "false"
+                    ],
                     "description": "With confirmContention when overlaps exist: must match prior 409 `willBeQueued` (string booleans for multipart)"
                   },
                   "authorizationDoc": {
@@ -1345,7 +1430,9 @@
         }
       },
       "get": {
-        "tags": ["Bookings"],
+        "tags": [
+          "Bookings"
+        ],
         "summary": "Get bookings",
         "description": "Returns bookings based on user role. Regular users see only their own bookings. Staff and admins see all bookings by default. Use mine=true to force own-bookings-only regardless of role. Supports filtering by status and resourceType. Staff/admin only: rebookSourceDenied=true limits results to latest thread attempts that were rebooked from a denied attempt (rebookedFromStatus=denied). Use excludeRebookSourceDenied=true to exclude those denied-source resubmissions from broader queues (for example pending approvals).",
         "operationId": "getAllBookings",
@@ -1361,7 +1448,18 @@
             "description": "Filter by booking status",
             "schema": {
               "type": "string",
-              "enum": ["penciled", "on_hold", "contested", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"]
+              "enum": [
+                "penciled",
+                "on_hold",
+                "contested",
+                "pending_approval",
+                "approved",
+                "denied",
+                "cancelled",
+                "expired",
+                "displaced",
+                "completed"
+              ]
             }
           },
           {
@@ -1370,7 +1468,10 @@
             "description": "Filter by resource type",
             "schema": {
               "type": "string",
-              "enum": ["equipment", "room"]
+              "enum": [
+                "equipment",
+                "room"
+              ]
             }
           },
           {
@@ -1433,7 +1534,9 @@
     },
     "/bookings/{id}": {
       "get": {
-        "tags": ["Bookings"],
+        "tags": [
+          "Bookings"
+        ],
         "summary": "Get booking by ID",
         "description": "Returns a single booking by ID. Users can only view their own bookings unless they are staff or admin.",
         "operationId": "getBookingById",
@@ -1499,7 +1602,9 @@
     },
     "/bookings/{id}/cancel": {
       "patch": {
-        "tags": ["Bookings"],
+        "tags": [
+          "Bookings"
+        ],
         "summary": "Cancel a booking",
         "description": "Cancels a booking. Users can cancel their own bookings; staff can cancel any booking. Firm bookings in pending_approval or approved are cancellable anytime before start (including within 24 hours).",
         "operationId": "cancelBooking",
@@ -1597,7 +1702,9 @@
     },
     "/bookings/{id}/convert-to-firm": {
       "patch": {
-        "tags": ["Bookings"],
+        "tags": [
+          "Bookings"
+        ],
         "summary": "Convert pencil booking to firm",
         "description": "Converts a pencil booking to firm. Send a new authorization file to upload, or omit the file when the pencil booking already has an authorization document on file (that document is kept). Optional multipart field `purpose` updates the booking purpose. Re-checks for conflicts before conversion. Sets status to `pending_approval` awaiting staff review.",
         "operationId": "convertToFirm",
@@ -1746,7 +1853,9 @@
     },
     "/bookings/{id}/approve": {
       "patch": {
-        "tags": ["Bookings"],
+        "tags": [
+          "Bookings"
+        ],
         "summary": "Approve a booking (Staff only)",
         "description": "Approves a firm booking in pending_approval only. Approve is rejected once the start time is within 24 hours (same lock as create/cancel/convert). Overlapping pencil bookings become displaced (automated). Staff and system_admin only. Optional staff remark.",
         "operationId": "approveBooking",
@@ -1866,7 +1975,9 @@
     },
     "/bookings/{id}/conflicts": {
       "get": {
-        "tags": ["Bookings"],
+        "tags": [
+          "Bookings"
+        ],
         "summary": "Get conflicts for a booking (Staff only)",
         "description": "Returns bookings that overlap this booking's resource and time window per scheduling rules (firm blockers and active pencils). Useful for staff review alongside calendar data.",
         "operationId": "getBookingConflicts",
@@ -1925,7 +2036,9 @@
     },
     "/bookings/{id}/deny": {
       "patch": {
-        "tags": ["Bookings"],
+        "tags": [
+          "Bookings"
+        ],
         "summary": "Deny a booking (Staff only)",
         "description": "Denies a booking. Only staff and admin can deny bookings. Optional staff remark can be included to explain the denial reason.",
         "operationId": "denyBooking",
@@ -2033,11 +2146,17 @@
     },
     "/admin/users": {
       "get": {
-        "tags": ["Admin"],
+        "tags": [
+          "Admin"
+        ],
         "summary": "List all users (Admin only)",
         "description": "Returns all registered users with their id, email, accountType, userCategory, and createdAt. Requires system_admin role.",
         "operationId": "listUsers",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Array of user objects",
@@ -2048,36 +2167,64 @@
                   "items": {
                     "type": "object",
                     "properties": {
-                      "id": { "type": "integer", "example": 1 },
-                      "email": { "type": "string", "example": "user@uplb.edu.ph" },
-                      "accountType": { "type": "string", "example": "regular_user" },
-                      "userCategory": { "type": "string", "example": "student" },
-                      "createdAt": { "type": "string", "format": "date-time" }
+                      "id": {
+                        "type": "integer",
+                        "example": 1
+                      },
+                      "email": {
+                        "type": "string",
+                        "example": "user@uplb.edu.ph"
+                      },
+                      "accountType": {
+                        "type": "string",
+                        "example": "regular_user"
+                      },
+                      "userCategory": {
+                        "type": "string",
+                        "example": "student"
+                      },
+                      "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                      }
                     }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/UnauthorizedError" },
-          "403": { "$ref": "#/components/responses/ForbiddenError" }
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          }
         }
       }
     },
     "/admin/users/{id}/role": {
       "patch": {
-        "tags": ["Admin"],
+        "tags": [
+          "Admin"
+        ],
         "summary": "Update user role (Admin only)",
         "description": "Promotes or demotes a user's accountType. Admin cannot change their own role.",
         "operationId": "updateUserRole",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
             "description": "User ID",
-            "schema": { "type": "integer", "example": 2 }
+            "schema": {
+              "type": "integer",
+              "example": 2
+            }
           }
         ],
         "requestBody": {
@@ -2086,11 +2233,17 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": ["accountType"],
+                "required": [
+                  "accountType"
+                ],
                 "properties": {
                   "accountType": {
                     "type": "string",
-                    "enum": ["regular_user", "ptcf_staff", "system_admin"],
+                    "enum": [
+                      "regular_user",
+                      "ptcf_staff",
+                      "system_admin"
+                    ],
                     "example": "ptcf_staff"
                   }
                 }
@@ -2106,14 +2259,25 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": { "type": "string", "example": "User role updated successfully" },
+                    "message": {
+                      "type": "string",
+                      "example": "User role updated successfully"
+                    },
                     "user": {
                       "type": "object",
                       "properties": {
-                        "id": { "type": "integer" },
-                        "email": { "type": "string" },
-                        "accountType": { "type": "string" },
-                        "userCategory": { "type": "string" }
+                        "id": {
+                          "type": "integer"
+                        },
+                        "email": {
+                          "type": "string"
+                        },
+                        "accountType": {
+                          "type": "string"
+                        },
+                        "userCategory": {
+                          "type": "string"
+                        }
                       }
                     }
                   }
@@ -2125,17 +2289,25 @@
             "description": "Invalid role or self-demotion attempt",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/UnauthorizedError" },
-          "403": { "$ref": "#/components/responses/ForbiddenError" },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
           "404": {
             "description": "User not found",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           }
@@ -2144,39 +2316,59 @@
     },
     "/admin/audit-logs": {
       "get": {
-        "tags": ["Admin"],
+        "tags": [
+          "Admin"
+        ],
         "summary": "List recent audit logs (Admin only)",
         "description": "Returns recent append-only booking event audit entries. Supports filtering by eventType, bookingId, actorUserId, and limit.",
         "operationId": "listAuditLogs",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "limit",
             "in": "query",
             "required": false,
             "description": "Maximum rows to return (1 to 200, default 50)",
-            "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 }
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
           },
           {
             "name": "eventType",
             "in": "query",
             "required": false,
             "description": "Filter by booking event type",
-            "schema": { "type": "string", "example": "booking.created" }
+            "schema": {
+              "type": "string",
+              "example": "booking.created"
+            }
           },
           {
             "name": "bookingId",
             "in": "query",
             "required": false,
             "description": "Filter by booking ID",
-            "schema": { "type": "integer", "example": 123 }
+            "schema": {
+              "type": "integer",
+              "example": 123
+            }
           },
           {
             "name": "actorUserId",
             "in": "query",
             "required": false,
             "description": "Filter by actor user ID",
-            "schema": { "type": "integer", "example": 1 }
+            "schema": {
+              "type": "integer",
+              "example": 1
+            }
           }
         ],
         "responses": {
@@ -2187,46 +2379,131 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "count": { "type": "integer", "example": 2 },
+                    "count": {
+                      "type": "integer",
+                      "example": 2
+                    },
                     "logs": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "id": { "type": "integer", "example": 45 },
-                          "eventId": { "type": "string", "example": "f5f7a1ee-80b0-4318-91fd-f4f8d3f654bf" },
-                          "eventType": { "type": "string", "example": "booking.created" },
-                          "occurredAt": { "type": "string", "format": "date-time" },
-                          "topic": { "type": "string", "example": "booking-events" },
-                          "partition": { "type": "integer", "example": 0, "nullable": true },
-                          "offset": { "type": "string", "example": "98", "nullable": true },
-                          "actorUserId": { "type": "integer", "nullable": true },
-                          "bookingId": { "type": "integer", "nullable": true },
-                          "resourceType": { "type": "string", "enum": ["equipment", "room"], "nullable": true },
-                          "resourceId": { "type": "integer", "nullable": true },
-                          "bookingType": { "type": "string", "enum": ["pencil", "firm"], "nullable": true },
-                          "status": { "type": "string", "nullable": true },
-                          "payload": { "type": "object" },
-                          "createdAt": { "type": "string", "format": "date-time" },
-                          "updatedAt": { "type": "string", "format": "date-time" },
+                          "id": {
+                            "type": "integer",
+                            "example": 45
+                          },
+                          "eventId": {
+                            "type": "string",
+                            "example": "f5f7a1ee-80b0-4318-91fd-f4f8d3f654bf"
+                          },
+                          "eventType": {
+                            "type": "string",
+                            "example": "booking.created"
+                          },
+                          "occurredAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "topic": {
+                            "type": "string",
+                            "example": "booking-events"
+                          },
+                          "partition": {
+                            "type": "integer",
+                            "example": 0,
+                            "nullable": true
+                          },
+                          "offset": {
+                            "type": "string",
+                            "example": "98",
+                            "nullable": true
+                          },
+                          "actorUserId": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "bookingId": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "resourceType": {
+                            "type": "string",
+                            "enum": [
+                              "equipment",
+                              "room"
+                            ],
+                            "nullable": true
+                          },
+                          "resourceId": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "bookingType": {
+                            "type": "string",
+                            "enum": [
+                              "pencil",
+                              "firm"
+                            ],
+                            "nullable": true
+                          },
+                          "status": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "payload": {
+                            "type": "object"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "updatedAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
                           "actor": {
                             "type": "object",
                             "nullable": true,
                             "properties": {
-                              "id": { "type": "integer" },
-                              "email": { "type": "string", "format": "email" },
-                              "accountType": { "type": "string" }
+                              "id": {
+                                "type": "integer"
+                              },
+                              "email": {
+                                "type": "string",
+                                "format": "email"
+                              },
+                              "accountType": {
+                                "type": "string"
+                              }
                             }
                           },
                           "booking": {
                             "type": "object",
                             "nullable": true,
                             "properties": {
-                              "id": { "type": "integer" },
-                              "resourceType": { "type": "string", "enum": ["equipment", "room"] },
-                              "resourceId": { "type": "integer" },
-                              "bookingType": { "type": "string", "enum": ["pencil", "firm"] },
-                              "status": { "type": "string" }
+                              "id": {
+                                "type": "integer"
+                              },
+                              "resourceType": {
+                                "type": "string",
+                                "enum": [
+                                  "equipment",
+                                  "room"
+                                ]
+                              },
+                              "resourceId": {
+                                "type": "integer"
+                              },
+                              "bookingType": {
+                                "type": "string",
+                                "enum": [
+                                  "pencil",
+                                  "firm"
+                                ]
+                              },
+                              "status": {
+                                "type": "string"
+                              }
                             }
                           }
                         }
@@ -2241,29 +2518,44 @@
             "description": "Invalid query parameter",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/UnauthorizedError" },
-          "403": { "$ref": "#/components/responses/ForbiddenError" }
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          }
         }
       }
     },
     "/admin/users/{id}": {
       "delete": {
-        "tags": ["Admin"],
+        "tags": [
+          "Admin"
+        ],
         "summary": "Delete a user account (Admin only)",
         "description": "Permanently deletes a user account. Admin cannot delete their own account.",
         "operationId": "deleteUser",
-        "security": [{ "bearerAuth": [] }],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
             "description": "User ID",
-            "schema": { "type": "integer", "example": 2 }
+            "schema": {
+              "type": "integer",
+              "example": 2
+            }
           }
         ],
         "responses": {
@@ -2274,7 +2566,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": { "type": "string", "example": "User deleted successfully" }
+                    "message": {
+                      "type": "string",
+                      "example": "User deleted successfully"
+                    }
                   }
                 }
               }
@@ -2284,19 +2579,187 @@
             "description": "Cannot delete own account",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/UnauthorizedError" },
-          "403": { "$ref": "#/components/responses/ForbiddenError" },
+          "401": {
+            "$ref": "#/components/responses/UnauthorizedError"
+          },
+          "403": {
+            "$ref": "#/components/responses/ForbiddenError"
+          },
           "404": {
             "description": "User not found",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
               }
             }
+          }
+        }
+      }
+    },
+    "/admin/analytics": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Get booking event analytics (Admin only)",
+        "description": "Returns simple event-count analytics populated by the Kafka analytics consumer. Includes counts by event type, resource type, booking type, booking status, and recent event summaries.",
+        "operationId": "getAdminAnalytics",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics fetched successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "totalEvents": {
+                      "type": "integer",
+                      "example": 12
+                    },
+                    "countsByEventType": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string",
+                            "example": "booking.created"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "example": 4
+                          }
+                        }
+                      }
+                    },
+                    "countsByResourceType": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string",
+                            "example": "equipment"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "example": 8
+                          }
+                        }
+                      }
+                    },
+                    "countsByBookingType": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string",
+                            "example": "pencil"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "example": 6
+                          }
+                        }
+                      }
+                    },
+                    "countsByStatus": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string",
+                            "example": "penciled"
+                          },
+                          "count": {
+                            "type": "integer",
+                            "example": 3
+                          }
+                        }
+                      }
+                    },
+                    "recentEvents": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "integer",
+                            "example": 1
+                          },
+                          "eventId": {
+                            "type": "string",
+                            "example": "018f-event-id"
+                          },
+                          "eventType": {
+                            "type": "string",
+                            "example": "booking.created"
+                          },
+                          "occurredAt": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "actorUserId": {
+                            "type": "integer",
+                            "nullable": true,
+                            "example": 1
+                          },
+                          "bookingId": {
+                            "type": "integer",
+                            "nullable": true,
+                            "example": 123
+                          },
+                          "resourceType": {
+                            "type": "string",
+                            "nullable": true,
+                            "example": "equipment"
+                          },
+                          "resourceId": {
+                            "type": "integer",
+                            "nullable": true,
+                            "example": 2
+                          },
+                          "bookingType": {
+                            "type": "string",
+                            "nullable": true,
+                            "example": "pencil"
+                          },
+                          "status": {
+                            "type": "string",
+                            "nullable": true,
+                            "example": "penciled"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - Requires system_admin role"
+          },
+          "500": {
+            "description": "Failed to fetch analytics"
           }
         }
       }
@@ -2306,7 +2769,11 @@
     "schemas": {
       "RegisterRequest": {
         "type": "object",
-        "required": ["email", "password", "accountType"],
+        "required": [
+          "email",
+          "password",
+          "accountType"
+        ],
         "properties": {
           "email": {
             "type": "string",
@@ -2322,13 +2789,25 @@
           },
           "accountType": {
             "type": "string",
-            "enum": ["regular_user", "ptcf_staff", "system_admin"],
+            "enum": [
+              "regular_user",
+              "ptcf_staff",
+              "system_admin"
+            ],
             "description": "User role for access control",
             "example": "regular_user"
           },
           "userCategory": {
             "type": "string",
-            "enum": ["student", "faculty", "researcher", "research_assistant", "lab_technician", "external", "others"],
+            "enum": [
+              "student",
+              "faculty",
+              "researcher",
+              "research_assistant",
+              "lab_technician",
+              "external",
+              "others"
+            ],
             "description": "User category for classification (optional)",
             "example": "student"
           }
@@ -2366,7 +2845,10 @@
       },
       "LoginRequest": {
         "type": "object",
-        "required": ["email", "password"],
+        "required": [
+          "email",
+          "password"
+        ],
         "properties": {
           "email": {
             "type": "string",
@@ -2460,12 +2942,24 @@
           },
           "accountType": {
             "type": "string",
-            "enum": ["regular_user", "ptcf_staff", "system_admin"],
+            "enum": [
+              "regular_user",
+              "ptcf_staff",
+              "system_admin"
+            ],
             "description": "User role for access control"
           },
           "userCategory": {
             "type": "string",
-            "enum": ["student", "faculty", "researcher", "research_assistant", "lab_technician", "external", "others"],
+            "enum": [
+              "student",
+              "faculty",
+              "researcher",
+              "research_assistant",
+              "lab_technician",
+              "external",
+              "others"
+            ],
             "description": "User category for classification"
           },
           "createdAt": {
@@ -2507,7 +3001,11 @@
           },
           "status": {
             "type": "string",
-            "enum": ["available", "unavailable", "maintenance"],
+            "enum": [
+              "available",
+              "unavailable",
+              "maintenance"
+            ],
             "description": "Availability status"
           },
           "createdAt": {
@@ -2553,7 +3051,11 @@
           },
           "status": {
             "type": "string",
-            "enum": ["available", "unavailable", "maintenance"],
+            "enum": [
+              "available",
+              "unavailable",
+              "maintenance"
+            ],
             "description": "Availability status"
           },
           "createdAt": {
@@ -2583,7 +3085,10 @@
           },
           "resourceType": {
             "type": "string",
-            "enum": ["equipment", "room"],
+            "enum": [
+              "equipment",
+              "room"
+            ],
             "description": "Type of resource being booked"
           },
           "resourceId": {
@@ -2592,12 +3097,26 @@
           },
           "bookingType": {
             "type": "string",
-            "enum": ["pencil", "firm"],
+            "enum": [
+              "pencil",
+              "firm"
+            ],
             "description": "Pencil = tentative (can overlap), Firm = confirmed (no overlaps allowed)"
           },
           "status": {
             "type": "string",
-            "enum": ["penciled", "on_hold", "contested", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"],
+            "enum": [
+              "penciled",
+              "on_hold",
+              "contested",
+              "pending_approval",
+              "approved",
+              "denied",
+              "cancelled",
+              "expired",
+              "displaced",
+              "completed"
+            ],
             "description": "Current booking status (pencil: penciled/on_hold/contested/displaced; firm: pending_approval/approved/denied/cancelled/expired)"
           },
           "startTime": {
@@ -2657,11 +3176,23 @@
             "nullable": true,
             "description": "Populated on list/detail when the displacing firm row exists (id, status, bookingType, times)",
             "properties": {
-              "id": { "type": "integer" },
-              "status": { "type": "string" },
-              "bookingType": { "type": "string" },
-              "startTime": { "type": "string", "format": "date-time" },
-              "endTime": { "type": "string", "format": "date-time" }
+              "id": {
+                "type": "integer"
+              },
+              "status": {
+                "type": "string"
+              },
+              "bookingType": {
+                "type": "string"
+              },
+              "startTime": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "endTime": {
+                "type": "string",
+                "format": "date-time"
+              }
             }
           },
           "canRebook": {
@@ -2682,7 +3213,11 @@
               },
               "episodeStatus": {
                 "type": "string",
-                "enum": ["open", "awaiting_firm", "closed"]
+                "enum": [
+                  "open",
+                  "awaiting_firm",
+                  "closed"
+                ]
               },
               "deadlineAt": {
                 "type": "string",
@@ -2697,12 +3232,30 @@
                 "items": {
                   "type": "object",
                   "properties": {
-                    "id": { "type": "integer" },
-                    "startTime": { "type": "string", "format": "date-time" },
-                    "endTime": { "type": "string", "format": "date-time" },
-                    "status": { "type": "string" },
-                    "bookingType": { "type": "string", "enum": ["pencil", "firm"] },
-                    "isCurrentDefender": { "type": "boolean" }
+                    "id": {
+                      "type": "integer"
+                    },
+                    "startTime": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "endTime": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "bookingType": {
+                      "type": "string",
+                      "enum": [
+                        "pencil",
+                        "firm"
+                      ]
+                    },
+                    "isCurrentDefender": {
+                      "type": "boolean"
+                    }
                   }
                 }
               }
@@ -2713,22 +3266,47 @@
             "nullable": true,
             "description": "When contentionRole is 'defender': challenger and contention group metadata for My Bookings.",
             "properties": {
-              "episodeId": { "type": "integer" },
-              "episodeStatus": { "type": "string", "enum": ["open", "awaiting_firm", "closed"] },
-              "deadlineAt": { "type": "string", "format": "date-time", "nullable": true },
+              "episodeId": {
+                "type": "integer"
+              },
+              "episodeStatus": {
+                "type": "string",
+                "enum": [
+                  "open",
+                  "awaiting_firm",
+                  "closed"
+                ]
+              },
+              "deadlineAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
               "challengedBy": {
                 "type": "object",
                 "nullable": true,
                 "properties": {
-                  "bookingId": { "type": "integer" },
-                  "startTime": { "type": "string", "format": "date-time" },
-                  "endTime": { "type": "string", "format": "date-time" },
+                  "bookingId": {
+                    "type": "integer"
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
                   "user": {
                     "type": "object",
                     "nullable": true,
                     "properties": {
-                      "id": { "type": "integer" },
-                      "email": { "type": "string" }
+                      "id": {
+                        "type": "integer"
+                      },
+                      "email": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -2740,26 +3318,52 @@
             "nullable": true,
             "description": "When contentionRole is 'queued': waitlist position, rows ahead, and active defender/challenger in the contention group.",
             "properties": {
-              "episodeId": { "type": "integer" },
-              "episodeStatus": { "type": "string" },
-              "deadlineAt": { "type": "string", "format": "date-time", "nullable": true },
-              "position": { "type": "integer" },
-              "queueLength": { "type": "integer" },
+              "episodeId": {
+                "type": "integer"
+              },
+              "episodeStatus": {
+                "type": "string"
+              },
+              "deadlineAt": {
+                "type": "string",
+                "format": "date-time",
+                "nullable": true
+              },
+              "position": {
+                "type": "integer"
+              },
+              "queueLength": {
+                "type": "integer"
+              },
               "aheadInQueue": {
                 "type": "array",
                 "items": {
                   "type": "object",
                   "properties": {
-                    "position": { "type": "integer" },
-                    "bookingId": { "type": "integer" },
-                    "startTime": { "type": "string", "format": "date-time" },
-                    "endTime": { "type": "string", "format": "date-time" },
+                    "position": {
+                      "type": "integer"
+                    },
+                    "bookingId": {
+                      "type": "integer"
+                    },
+                    "startTime": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "endTime": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
                     "user": {
                       "type": "object",
                       "nullable": true,
                       "properties": {
-                        "id": { "type": "integer" },
-                        "email": { "type": "string" }
+                        "id": {
+                          "type": "integer"
+                        },
+                        "email": {
+                          "type": "string"
+                        }
                       }
                     }
                   }
@@ -2769,17 +3373,33 @@
                 "type": "object",
                 "nullable": true,
                 "properties": {
-                  "bookingId": { "type": "integer" },
-                  "startTime": { "type": "string", "format": "date-time" },
-                  "endTime": { "type": "string", "format": "date-time" },
-                  "status": { "type": "string" },
-                  "bookingType": { "type": "string" },
+                  "bookingId": {
+                    "type": "integer"
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "bookingType": {
+                    "type": "string"
+                  },
                   "user": {
                     "type": "object",
                     "nullable": true,
                     "properties": {
-                      "id": { "type": "integer" },
-                      "email": { "type": "string" }
+                      "id": {
+                        "type": "integer"
+                      },
+                      "email": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -2788,17 +3408,33 @@
                 "type": "object",
                 "nullable": true,
                 "properties": {
-                  "bookingId": { "type": "integer" },
-                  "startTime": { "type": "string", "format": "date-time" },
-                  "endTime": { "type": "string", "format": "date-time" },
-                  "status": { "type": "string" },
-                  "bookingType": { "type": "string" },
+                  "bookingId": {
+                    "type": "integer"
+                  },
+                  "startTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endTime": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "status": {
+                    "type": "string"
+                  },
+                  "bookingType": {
+                    "type": "string"
+                  },
                   "user": {
                     "type": "object",
                     "nullable": true,
                     "properties": {
-                      "id": { "type": "integer" },
-                      "email": { "type": "string" }
+                      "id": {
+                        "type": "integer"
+                      },
+                      "email": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -2841,11 +3477,25 @@
                 },
                 "bookingType": {
                   "type": "string",
-                  "enum": ["pencil", "firm"]
+                  "enum": [
+                    "pencil",
+                    "firm"
+                  ]
                 },
                 "status": {
                   "type": "string",
-                  "enum": ["penciled", "on_hold", "contested", "pending_approval", "approved", "denied", "cancelled", "expired", "displaced", "completed"]
+                  "enum": [
+                    "penciled",
+                    "on_hold",
+                    "contested",
+                    "pending_approval",
+                    "approved",
+                    "denied",
+                    "cancelled",
+                    "expired",
+                    "displaced",
+                    "completed"
+                  ]
                 },
                 "startTime": {
                   "type": "string",
@@ -2907,7 +3557,10 @@
           },
           "resourceType": {
             "type": "string",
-            "enum": ["equipment", "room"],
+            "enum": [
+              "equipment",
+              "room"
+            ],
             "description": "Type of resource"
           },
           "resourceId": {
@@ -2916,12 +3569,21 @@
           },
           "bookingType": {
             "type": "string",
-            "enum": ["pencil", "firm"],
+            "enum": [
+              "pencil",
+              "firm"
+            ],
             "description": "Booking type"
           },
           "status": {
             "type": "string",
-            "enum": ["penciled", "on_hold", "contested", "pending_approval", "approved"],
+            "enum": [
+              "penciled",
+              "on_hold",
+              "contested",
+              "pending_approval",
+              "approved"
+            ],
             "description": "Booking status for calendar display (excludes terminal statuses including displaced, cancelled, denied, expired, completed)"
           },
           "startTime": {
@@ -2945,7 +3607,10 @@
           },
           "contentionRole": {
             "type": "string",
-            "enum": ["defender", "challenger"],
+            "enum": [
+              "defender",
+              "challenger"
+            ],
             "nullable": true,
             "description": "1v1 contention role (defender = challenged holder, challenger = active challenger)."
           },
@@ -2958,11 +3623,20 @@
       },
       "CreateBookingRequest": {
         "type": "object",
-        "required": ["resourceType", "resourceId", "bookingType", "startTime", "endTime"],
+        "required": [
+          "resourceType",
+          "resourceId",
+          "bookingType",
+          "startTime",
+          "endTime"
+        ],
         "properties": {
           "resourceType": {
             "type": "string",
-            "enum": ["equipment", "room"],
+            "enum": [
+              "equipment",
+              "room"
+            ],
             "description": "Type of resource to book"
           },
           "resourceId": {
@@ -2971,7 +3645,10 @@
           },
           "bookingType": {
             "type": "string",
-            "enum": ["pencil", "firm"],
+            "enum": [
+              "pencil",
+              "firm"
+            ],
             "description": "Booking type (pencil = tentative, firm = confirmed)"
           },
           "startTime": {
@@ -3103,22 +3780,42 @@
               "properties": {
                 "role": {
                   "type": "string",
-                  "enum": ["defender", "challenger", "queued"]
+                  "enum": [
+                    "defender",
+                    "challenger",
+                    "queued"
+                  ]
                 },
                 "queuePosition": {
                   "type": "integer",
                   "description": "Set when role is queued (ContentionQueueItems.position)"
                 },
-                "id": { "type": "integer" },
-                "bookingType": { "type": "string" },
-                "status": { "type": "string" },
-                "startTime": { "type": "string", "format": "date-time" },
-                "endTime": { "type": "string", "format": "date-time" },
+                "id": {
+                  "type": "integer"
+                },
+                "bookingType": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "startTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "endTime": {
+                  "type": "string",
+                  "format": "date-time"
+                },
                 "user": {
                   "type": "object",
                   "properties": {
-                    "id": { "type": "integer" },
-                    "email": { "type": "string" }
+                    "id": {
+                      "type": "integer"
+                    },
+                    "email": {
+                      "type": "string"
+                    }
                   }
                 }
               }

@@ -158,7 +158,7 @@ Acceptance:
 ### Milestone 18 - Analytics Consumer + Admin View (Fri May 1)
 
 **Tags:** Backend, Frontend, Kafka  
-**Status:** Not started
+**Status:** Complete (completed Apr 27)
 
 - Add analytics consumer group: `analytics-consumer`.
 - Keep analytics simple: counts by event type, resource type, booking type, and booking status.
@@ -203,7 +203,7 @@ Acceptance:
 | 15 | Apr 28 | Booking event publishing | Backend, Kafka | Complete |
 | 16 | Apr 29 | Notification consumer | Backend, Kafka, Email | Complete |
 | 17 | Apr 30 | Audit log consumer | Backend, Kafka, Database | Complete |
-| 18 | May 1 | Analytics consumer + admin view | Backend, Frontend, Kafka | Not started |
+| 18 | May 1 | Analytics consumer + admin view | Backend, Frontend, Kafka | Complete |
 | 19 | May 2 | End-to-end verification + docs | Kafka, Testing, Documentation | Not started |
 
 ---

@@ -1,6 +1,6 @@
 'use strict';
 
-const { AuditLog, Booking, User } = require('../models');
+const { AuditLog, Booking, BookingAnalyticsEvent, Sequelize, User } = require('../models');
 
 const ALLOWED_ROLES = ['regular_user', 'ptcf_staff', 'system_admin'];
 
@@ -134,4 +134,81 @@ const listAuditLogs = async (req, res) => {
   }
 };
 
-module.exports = { listUsers, updateUserRole, deleteUser, listAuditLogs };
+function normalizeGroupedCounts(rows, keyName) {
+  return rows
+    .filter((row) => row[keyName] !== null && row[keyName] !== undefined && row[keyName] !== '')
+    .map((row) => ({
+      label: row[keyName],
+      count: Number(row.count),
+    }));
+}
+
+async function countBy(fieldName) {
+  const rows = await BookingAnalyticsEvent.findAll({
+    attributes: [
+      [Sequelize.col(fieldName), fieldName],
+      [Sequelize.fn('COUNT', Sequelize.col('id')), 'count'],
+    ],
+    group: [fieldName],
+    order: [[Sequelize.literal('count'), 'DESC'], [fieldName, 'ASC']],
+    raw: true,
+  });
+  return normalizeGroupedCounts(rows, fieldName);
+}
+
+const getAnalytics = async (req, res) => {
+  try {
+    const [
+      totalEvents,
+      countsByEventType,
+      countsByResourceType,
+      countsByBookingType,
+      countsByStatus,
+      recentEvents,
+    ] = await Promise.all([
+      BookingAnalyticsEvent.count(),
+      countBy('eventType'),
+      countBy('resourceType'),
+      countBy('bookingType'),
+      countBy('status'),
+      BookingAnalyticsEvent.findAll({
+        limit: 10,
+        order: [['occurredAt', 'DESC'], ['id', 'DESC']],
+        include: [
+          {
+            model: User,
+            as: 'actor',
+            required: false,
+            attributes: ['id', 'email', 'accountType'],
+          },
+          {
+            model: Booking,
+            as: 'booking',
+            required: false,
+            attributes: ['id', 'resourceType', 'resourceId', 'bookingType', 'status'],
+          },
+        ],
+      }),
+    ]);
+
+    res.json({
+      totalEvents,
+      countsByEventType,
+      countsByResourceType,
+      countsByBookingType,
+      countsByStatus,
+      recentEvents,
+    });
+  } catch (err) {
+    console.error('Error fetching analytics:', err);
+    res.status(500).json({ error: 'Failed to fetch analytics' });
+  }
+};
+
+module.exports = {
+  listUsers,
+  updateUserRole,
+  deleteUser,
+  listAuditLogs,
+  getAnalytics,
+};

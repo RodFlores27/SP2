@@ -35,6 +35,7 @@ KAFKA_BROKERS=localhost:9092
 KAFKA_BOOKING_EVENTS_TOPIC=booking-events
 KAFKA_NOTIFICATION_CONSUMER_GROUP=notification-consumer
 KAFKA_AUDIT_CONSUMER_GROUP=audit-log-consumer
+KAFKA_ANALYTICS_CONSUMER_GROUP=analytics-consumer
 ```
 
 Leave Kafka disabled when you only want to run the existing MVP:
@@ -77,3 +78,7 @@ Milestone 15 publishes these events to `booking-events`:
 - `booking.displaced_slot_reopened`
 
 Milestone 16 consumes these events with consumer group `notification-consumer` and sends email notifications through the existing Resend templates.
+
+Milestone 17 consumes the same topic with consumer group `audit-log-consumer` and writes append-only `AuditLogs` records for admin review.
+
+Milestone 18 consumes the same topic with consumer group `analytics-consumer` and writes deduplicated `BookingAnalyticsEvents` rows. The admin panel reads those rows through `GET /api/admin/analytics` to show counts by event type, resource type, booking type, and booking status.

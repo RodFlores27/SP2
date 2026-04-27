@@ -457,6 +457,25 @@ node milestone_tests/milestone-{number}-{description}.js
 - `GET /api/admin/audit-logs` admin endpoint
 - Consumer group `audit-log-consumer`
 
+### Milestone 18: Analytics Consumer + Admin View
+**File:** `milestone-18-analytics-consumer.js`
+**Run:** `npm run test:milestone-18` (from project root; server on `http://localhost:4000`)
+
+**Tests:**
+- Server health check
+- Admin login and admin analytics endpoint response shape check
+- Booking event constants availability check
+- Direct analytics persistence and duplicate `eventId` deduplication
+- Analytics consumer startup behavior checks for Kafka-disabled and Kafka-enabled modes
+- Kafka publish-to-analytics persistence verification (`booking.analytics_test` event)
+
+**Technologies Verified:**
+- `server/utils/kafka/analytics-consumer.js`
+- `server/models/bookinganalyticsevent.js` and `BookingAnalyticsEvents` migration
+- `GET /api/admin/analytics` admin endpoint
+- `client/src/pages/AdminPanel.jsx` analytics cards and recent event summaries
+- Consumer group `analytics-consumer`
+
 ## Notes
 
 - Tests use axios for HTTP requests
