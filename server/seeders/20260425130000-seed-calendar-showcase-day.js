@@ -55,7 +55,8 @@ module.exports = {
     }
 
     const now = new Date();
-    const dayOffset = 20; // one day, far enough from other seeds; adjust if you prefer another cell
+    // Place showcase one week after initial-data demo windows (latest initial demo day is day 9).
+    const dayOffset = 16;
 
     const at = (daysFromNow, h, m = 0) => {
       const d = new Date(now);
@@ -156,7 +157,7 @@ module.exports = {
       updatedAt: now,
     });
 
-    // --- Autoclave: two independent 1v1 pairs, one time cluster -> two orange contention blocks in month view ---
+    // --- Autoclave: two independent 1v1 pairs, same day but non-overlapping windows (strict 1v1-safe) ---
     const t1 = new Date(now.getTime() - 4 * 60 * 60 * 1000);
     const t2 = new Date(now.getTime() - 3 * 60 * 60 * 1000);
     const t3 = new Date(now.getTime() - 2 * 60 * 60 * 1000);
@@ -166,10 +167,10 @@ module.exports = {
     const aDef1e = at(dayOffset, 15, 0);
     const aCh1s = at(dayOffset, 11, 30);
     const aCh1e = at(dayOffset, 13, 0);
-    const aDef2s = at(dayOffset, 12, 30);
-    const aDef2e = at(dayOffset, 18, 0);
-    const aCh2s = at(dayOffset, 14, 0);
-    const aCh2e = at(dayOffset, 16, 30);
+    const aDef2s = at(dayOffset, 16, 0);
+    const aDef2e = at(dayOffset, 20, 0);
+    const aCh2s = at(dayOffset, 16, 30);
+    const aCh2e = at(dayOffset, 18, 0);
 
     const exp1 = computePencilExpiryAt(t1, aDef1s);
     const exp2 = computePencilExpiryAt(t3, aDef2s);

@@ -79,6 +79,14 @@ PTCF Project/
 │       ├── cloudinary.js        # Cloudinary image upload utility
 │       ├── email.js             # Resend email transport wrapper
 │       └── booking-notifications.js  # Transactional email templates (created/approved/denied/cancelled/expired/expiringSoon)
+├── docs/                        # Project planning and workflow docs
+│   ├── milestones/              # Weekly milestone plans and daily routine
+│   │   ├── milestone-daily-routine.md
+│   │   ├── week2-daily-brief.md
+│   │   └── week3-daily-brief.md
+│   ├── workflows/               # Milestone wrap-up workflow
+│   │   └── milestone-sync-seal.md
+│   └── booking-*.md             # Booking SOP and transition notes
 ├── milestone_tests/             # Verification test scripts
 │   ├── utils/                   # Reusable test utilities
 │   │   └── test-helpers.js      # Common test helper functions

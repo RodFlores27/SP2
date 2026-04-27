@@ -359,8 +359,8 @@ module.exports = {
       updatedAt: studentHoldIssued,
     });
 
-    // --- Calendar month-view grouping demo (Autoclave): two separate 1v1 pairs, one time cluster ---
-    // Month view should show two "Contention (1/1)" aggregate blocks (defender+challenger each), not one merged group.
+    // --- Calendar month-view grouping demo (Autoclave): two separate 1v1 pairs on the same day ---
+    // Keep pairs non-overlapping in time so seeded data stays realistic under strict 1v1 rules.
     const calDemoDay = 9;
     const gIssued1 = new Date(now.getTime() - 3 * 60 * 60 * 1000);
     const gIssued2 = new Date(now.getTime() - 2 * 60 * 60 * 1000);
@@ -371,10 +371,10 @@ module.exports = {
     const gDefAEnd = createDateAtTime(calDemoDay, 14, 0);
     const gChAStart = createDateAtTime(calDemoDay, 9, 0);
     const gChAEnd = createDateAtTime(calDemoDay, 12, 0);
-    const gDefBStart = createDateAtTime(calDemoDay, 11, 0);
-    const gDefBEnd = createDateAtTime(calDemoDay, 17, 0);
-    const gChBStart = createDateAtTime(calDemoDay, 13, 0);
-    const gChBEnd = createDateAtTime(calDemoDay, 16, 0);
+    const gDefBStart = createDateAtTime(calDemoDay, 15, 0);
+    const gDefBEnd = createDateAtTime(calDemoDay, 20, 0);
+    const gChBStart = createDateAtTime(calDemoDay, 15, 30);
+    const gChBEnd = createDateAtTime(calDemoDay, 18, 30);
 
     const gExpA = computePencilExpiryAt(gIssued1, gDefAStart);
     const gExpB = computePencilExpiryAt(gIssued3, gDefBStart);
