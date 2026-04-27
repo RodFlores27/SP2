@@ -57,7 +57,7 @@ PTCF Project/
 │   │   └── kafka.js             # KafkaJS env config and topic names
 │   ├── controllers/             # Route controllers
 │   │   ├── auth.controller.js   # Auth endpoints (register, login)
-│   │   ├── admin.controller.js  # Admin user management (list, role, delete)
+│   │   ├── admin.controller.js  # Admin user management + audit log listing
 │   │   ├── booking.controller.js    # Booking CRUD + conflict detection
 │   │   ├── equipment.controller.js  # Equipment CRUD operations
 │   │   └── room.controller.js   # Room CRUD operations
@@ -67,12 +67,12 @@ PTCF Project/
 │   ├── middleware/              # Auth & other middleware
 │   │   └── auth.middleware.js   # JWT auth & role-based authorization
 │   ├── migrations/              # Database migrations
-│   ├── models/                  # Sequelize models
+│   ├── models/                  # Sequelize models (includes booking + audit logs)
 │   ├── jobs/                    # Scheduled background jobs
 │   │   └── booking-expiry.js   # node-cron: auto-expire pencil bookings + 48hr/24hr warnings
 │   ├── routes/                  # API routes
 │   │   ├── auth.routes.js       # Auth routes
-│   │   ├── admin.routes.js      # Admin routes (system_admin only)
+│   │   ├── admin.routes.js      # Admin routes (system_admin only, users + audit logs)
 │   │   ├── booking.routes.js    # Booking routes
 │   │   ├── equipment.routes.js  # Equipment routes
 │   │   └── room.routes.js       # Room routes
@@ -82,7 +82,7 @@ PTCF Project/
 │   └── utils/                   # Utility functions
 │       ├── cloudinary.js        # Cloudinary image upload utility
 │       ├── email.js             # Resend email transport wrapper
-│       ├── kafka/               # KafkaJS producer + booking event helpers + notification consumer
+│       ├── kafka/               # KafkaJS producer + booking event helpers + notification + audit consumers
 │       └── booking-notifications.js  # Transactional email templates (created/approved/denied/cancelled/expired/expiringSoon)
 ├── docs/                        # Project planning and workflow docs
 │   ├── milestones/              # Weekly milestone plans and daily routine

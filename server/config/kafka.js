@@ -35,6 +35,8 @@ const kafkaConfig = {
   consumerGroups: {
     notification:
       process.env.KAFKA_NOTIFICATION_CONSUMER_GROUP || 'notification-consumer',
+    audit:
+      process.env.KAFKA_AUDIT_CONSUMER_GROUP || 'audit-log-consumer',
   },
 };
 

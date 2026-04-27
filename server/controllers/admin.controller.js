@@ -1,6 +1,6 @@
 'use strict';
 
-const { User } = require('../models');
+const { AuditLog, Booking, User } = require('../models');
 
 const ALLOWED_ROLES = ['regular_user', 'ptcf_staff', 'system_admin'];
 
@@ -80,4 +80,58 @@ const deleteUser = async (req, res) => {
   }
 };
 
-module.exports = { listUsers, updateUserRole, deleteUser };
+const listAuditLogs = async (req, res) => {
+  try {
+    const limitRaw = parseInt(req.query.limit, 10);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 50;
+    const where = {};
+
+    if (req.query.eventType) {
+      where.eventType = String(req.query.eventType).trim();
+    }
+    if (req.query.bookingId != null && req.query.bookingId !== '') {
+      const bookingId = parseInt(req.query.bookingId, 10);
+      if (Number.isNaN(bookingId)) {
+        return res.status(400).json({ error: 'bookingId must be a valid integer' });
+      }
+      where.bookingId = bookingId;
+    }
+    if (req.query.actorUserId != null && req.query.actorUserId !== '') {
+      const actorUserId = parseInt(req.query.actorUserId, 10);
+      if (Number.isNaN(actorUserId)) {
+        return res.status(400).json({ error: 'actorUserId must be a valid integer' });
+      }
+      where.actorUserId = actorUserId;
+    }
+
+    const logs = await AuditLog.findAll({
+      where,
+      limit,
+      order: [['occurredAt', 'DESC'], ['id', 'DESC']],
+      include: [
+        {
+          model: User,
+          as: 'actor',
+          required: false,
+          attributes: ['id', 'email', 'accountType'],
+        },
+        {
+          model: Booking,
+          as: 'booking',
+          required: false,
+          attributes: ['id', 'resourceType', 'resourceId', 'bookingType', 'status'],
+        },
+      ],
+    });
+
+    res.json({
+      count: logs.length,
+      logs,
+    });
+  } catch (err) {
+    console.error('Error listing audit logs:', err);
+    res.status(500).json({ error: 'Failed to fetch audit logs' });
+  }
+};
+
+module.exports = { listUsers, updateUserRole, deleteUser, listAuditLogs };

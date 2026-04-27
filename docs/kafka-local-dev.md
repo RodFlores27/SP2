@@ -34,6 +34,7 @@ KAFKA_CLIENT_ID=ptcf-booking-system
 KAFKA_BROKERS=localhost:9092
 KAFKA_BOOKING_EVENTS_TOPIC=booking-events
 KAFKA_NOTIFICATION_CONSUMER_GROUP=notification-consumer
+KAFKA_AUDIT_CONSUMER_GROUP=audit-log-consumer
 ```
 
 Leave Kafka disabled when you only want to run the existing MVP:

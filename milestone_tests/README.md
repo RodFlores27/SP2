@@ -440,6 +440,23 @@ node milestone_tests/milestone-{number}-{description}.js
 - `server/jobs/booking-expiry.js` fallback guards for notification calls
 - Consumer group `notification-consumer`
 
+### Milestone 17: Audit Log Consumer
+**File:** `milestone-17-audit-log-consumer.js`
+**Run:** `npm run test:milestone-17` (from project root; server on `http://localhost:4000`)
+
+**Tests:**
+- Server health check
+- Admin login and admin audit endpoint response shape check
+- Booking event constants availability check
+- Audit consumer startup behavior checks for Kafka-disabled and Kafka-enabled modes
+- Kafka publish-to-audit persistence verification (`booking.audit_test` event)
+
+**Technologies Verified:**
+- `server/utils/kafka/audit-consumer.js`
+- `server/models/auditlog.js` and `AuditLogs` migration
+- `GET /api/admin/audit-logs` admin endpoint
+- Consumer group `audit-log-consumer`
+
 ## Notes
 
 - Tests use axios for HTTP requests

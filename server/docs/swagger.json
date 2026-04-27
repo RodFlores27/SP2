@@ -2142,6 +2142,114 @@
         }
       }
     },
+    "/admin/audit-logs": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "List recent audit logs (Admin only)",
+        "description": "Returns recent append-only booking event audit entries. Supports filtering by eventType, bookingId, actorUserId, and limit.",
+        "operationId": "listAuditLogs",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum rows to return (1 to 200, default 50)",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 }
+          },
+          {
+            "name": "eventType",
+            "in": "query",
+            "required": false,
+            "description": "Filter by booking event type",
+            "schema": { "type": "string", "example": "booking.created" }
+          },
+          {
+            "name": "bookingId",
+            "in": "query",
+            "required": false,
+            "description": "Filter by booking ID",
+            "schema": { "type": "integer", "example": 123 }
+          },
+          {
+            "name": "actorUserId",
+            "in": "query",
+            "required": false,
+            "description": "Filter by actor user ID",
+            "schema": { "type": "integer", "example": 1 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit logs fetched successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "count": { "type": "integer", "example": 2 },
+                    "logs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": { "type": "integer", "example": 45 },
+                          "eventId": { "type": "string", "example": "f5f7a1ee-80b0-4318-91fd-f4f8d3f654bf" },
+                          "eventType": { "type": "string", "example": "booking.created" },
+                          "occurredAt": { "type": "string", "format": "date-time" },
+                          "topic": { "type": "string", "example": "booking-events" },
+                          "partition": { "type": "integer", "example": 0, "nullable": true },
+                          "offset": { "type": "string", "example": "98", "nullable": true },
+                          "actorUserId": { "type": "integer", "nullable": true },
+                          "bookingId": { "type": "integer", "nullable": true },
+                          "resourceType": { "type": "string", "enum": ["equipment", "room"], "nullable": true },
+                          "resourceId": { "type": "integer", "nullable": true },
+                          "bookingType": { "type": "string", "enum": ["pencil", "firm"], "nullable": true },
+                          "status": { "type": "string", "nullable": true },
+                          "payload": { "type": "object" },
+                          "createdAt": { "type": "string", "format": "date-time" },
+                          "updatedAt": { "type": "string", "format": "date-time" },
+                          "actor": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "id": { "type": "integer" },
+                              "email": { "type": "string", "format": "email" },
+                              "accountType": { "type": "string" }
+                            }
+                          },
+                          "booking": {
+                            "type": "object",
+                            "nullable": true,
+                            "properties": {
+                              "id": { "type": "integer" },
+                              "resourceType": { "type": "string", "enum": ["equipment", "room"] },
+                              "resourceId": { "type": "integer" },
+                              "bookingType": { "type": "string", "enum": ["pencil", "firm"] },
+                              "status": { "type": "string" }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameter",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/UnauthorizedError" },
+          "403": { "$ref": "#/components/responses/ForbiddenError" }
+        }
+      }
+    },
     "/admin/users/{id}": {
       "delete": {
         "tags": ["Admin"],

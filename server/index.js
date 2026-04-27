@@ -60,6 +60,7 @@ sequelize.authenticate()
     const {
       connectKafkaProducer,
       isKafkaEnabled,
+      startAuditConsumer,
       startNotificationConsumer,
     } = require('./utils/kafka');
     if (isKafkaEnabled()) {
@@ -71,6 +72,11 @@ sequelize.authenticate()
       startNotificationConsumer().then((result) => {
         if (!result.connected) {
           console.warn('[kafka:notification] Server continuing without notification consumer');
+        }
+      });
+      startAuditConsumer().then((result) => {
+        if (!result.connected) {
+          console.warn('[kafka:audit] Server continuing without audit consumer');
         }
       });
     } else {
