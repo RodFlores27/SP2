@@ -383,6 +383,24 @@ node milestone_tests/milestone-{number}-{description}.js
 
 **Related design doc:** `docs/booking-transition-catalog-seed.md` (transition IDs **P-05b**, **P-19**–**P-21**, **P-07** challenger-expiry row, Section 13 changelog).
 
+### Milestone 14: Kafka Foundation
+**File:** `milestone-14-kafka-foundation.js`
+**Run:** `npm run test:milestone-14` (from project root; server on `http://localhost:4000`)
+
+**Tests:**
+- Server health check
+- Kafka config safe defaults (`KAFKA_ENABLED=false`, `localhost:9092`, `booking-events`)
+- Booking event envelope builder (`eventId`, `eventType`, `occurredAt`, actor/resource/status fields, payload)
+- Producer helper safe-skip behavior when Kafka is disabled
+- Optional live Kafka topic/publish check when `KAFKA_ENABLED=true`
+
+**Technologies Verified:**
+- KafkaJS dependency and producer helper
+- Local Docker Compose Kafka broker config
+- `server/scripts/check-kafka.js`
+- Opt-in Kafka startup path in `server/index.js`
+- Local setup guide in `docs/kafka-local-dev.md`
+
 ## Notes
 
 - Tests use axios for HTTP requests

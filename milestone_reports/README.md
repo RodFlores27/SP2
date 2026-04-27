@@ -229,3 +229,16 @@ These reports serve as:
 - Admin Panel nav link (system_admin only, desktop + mobile)
 - Swagger documentation updated with Admin tag and 3 endpoints
 - Verification test script (14 automated scenarios + 17-point UI checklist)
+
+### Milestone 14: Kafka Foundation
+**File:** `MILESTONE-14-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 27, 2026
+**Deliverables:**
+- KafkaJS installed in the server package
+- Local Docker Compose Kafka broker file (`docker-compose.kafka.yml`)
+- Kafka env config with safe disabled-by-default behavior
+- Kafka producer helper with booking event envelope builder
+- Server startup logs Kafka disabled/enabled state without making Kafka mandatory
+- Kafka foundation check script (`npm run kafka:check` from `server`)
+- Milestone 14 verification script and local Kafka setup guide

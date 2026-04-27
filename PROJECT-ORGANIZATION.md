@@ -4,6 +4,7 @@
 
 ```
 PTCF Project/
+├── docker-compose.kafka.yml     # Local Kafka broker for development
 ├── client/                      # Frontend (React + Vite)
 │   ├── src/
 │   │   ├── components/          # React components
@@ -52,7 +53,8 @@ PTCF Project/
 │   ├── vite.config.js           # Vite configuration (with Tailwind v4 plugin)
 │   └── package.json             # Frontend dependencies
 ├── server/                      # Backend (Express + Sequelize)
-│   ├── config/                  # Database configuration
+│   ├── config/                  # Database and Kafka configuration
+│   │   └── kafka.js             # KafkaJS env config and topic names
 │   ├── controllers/             # Route controllers
 │   │   ├── auth.controller.js   # Auth endpoints (register, login)
 │   │   ├── admin.controller.js  # Admin user management (list, role, delete)
@@ -75,9 +77,12 @@ PTCF Project/
 │   │   ├── equipment.routes.js  # Equipment routes
 │   │   └── room.routes.js       # Room routes
 │   ├── seeders/                 # Database seed data
+│   ├── scripts/                 # Local development and maintenance scripts
+│   │   └── check-kafka.js       # Kafka foundation connectivity check
 │   └── utils/                   # Utility functions
 │       ├── cloudinary.js        # Cloudinary image upload utility
 │       ├── email.js             # Resend email transport wrapper
+│       ├── kafka/               # KafkaJS producer helper
 │       └── booking-notifications.js  # Transactional email templates (created/approved/denied/cancelled/expired/expiringSoon)
 ├── docs/                        # Project planning and workflow docs
 │   ├── milestones/              # Weekly milestone plans and daily routine
@@ -86,6 +91,7 @@ PTCF Project/
 │   │   └── week3-daily-brief.md
 │   ├── workflows/               # Milestone wrap-up workflow
 │   │   └── milestone-sync-seal.md
+│   ├── kafka-local-dev.md       # Local Kafka setup with Docker Compose
 │   └── booking-*.md             # Booking SOP and transition notes
 ├── milestone_tests/             # Verification test scripts
 │   ├── utils/                   # Reusable test utilities

@@ -84,7 +84,7 @@ Suggested shared event shape:
 ### Milestone 14 - Kafka Foundation (Mon Apr 27)
 
 **Tags:** Backend, Kafka  
-**Status:** Not started
+**Status:** Complete (completed Apr 27)
 
 - Add KafkaJS dependency to the server.
 - Add Kafka environment configuration.
@@ -199,7 +199,7 @@ Acceptance:
 
 | Milestone | Date | Focus | Tags | Status |
 | --------- | ---- | ----- | ---- | ------ |
-| 14 | Apr 27 | Kafka foundation | Backend, Kafka | Not started |
+| 14 | Apr 27 | Kafka foundation | Backend, Kafka | Complete |
 | 15 | Apr 28 | Booking event publishing | Backend, Kafka | Not started |
 | 16 | Apr 29 | Notification consumer | Backend, Kafka, Email | Not started |
 | 17 | Apr 30 | Audit log consumer | Backend, Kafka, Database | Not started |
