@@ -32,6 +32,10 @@ const kafkaConfig = {
   topics: {
     bookingEvents: process.env.KAFKA_BOOKING_EVENTS_TOPIC || 'booking-events',
   },
+  consumerGroups: {
+    notification:
+      process.env.KAFKA_NOTIFICATION_CONSUMER_GROUP || 'notification-consumer',
+  },
 };
 
 module.exports = kafkaConfig;

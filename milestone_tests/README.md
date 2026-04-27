@@ -421,6 +421,25 @@ node milestone_tests/milestone-{number}-{description}.js
 - Kafka topic `booking-events`
 - Event names: `booking.created`, `booking.approved`, `booking.denied`, `booking.cancelled`, `booking.expired`, `booking.expiring_soon`, `booking.contention_started`, `booking.converted_to_firm`, `booking.displaced_slot_reopened`
 
+### Milestone 16: Notification Consumer
+**File:** `milestone-16-notification-consumer.js`
+**Run:** `npm run test:milestone-16` (from project root; server on `http://localhost:4000`)
+
+**Tests:**
+- Server health check
+- Kafka notification consumer module export checks
+- Booking event contract checks for notification lifecycle events
+- Controller and expiry-job fallback guards for direct notification calls
+- Notification processor safety checks for invalid and unsupported events
+- Consumer startup behavior checks for Kafka-disabled and Kafka-enabled modes
+
+**Technologies Verified:**
+- `server/utils/kafka/notification-consumer.js`
+- `server/index.js` Kafka notification-consumer startup wiring
+- `server/controllers/booking.controller.js` fallback guards for notification calls
+- `server/jobs/booking-expiry.js` fallback guards for notification calls
+- Consumer group `notification-consumer`
+
 ## Notes
 
 - Tests use axios for HTTP requests

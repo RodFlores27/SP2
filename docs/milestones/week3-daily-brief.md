@@ -121,7 +121,7 @@ Acceptance:
 ### Milestone 16 - Notification Consumer (Wed Apr 29)
 
 **Tags:** Backend, Kafka, Email  
-**Status:** Not started
+**Status:** Complete (completed Apr 27)
 
 - Add notification consumer group: `notification-consumer`.
 - Move direct email-trigger responsibility into the Kafka consumer.
@@ -201,7 +201,7 @@ Acceptance:
 | --------- | ---- | ----- | ---- | ------ |
 | 14 | Apr 27 | Kafka foundation | Backend, Kafka | Complete |
 | 15 | Apr 28 | Booking event publishing | Backend, Kafka | Complete |
-| 16 | Apr 29 | Notification consumer | Backend, Kafka, Email | Not started |
+| 16 | Apr 29 | Notification consumer | Backend, Kafka, Email | Complete |
 | 17 | Apr 30 | Audit log consumer | Backend, Kafka, Database | Not started |
 | 18 | May 1 | Analytics consumer + admin view | Backend, Frontend, Kafka | Not started |
 | 19 | May 2 | End-to-end verification + docs | Kafka, Testing, Documentation | Not started |

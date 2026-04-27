@@ -171,6 +171,7 @@ module.exports = {
   connectKafkaProducer,
   disconnectKafkaProducer,
   ensureBookingEventsTopic,
+  getKafkaClient,
   isKafkaEnabled,
   publishBookingEvent,
 };

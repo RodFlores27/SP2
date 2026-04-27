@@ -33,6 +33,7 @@ KAFKA_ENABLED=true
 KAFKA_CLIENT_ID=ptcf-booking-system
 KAFKA_BROKERS=localhost:9092
 KAFKA_BOOKING_EVENTS_TOPIC=booking-events
+KAFKA_NOTIFICATION_CONSUMER_GROUP=notification-consumer
 ```
 
 Leave Kafka disabled when you only want to run the existing MVP:
@@ -73,3 +74,5 @@ Milestone 15 publishes these events to `booking-events`:
 - `booking.contention_started`
 - `booking.converted_to_firm`
 - `booking.displaced_slot_reopened`
+
+Milestone 16 consumes these events with consumer group `notification-consumer` and sends email notifications through the existing Resend templates.

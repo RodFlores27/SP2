@@ -12,6 +12,14 @@ const bcrypt = require('bcrypt');
 const db = require(path.join(__dirname, '..', 'models'));
 
 const SALT = 12;
+const normalizeEmail = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase();
+const normalizeOptionalText = (value) => {
+  const text = String(value || '').trim();
+  return text || null;
+};
 
 const USERS = [
   {
@@ -45,6 +53,26 @@ const USERS = [
     userCategory: 'faculty',
   },
 ];
+
+function resolveOptionalExtraAdmin() {
+  const email = normalizeEmail(process.env.SEED_EXTRA_ADMIN_EMAIL);
+  if (!email) return null;
+
+  const password = String(process.env.SEED_EXTRA_ADMIN_PASSWORD || '');
+  if (!password) {
+    throw new Error(
+      'SEED_EXTRA_ADMIN_PASSWORD is required when SEED_EXTRA_ADMIN_EMAIL is set.'
+    );
+  }
+
+  const userCategory = normalizeOptionalText(process.env.SEED_EXTRA_ADMIN_USER_CATEGORY);
+  return {
+    email,
+    password,
+    accountType: 'system_admin',
+    userCategory,
+  };
+}
 
 const EQUIPMENT = [
   {
@@ -94,7 +122,21 @@ const ROOMS = [
   try {
     await sequelize.authenticate();
 
-    for (const u of USERS) {
+    const usersToSeed = [...USERS];
+    const optionalExtraAdmin = resolveOptionalExtraAdmin();
+    if (optionalExtraAdmin) {
+      const existingEmails = new Set(usersToSeed.map((u) => normalizeEmail(u.email)));
+      if (existingEmails.has(optionalExtraAdmin.email)) {
+        console.log(
+          `[seed] Skipping env-driven extra admin (${optionalExtraAdmin.email}) because it already exists in base seed users.`
+        );
+      } else {
+        usersToSeed.push(optionalExtraAdmin);
+        console.log(`[seed] Added env-driven extra admin: ${optionalExtraAdmin.email}`);
+      }
+    }
+
+    for (const u of usersToSeed) {
       const hash = await bcrypt.hash(u.password, SALT);
       const [, wasCreated] = await User.findOrCreate({
         where: { email: u.email },

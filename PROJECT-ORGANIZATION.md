@@ -82,7 +82,7 @@ PTCF Project/
 │   └── utils/                   # Utility functions
 │       ├── cloudinary.js        # Cloudinary image upload utility
 │       ├── email.js             # Resend email transport wrapper
-│       ├── kafka/               # KafkaJS producer + booking event helpers
+│       ├── kafka/               # KafkaJS producer + booking event helpers + notification consumer
 │       └── booking-notifications.js  # Transactional email templates (created/approved/denied/cancelled/expired/expiringSoon)
 ├── docs/                        # Project planning and workflow docs
 │   ├── milestones/              # Weekly milestone plans and daily routine

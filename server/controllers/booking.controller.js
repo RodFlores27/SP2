@@ -18,6 +18,7 @@ const {
 } = require('../utils/booking-notifications');
 const {
   BOOKING_EVENT_TYPES,
+  isKafkaEnabled,
   publishBookingLifecycleEvent,
 } = require('../utils/kafka');
 const { computePencilExpiryAt, assertStartNotWithinLockHours, isWithinLockHours } = require('../utils/booking-rules');
@@ -726,7 +727,9 @@ const createBooking = async (req, res) => {
         cancelledPencilBookings,
       },
     });
-    notifyBookingCreated(createdBooking, resourceName).catch(() => {});
+    if (!isKafkaEnabled()) {
+      notifyBookingCreated(createdBooking, resourceName).catch(() => {});
+    }
 
     if (contentionResult?.action === 'challenger') {
       const freshBooking = await Booking.findByPk(createdBooking.id, {
@@ -745,7 +748,9 @@ const createBooking = async (req, res) => {
             contentionDeadlineAt: defender.contentionDeadlineAt || null,
           },
         });
-        notifyContentionStarted({ defender, challenger: freshBooking }, resourceName).catch(() => {});
+        if (!isKafkaEnabled()) {
+          notifyContentionStarted({ defender, challenger: freshBooking }, resourceName).catch(() => {});
+        }
       }
     }
 
@@ -1031,7 +1036,9 @@ const cancelBooking = async (req, res) => {
         displacedBookingsToNotify: displacedNotifyList.map((d) => d.id),
       },
     });
-    notifyBookingCancelled(updated, resourceName, cancelledById).catch(() => {});
+    if (!isKafkaEnabled()) {
+      notifyBookingCancelled(updated, resourceName, cancelledById).catch(() => {});
+    }
 
     for (const d of displacedNotifyList) {
       publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.DISPLACED_SLOT_REOPENED, d, {
@@ -1042,7 +1049,9 @@ const cancelBooking = async (req, res) => {
           firmBookingId: updated.id,
         },
       });
-      notifyDisplacedUsersSlotReopened(d, updated, resourceName).catch(() => {});
+      if (!isKafkaEnabled()) {
+        notifyDisplacedUsersSlotReopened(d, updated, resourceName).catch(() => {});
+      }
     }
   } catch (error) {
     console.error('Error cancelling booking:', error);
@@ -1302,7 +1311,9 @@ const approveBooking = async (req, res) => {
           approvedAt: updatedBooking.approvedAt || null,
         },
       });
-      notifyBookingApproved(updatedBooking, resourceName).catch(() => {});
+      if (!isKafkaEnabled()) {
+        notifyBookingApproved(updatedBooking, resourceName).catch(() => {});
+      }
     });
   } catch (error) {
     console.error('Error approving booking:', error);
@@ -1389,7 +1400,9 @@ const denyBooking = async (req, res) => {
           deniedByUserId,
         },
       });
-      notifyBookingDenied(updatedBooking, resourceName).catch(() => {});
+      if (!isKafkaEnabled()) {
+        notifyBookingDenied(updatedBooking, resourceName).catch(() => {});
+      }
     });
   } catch (error) {
     console.error('Error denying booking:', error);

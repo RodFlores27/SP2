@@ -57,11 +57,20 @@ sequelize.authenticate()
   .then(() => {
     console.log('DB connection OK');
     require('./jobs/booking-expiry');
-    const { connectKafkaProducer, isKafkaEnabled } = require('./utils/kafka');
+    const {
+      connectKafkaProducer,
+      isKafkaEnabled,
+      startNotificationConsumer,
+    } = require('./utils/kafka');
     if (isKafkaEnabled()) {
       connectKafkaProducer().then((result) => {
         if (!result.connected) {
           console.warn('[kafka] Server continuing without Kafka producer connection');
+        }
+      });
+      startNotificationConsumer().then((result) => {
+        if (!result.connected) {
+          console.warn('[kafka:notification] Server continuing without notification consumer');
         }
       });
     } else {

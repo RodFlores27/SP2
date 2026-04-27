@@ -7,14 +7,32 @@ const { computePencilExpiryAt, computeContentionDeadline } = require('../utils/b
 module.exports = {
   async up(queryInterface, Sequelize) {
     const saltRounds = 12;
+    const normalizeEmail = (value) =>
+      String(value || '')
+        .trim()
+        .toLowerCase();
+    const normalizeOptionalText = (value) => {
+      const text = String(value || '').trim();
+      return text || null;
+    };
 
     // Hash passwords for test users
     const regularUserPassword = await bcrypt.hash('password123', saltRounds);
     const staffPassword = await bcrypt.hash('staff123', saltRounds);
     const adminPassword = await bcrypt.hash('admin123', saltRounds);
+    const extraAdminEmail = normalizeEmail(process.env.SEED_EXTRA_ADMIN_EMAIL);
+    const extraAdminPassword = String(process.env.SEED_EXTRA_ADMIN_PASSWORD || '');
+    const extraAdminUserCategory = normalizeOptionalText(
+      process.env.SEED_EXTRA_ADMIN_USER_CATEGORY
+    );
 
-    // Seed 3 test users (one per role)
-    await queryInterface.bulkInsert('Users', [
+    if (extraAdminEmail && !extraAdminPassword) {
+      throw new Error(
+        'SEED_EXTRA_ADMIN_PASSWORD is required when SEED_EXTRA_ADMIN_EMAIL is set.'
+      );
+    }
+
+    const seedUsers = [
       {
         email: 'student@uplb.edu.ph',
         passwordHash: regularUserPassword,
@@ -55,7 +73,30 @@ module.exports = {
         createdAt: new Date(),
         updatedAt: new Date(),
       },
-    ], {});
+    ];
+
+    if (extraAdminEmail) {
+      const existingEmails = new Set(seedUsers.map((u) => normalizeEmail(u.email)));
+      if (existingEmails.has(extraAdminEmail)) {
+        console.log(
+          `[seed] Skipping env-driven extra admin (${extraAdminEmail}) because it already exists in base seed users.`
+        );
+      } else {
+        const extraAdminPasswordHash = await bcrypt.hash(extraAdminPassword, saltRounds);
+        seedUsers.push({
+          email: extraAdminEmail,
+          passwordHash: extraAdminPasswordHash,
+          accountType: 'system_admin',
+          userCategory: extraAdminUserCategory,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        console.log(`[seed] Added env-driven extra admin: ${extraAdminEmail}`);
+      }
+    }
+
+    // Seed base users (+ optional env-driven extra admin)
+    await queryInterface.bulkInsert('Users', seedUsers, {});
 
     // Seed 3 equipment rows
     await queryInterface.bulkInsert('Equipment', [

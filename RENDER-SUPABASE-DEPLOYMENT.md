@@ -91,6 +91,22 @@ npx sequelize-cli db:seed:all --env production
 
 Or manually insert via Supabase SQL Editor.
 
+Optional extra seeded admin (local or production seed runs):
+
+- `SEED_EXTRA_ADMIN_EMAIL` (required to enable this feature)
+- `SEED_EXTRA_ADMIN_PASSWORD` (required when email is set)
+- `SEED_EXTRA_ADMIN_USER_CATEGORY` (optional; default `null`)
+
+Example (PowerShell):
+
+```bash
+$env:SEED_EXTRA_ADMIN_EMAIL="rodolfopfloresiii27@gmail.com"
+$env:SEED_EXTRA_ADMIN_PASSWORD="your-secure-temp-password"
+npx sequelize-cli db:seed:all --env development
+```
+
+This keeps the default seeded admin (`admin@uplb.edu.ph`) and adds your preferred test admin as a second `system_admin`.
+
 ### Step 5: MVP demo — backup before a full reset
 
 **Wiping data is irreversible** if you have no backup.

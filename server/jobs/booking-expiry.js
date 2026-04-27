@@ -13,6 +13,7 @@ const {
 } = require('../utils/booking-notifications');
 const {
   BOOKING_EVENT_TYPES,
+  isKafkaEnabled,
   publishBookingLifecycleEvent,
 } = require('../utils/kafka');
 const { LOCK_HOURS, isWithinLockHours } = require('../utils/booking-rules');
@@ -129,7 +130,9 @@ cron.schedule('*/15 * * * *', async () => {
             reason: 'firm_pending_approval_lock_window',
           },
         });
-        notifyBookingExpired(forNotify, resourceName).catch(() => {});
+        if (!isKafkaEnabled()) {
+          notifyBookingExpired(forNotify, resourceName).catch(() => {});
+        }
       }
     }
 
@@ -168,7 +171,9 @@ cron.schedule('*/15 * * * *', async () => {
           reason: 'pencil_lifetime_ended',
         },
       });
-      notifyBookingExpired(booking, resourceName).catch(() => {});
+      if (!isKafkaEnabled()) {
+        notifyBookingExpired(booking, resourceName).catch(() => {});
+      }
     }
   } catch (err) {
     console.error('[cron:expire] Error during expiry job:', err.message);
@@ -220,7 +225,9 @@ cron.schedule('0 0 * * *', async () => {
           hoursLeft: 48,
         },
       });
-      notifyBookingExpiringSoon(booking, resourceName, 48).catch(() => {});
+      if (!isKafkaEnabled()) {
+        notifyBookingExpiringSoon(booking, resourceName, 48).catch(() => {});
+      }
     }
 
     for (const booking of bookings24) {
@@ -232,7 +239,9 @@ cron.schedule('0 0 * * *', async () => {
           hoursLeft: 24,
         },
       });
-      notifyBookingExpiringSoon(booking, resourceName, 24).catch(() => {});
+      if (!isKafkaEnabled()) {
+        notifyBookingExpiringSoon(booking, resourceName, 24).catch(() => {});
+      }
     }
   } catch (err) {
     console.error('[cron:warn] Error during warning job:', err.message);

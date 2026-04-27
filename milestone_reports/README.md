@@ -254,3 +254,15 @@ These reports serve as:
 - Event publishing is non-blocking relative to API responses and logs publish failures clearly
 - Existing Resend email calls remain in place for Milestone 16 migration
 - Milestone 15 verification script with disabled and live Kafka checks
+
+### Milestone 16: Notification Consumer
+**File:** `MILESTONE-16-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 27, 2026
+**Deliverables:**
+- Kafka notification consumer module (`notification-consumer`) wired to `booking-events`
+- Consumer startup wired in backend boot flow when `KAFKA_ENABLED=true`
+- Notification handlers mapped for created/approved/denied/cancelled/expired/expiring_soon/contention_started/displaced_slot_reopened
+- Controller direct notification sends guarded by `!isKafkaEnabled()` to avoid duplicate emails in Kafka mode
+- Expiry job direct notification sends guarded by `!isKafkaEnabled()` to avoid duplicate emails in Kafka mode
+- Milestone 16 verification script with disabled and enabled consumer startup checks
