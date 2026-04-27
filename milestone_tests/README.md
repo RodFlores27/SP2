@@ -35,7 +35,7 @@ async function testMilestone() {
     console.log('❌ Cannot proceed: Server is not running');
     return;
   }
-  
+
   // Continue with tests...
 }
 ```
@@ -56,7 +56,7 @@ node milestone_tests/milestone-{number}-{description}.js
 ## Current Tests
 
 ### Milestone 1: Setup Verification
-**File:** `milestone-1-setup-verification.js`  
+**File:** `milestone-1-setup-verification.js`
 **Tests:**
 - Server health check and accessibility
 - Project structure (client/server directories)
@@ -67,7 +67,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - Git repository initialization
 
 ### Milestone 2: Auth Verification
-**File:** `milestone-2-auth-verification.js`  
+**File:** `milestone-2-auth-verification.js`
 **Tests:**
 - User login with all role types (regular_user, ptcf_staff, system_admin)
 - JWT token generation and validation
@@ -80,7 +80,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - `admin@uplb.edu.ph` / `admin123` (system_admin)
 
 ### Milestone 3: Equipment & Room CRUD Endpoints
-**File:** `milestone-3-crud-endpoints.js`  
+**File:** `milestone-3-crud-endpoints.js`
 **Tests:**
 - Equipment CRUD operations (GET all, GET by ID, POST, PUT, DELETE)
 - Room CRUD operations (GET all, GET by ID, POST, PUT, DELETE)
@@ -99,7 +99,7 @@ node milestone_tests/milestone-{number}-{description}.js
 **Note:** Image upload tests with actual files require manual testing using Postman or similar tools with multipart/form-data support.
 
 ### Milestone 4: Frontend Setup
-**File:** `milestone-4-frontend-setup.js`  
+**File:** `milestone-4-frontend-setup.js`
 **Tests:**
 - Backend server health check
 - Frontend dev server availability check
@@ -128,7 +128,7 @@ node milestone_tests/milestone-{number}-{description}.js
 **Note:** Frontend tests are primarily manual/visual due to the nature of UI testing. The test script provides automated server checks and a comprehensive manual testing checklist.
 
 ### Milestone 5: Equipment & Room Listing Pages
-**File:** `milestone-5-listing-pages.js`  
+**File:** `milestone-5-listing-pages.js`
 **Tests:**
 - User authentication (staff and regular user)
 - Public access to equipment listing (no auth required)
@@ -156,7 +156,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - Integrated staff management UI
 
 ### Milestone 6: Booking System Backend
-**File:** `milestone-6-booking-backend.js`  
+**File:** `milestone-6-booking-backend.js`
 **Tests:**
 - User authentication (student, staff, admin)
 - Create pencil booking for equipment (with auto-expiry)
@@ -196,7 +196,7 @@ node milestone_tests/milestone-{number}-{description}.js
 **Note:** Server must be running on `http://localhost:4000` before executing tests.
 
 ### Milestone 7: Booking Lifecycle & Staff Approval Endpoints
-**File:** `milestone-7-booking-lifecycle.js`  
+**File:** `milestone-7-booking-lifecycle.js`
 **Tests:**
 - User booking cancellation (own bookings, staff can cancel any)
 - Cancel restrictions (cannot cancel approved, within 24 hours)
@@ -230,7 +230,7 @@ node milestone_tests/milestone-{number}-{description}.js
 **Note:** Test creates temporary files for document upload testing. Files are automatically cleaned up after tests complete.
 
 ### Milestone 8: Calendar View & Availability API
-**File:** `milestone-8-calendar-view.js`  
+**File:** `milestone-8-calendar-view.js`
 **Tests:**
 - Availability API endpoint (public, no authentication required)
 - Filter by resourceType (equipment/room)
@@ -257,7 +257,7 @@ node milestone_tests/milestone-{number}-{description}.js
 **Note:** UI tests require manual verification in browser. The test script provides a checklist for visual testing.
 
 ### Milestone 9: Booking Creation Form
-**File:** `milestone-9-booking-form.js`  
+**File:** `milestone-9-booking-form.js`
 **Tests:**
 - User authentication (student and staff login)
 - Get available equipment and rooms (for resource IDs)
@@ -319,7 +319,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - Dashboard page with active/past sections, inline convert panel, conflict alerts
 
 ### Milestone 11: Staff Dashboard
-**File:** `milestone-11-staff-dashboard.js`  
+**File:** `milestone-11-staff-dashboard.js`
 **Tests:**
 - Staff and student login
 - Staff fetches pending_approval bookings (array response)
@@ -343,7 +343,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - Client-side conflict grouping algorithm
 
 ### Milestone 12: Scheduled Jobs + Admin Panel
-**File:** `milestone-12-cron-and-admin.js`  
+**File:** `milestone-12-cron-and-admin.js`
 **Tests:**
 - Admin, staff, and student login
 - Admin lists all users (array + field validation)
@@ -369,7 +369,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - `AdminPanel.jsx` with stats, search, role select, delete
 
 ### Milestone 13: Booking contention rules + displacement
-**File:** `milestone-13-booking-contention-rules.js`  
+**File:** `milestone-13-booking-contention-rules.js`
 **Run:** `npm run test:milestone-13` (from project root; server on `http://localhost:4000`)
 
 **Tests (representative):**
@@ -475,6 +475,29 @@ node milestone_tests/milestone-{number}-{description}.js
 - `GET /api/admin/analytics` admin endpoint
 - `client/src/pages/AdminPanel.jsx` analytics cards and recent event summaries
 - Consumer group `analytics-consumer`
+
+### Milestone 19: End-to-End Kafka Verification + Documentation
+**File:** `milestone-19-end-to-end-kafka.js`
+**Run:** `npm run test:milestone-19` (from project root; server on `http://localhost:4000`)
+
+**Tests:**
+- Server health check
+- Safe Kafka-disabled guidance path
+- Admin and student login
+- Unique notification, audit, and analytics test consumer groups
+- Real `POST /api/bookings` pencil booking action
+- `booking.created` observed in `AuditLogs`
+- `booking.created` observed in `BookingAnalyticsEvents`
+- Notification consumer email side effect captured without sending real Resend email
+- Admin audit and analytics endpoints expose resulting side effects
+
+**Technologies Verified:**
+- Kafka topic `booking-events`
+- Producer path from booking API action
+- Consumer groups `notification-consumer`, `audit-log-consumer`, and `analytics-consumer`
+- `AuditLogs` and `BookingAnalyticsEvents` persistence
+- `GET /api/admin/audit-logs` and `GET /api/admin/analytics`
+- Week 3 Kafka documentation and completion report
 
 ## Notes
 

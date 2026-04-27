@@ -1,16 +1,14 @@
-# Kafka Local Development
+# Kafka Local Development and Week 3 Reference
 
-Milestone 14 adds Kafka as an opt-in local dependency. The React client and Express server still run normally on the host machine; only Kafka runs in Docker.
+Week 3 adds Kafka as an opt-in event layer inside the existing Express + Sequelize backend. The booking API still writes PostgreSQL first; Kafka carries booking lifecycle events to side-effect consumers for notification, audit, and analytics.
 
-## Start Kafka
+## Local Kafka
 
-From the project root:
+Start Kafka from the project root:
 
 ```bash
 docker compose -f docker-compose.kafka.yml up -d
 ```
-
-Docker Desktop must be running before this command. If the Docker engine is closed, Docker will report that it cannot connect to the `dockerDesktopLinuxEngine` pipe.
 
 Stop Kafka:
 
@@ -24,9 +22,11 @@ Reset local Kafka data:
 docker compose -f docker-compose.kafka.yml down -v
 ```
 
+Docker Desktop must be running before these commands. If Docker is closed, Docker may report that it cannot connect to the `dockerDesktopLinuxEngine` pipe.
+
 ## Server Environment
 
-Add these to `server/.env` when you want Kafka enabled locally:
+Use these values in `server/.env` when Kafka should run locally:
 
 ```env
 KAFKA_ENABLED=true
@@ -38,47 +38,144 @@ KAFKA_AUDIT_CONSUMER_GROUP=audit-log-consumer
 KAFKA_ANALYTICS_CONSUMER_GROUP=analytics-consumer
 ```
 
-Leave Kafka disabled when you only want to run the existing MVP:
+Leave Kafka disabled when you only want the MVP without a broker:
 
 ```env
 KAFKA_ENABLED=false
 ```
 
-## Verify Kafka Foundation
+When Kafka is disabled, booking APIs still work. Direct notification fallbacks remain active where needed, and Kafka producer/consumer helpers return controlled disabled-mode results instead of crashing the server.
 
-With the backend running:
+## Topic
+
+The MVP uses one Kafka topic:
+
+```txt
+booking-events
+```
+
+This is configurable with `KAFKA_BOOKING_EVENTS_TOPIC`, but all Week 3 tests and docs assume the default topic.
+
+## Event Envelope
+
+Booking lifecycle events use this shape:
+
+```json
+{
+  "eventId": "uuid-or-test-id",
+  "eventType": "booking.created",
+  "occurredAt": "2026-04-27T00:00:00.000Z",
+  "actorUserId": 1,
+  "bookingId": 123,
+  "resourceType": "equipment",
+  "resourceId": 2,
+  "bookingType": "pencil",
+  "status": "penciled",
+  "payload": {}
+}
+```
+
+`eventId` is used by audit and analytics persistence for deduplication.
+
+## Event Names
+
+Published to `booking-events`:
+
+```txt
+booking.created
+booking.approved
+booking.denied
+booking.cancelled
+booking.expired
+booking.expiring_soon
+booking.contention_started
+booking.converted_to_firm
+booking.displaced_slot_reopened
+```
+
+Do not reintroduce the removed `confirmed` status. The current firm booking flow uses `pending_approval` and `approved`.
+
+## Producer Behavior
+
+The producer helper lives under `server/utils/kafka`.
+
+- `buildBookingEvent` creates the shared envelope.
+- `publishBookingEvent` sends to the configured topic.
+- `publishBookingLifecycleEvent` adapts Booking model data to event fields.
+- Publishing is non-blocking for booking API behavior: failures are logged and returned as controlled results.
+- Kafka is not the source of truth; PostgreSQL booking writes happen first.
+
+## Consumers
+
+Consumers run in-process with the Express server for the MVP.
+
+```txt
+notification-consumer -> sends Resend emails through server/utils/booking-notifications.js
+audit-log-consumer    -> writes append-only AuditLogs rows
+analytics-consumer    -> writes deduplicated BookingAnalyticsEvents rows
+```
+
+Startup happens after DB authentication in `server/index.js` when `KAFKA_ENABLED=true`. Startup failures are logged, and the server continues running.
+
+## Verification Commands
+
+Kafka foundation:
 
 ```bash
 npm run test:milestone-14
 ```
 
-With Kafka enabled, the test also creates/checks the `booking-events` topic and publishes a small foundation check event. With Kafka disabled, the test confirms that the server and Kafka helper stay safe without a broker.
+Event publishing:
 
-## MVP Scope
+```bash
+npm run test:milestone-15
+```
 
-For now, Kafka is used inside the existing modular monolith:
+Notification consumer:
 
-- Booking APIs remain the source of truth for PostgreSQL writes.
-- Kafka receives booking lifecycle events after successful app actions.
-- Consumers for notifications, audit logs, and analytics will be added in later milestones.
-- The app must still run when Kafka is disabled.
+```bash
+npm run test:milestone-16
+```
 
-## Booking Events
+Audit consumer:
 
-Milestone 15 publishes these events to `booking-events`:
+```bash
+npm run test:milestone-17
+```
 
-- `booking.created`
-- `booking.approved`
-- `booking.denied`
-- `booking.cancelled`
-- `booking.expired`
-- `booking.expiring_soon`
-- `booking.contention_started`
-- `booking.converted_to_firm`
-- `booking.displaced_slot_reopened`
+Analytics consumer:
 
-Milestone 16 consumes these events with consumer group `notification-consumer` and sends email notifications through the existing Resend templates.
+```bash
+npm run test:milestone-18
+```
 
-Milestone 17 consumes the same topic with consumer group `audit-log-consumer` and writes append-only `AuditLogs` records for admin review.
+End-to-end Kafka flow:
 
-Milestone 18 consumes the same topic with consumer group `analytics-consumer` and writes deduplicated `BookingAnalyticsEvents` rows. The admin panel reads those rows through `GET /api/admin/analytics` to show counts by event type, resource type, booking type, and booking status.
+```bash
+npm run test:milestone-19
+```
+
+Milestone 19 requires `KAFKA_ENABLED=true`, local Kafka running, and the backend running on `http://localhost:4000`. With Kafka disabled, the script exits safely with setup guidance.
+
+## End-to-End Demonstration
+
+Milestone 19 demonstrates:
+
+1. A real `POST /api/bookings` pencil booking succeeds.
+2. The backend publishes `booking.created`.
+3. The notification consumer handles the event and invokes the email path.
+4. The audit consumer writes an `AuditLogs` row.
+5. The analytics consumer writes a `BookingAnalyticsEvents` row.
+6. Admin endpoints expose the audit and analytics side effects.
+
+The test captures email calls in-process instead of sending real Resend email, so demos do not depend on external email delivery.
+
+## Known Limitations
+
+- Kafka is an MVP event layer, not a full microservice split.
+- There is no Schema Registry yet.
+- There are no Kafka transactions.
+- There is no dead-letter topic or complex retry infrastructure.
+- Consumers run inside the backend process.
+- The analytics view is simple event-count reporting, not full utilization analytics.
+- Local KafkaJS runs may print a non-blocking `TimeoutNegativeWarning`; previous tests still passed when this warning appeared.

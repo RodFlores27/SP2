@@ -38,9 +38,9 @@ These reports serve as:
 ## Current Reports
 
 ### Milestone 1: Foundation & Infrastructure
-**File:** `MILESTONE-1-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** March 30, 2026  
+**File:** `MILESTONE-1-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** March 30, 2026
 **Deliverables:**
 - Monorepo structure (client + server)
 - Database schema (Users, Equipment, Rooms)
@@ -48,18 +48,18 @@ These reports serve as:
 - Deployment platforms configured (Render, Vercel, Supabase)
 
 ### Milestone 2: Auth Module & Database Setup
-**File:** `MILESTONE-2-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** March 30, 2026  
+**File:** `MILESTONE-2-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** March 30, 2026
 **Deliverables:**
 - Auth module (register, login, JWT, bcrypt)
 - Role-based middleware
 - Seed data (3 users, 3 equipment, 2 rooms)
 
 ### Milestone 3: Equipment & Room CRUD Endpoints
-**File:** `MILESTONE-3-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** April 1, 2026  
+**File:** `MILESTONE-3-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 1, 2026
 **Deliverables:**
 - Equipment CRUD endpoints (5 endpoints: GET all, GET by ID, POST, PUT, DELETE)
 - Room CRUD endpoints (5 endpoints: GET all, GET by ID, POST, PUT, DELETE)
@@ -68,9 +68,9 @@ These reports serve as:
 - Multer middleware for multipart/form-data file uploads
 
 ### Milestone 4: Frontend Setup
-**File:** `MILESTONE-4-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** April 1, 2026  
+**File:** `MILESTONE-4-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 1, 2026
 **Deliverables:**
 - React Router setup with route structure (/, /login, /register, /dashboard)
 - Axios instance with JWT interceptor for API communication
@@ -82,9 +82,9 @@ These reports serve as:
 - Dashboard placeholder page for authenticated users
 
 ### Milestone 5: Equipment & Room Listing Pages
-**File:** `MILESTONE-5-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** April 2, 2026  
+**File:** `MILESTONE-5-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 2, 2026
 **Deliverables:**
 - Navigation component with responsive mobile menu
 - Equipment listing page (public access, no auth required)
@@ -99,9 +99,9 @@ These reports serve as:
 - Backend route updates (public listing endpoints)
 
 ### Milestone 6: Booking System Backend
-**File:** `MILESTONE-6-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** April 5, 2026  
+**File:** `MILESTONE-6-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 5, 2026
 **Deliverables:**
 - Bookings table migration with schema (userId, resourceType, resourceId, bookingType, status, startTime, endTime, purpose, authorizationDocUrl, expiryAt)
 - Database indexes for efficient conflict detection queries
@@ -119,9 +119,9 @@ These reports serve as:
 - Verification test script (16 automated test scenarios)
 
 ### Milestone 7: Booking Lifecycle & Staff Approval Endpoints
-**File:** `MILESTONE-7-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** April 6, 2026  
+**File:** `MILESTONE-7-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 6, 2026
 **Deliverables:**
 - Database migration: Added staffRemark field and pending_approval status
 - Booking model updated with new fields
@@ -145,9 +145,9 @@ These reports serve as:
 - Verification test script (20 automated test scenarios)
 
 ### Milestone 8: Calendar View & Availability API
-**File:** `MILESTONE-8-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** April 8, 2026  
+**File:** `MILESTONE-8-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 8, 2026
 **Deliverables:**
 - Backend fix: Removed redundant 'confirmed' status from booking ENUM
 - All firm bookings now require staff approval (pending_approval → approved)
@@ -163,9 +163,9 @@ These reports serve as:
 - Verification test script (16 automated scenarios + UI checklist)
 
 ### Milestone 9: Booking Creation Form
-**File:** `MILESTONE-9-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** April 8, 2026 (wrap-up April 10, 2026)  
+**File:** `MILESTONE-9-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 8, 2026 (wrap-up April 10, 2026)
 **Deliverables:**
 - Booking creation form page at /bookings/new (React Hook Form + Zod)
 - Time slot picker (datetime-local inputs with calendar prefill)
@@ -199,9 +199,9 @@ These reports serve as:
 - Verification test script (13 automated scenarios + 18-point UI checklist)
 
 ### Milestone 11: Staff Dashboard
-**File:** `MILESTONE-11-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** April 11, 2026  
+**File:** `MILESTONE-11-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 11, 2026
 **Deliverables:**
 - Staff dashboard page at /staff (role-guarded: ptcf_staff + system_admin only)
 - Pending approvals queue: lists all pending_approval bookings with requester details
@@ -215,9 +215,9 @@ These reports serve as:
 - Verification test script (11 automated scenarios + 18-point UI checklist)
 
 ### Milestone 12: Scheduled Jobs + Admin Panel
-**File:** `MILESTONE-12-COMPLETION-REPORT.md`  
-**Status:** ✅ Complete  
-**Date:** April 11, 2026  
+**File:** `MILESTONE-12-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 11, 2026
 **Deliverables:**
 - node-cron installed; server/jobs/booking-expiry.js with 15-min expire job and daily 48hr/24hr warning job
 - notifyBookingExpired and notifyBookingExpiringSoon email functions
@@ -266,3 +266,32 @@ These reports serve as:
 - Controller direct notification sends guarded by `!isKafkaEnabled()` to avoid duplicate emails in Kafka mode
 - Expiry job direct notification sends guarded by `!isKafkaEnabled()` to avoid duplicate emails in Kafka mode
 - Milestone 16 verification script with disabled and enabled consumer startup checks
+
+### Milestone 17: Audit Log Consumer
+**File:** `MILESTONE-17-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 27, 2026
+**Deliverables:**
+- `AuditLogs` migration and append-only Sequelize model
+- Kafka audit consumer module (`audit-log-consumer`) wired to `booking-events`
+- Admin audit log endpoint (`GET /api/admin/audit-logs`)
+- Swagger and documentation updates
+- Milestone 17 verification script with Kafka-disabled and Kafka-enabled checks
+
+### Milestone 18: Analytics Consumer + Admin View
+**File:** `MILESTONE-18-COMPLETION-REPORT.md`
+**Status:** Draft / Not Started
+**Date:** April 27, 2026
+**Deliverables:**
+- Planning reference for the upcoming analytics consumer
+- Suggested lightweight admin analytics surface
+- Proposed verification and implementation scope
+
+### Milestone 19: End-to-End Kafka Verification + Documentation
+**File:** `MILESTONE-19-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 27, 2026
+**Deliverables:**
+- End-to-end Kafka verification script for booking API action to notification/audit/analytics side effects
+- Paper-ready Kafka reference covering topic, event names, event envelope, consumer groups, env vars, and limitations
+- Milestone 19 test registration as `npm run test:milestone-19`

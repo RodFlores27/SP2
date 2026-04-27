@@ -1,7 +1,7 @@
 # Week 3 - Kafka Integration + MVP Stabilization
 
-**Dates:** Apr 27 - May 2, 2026  
-**Original plan reference:** Apr 13 - Apr 17, 2026, now replanned because those dates have passed.  
+**Dates:** Apr 27 - May 2, 2026
+**Original plan reference:** Apr 13 - Apr 17, 2026, now replanned because those dates have passed.
 **Theme:** Add Kafka to the existing modular monolith without redesigning the MVP.
 
 ---
@@ -83,7 +83,7 @@ Suggested shared event shape:
 
 ### Milestone 14 - Kafka Foundation (Mon Apr 27)
 
-**Tags:** Backend, Kafka  
+**Tags:** Backend, Kafka
 **Status:** Complete (completed Apr 27)
 
 - Add KafkaJS dependency to the server.
@@ -120,7 +120,7 @@ Acceptance:
 
 ### Milestone 16 - Notification Consumer (Wed Apr 29)
 
-**Tags:** Backend, Kafka, Email  
+**Tags:** Backend, Kafka, Email
 **Status:** Complete (completed Apr 27)
 
 - Add notification consumer group: `notification-consumer`.
@@ -139,7 +139,7 @@ Acceptance:
 
 ### Milestone 17 - Audit Log Consumer (Thu Apr 30)
 
-**Tags:** Backend, Kafka, Database  
+**Tags:** Backend, Kafka, Database
 **Status:** Complete (completed Apr 27)
 
 - Add `AuditLogs` Sequelize model and migration.
@@ -157,7 +157,7 @@ Acceptance:
 
 ### Milestone 18 - Analytics Consumer + Admin View (Fri May 1)
 
-**Tags:** Backend, Frontend, Kafka  
+**Tags:** Backend, Frontend, Kafka
 **Status:** Complete (completed Apr 27)
 
 - Add analytics consumer group: `analytics-consumer`.
@@ -175,8 +175,8 @@ Acceptance:
 
 ### Milestone 19 - End-to-End Kafka Verification + Documentation (Sat May 2)
 
-**Tags:** Kafka, Testing, Documentation  
-**Status:** Not started
+**Tags:** Kafka, Testing, Documentation
+**Status:** Complete (completed Apr 27)
 
 - Test the full flow:
   - booking created
@@ -204,7 +204,7 @@ Acceptance:
 | 16 | Apr 29 | Notification consumer | Backend, Kafka, Email | Complete |
 | 17 | Apr 30 | Audit log consumer | Backend, Kafka, Database | Complete |
 | 18 | May 1 | Analytics consumer + admin view | Backend, Frontend, Kafka | Complete |
-| 19 | May 2 | End-to-end verification + docs | Kafka, Testing, Documentation | Not started |
+| 19 | May 2 | End-to-end verification + docs | Kafka, Testing, Documentation | Complete |
 
 ---
 
