@@ -52,6 +52,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - Server must be running on `http://localhost:4000`
 - Database must be seeded with test data (for Milestone 2+)
 - Required npm packages must be installed
+- Milestone tests that use `./utils/test-helpers` automatically load `server/.env` when it exists, so shell-only env setup is usually not needed
 
 ## Current Tests
 

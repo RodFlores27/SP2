@@ -1,4 +1,27 @@
+const fs = require('fs');
+const path = require('path');
 const axios = require('axios');
+
+function loadMilestoneTestEnv() {
+  const envPath = path.join(__dirname, '..', '..', 'server', '.env');
+  if (!fs.existsSync(envPath)) return;
+
+  try {
+    const dotenv = require(path.join(
+      __dirname,
+      '..',
+      '..',
+      'server',
+      'node_modules',
+      'dotenv'
+    ));
+    dotenv.config({ path: envPath });
+  } catch (error) {
+    console.warn('[tests] Could not load server/.env:', error.message);
+  }
+}
+
+loadMilestoneTestEnv();
 
 /**
  * Check if the server is running and healthy
