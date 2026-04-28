@@ -23,6 +23,8 @@
 
 Milestone 14 adds the foundation for Kafka without changing the existing booking workflow yet.
 
+The baseline workflow is the stabilized Milestone 13 MVP refactor: strict 1v1 contention, rebooking lineage, `on_hold`, `displaced`, `completed`, and firm approval deadline handling remain the booking source of truth. This milestone only adds Kafka infrastructure around that existing lifecycle.
+
 New local development setup:
 
 - `docker-compose.kafka.yml` runs a single-node Kafka broker for local development.

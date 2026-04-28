@@ -43,14 +43,19 @@ For small follow-up tweaks after a milestone is already wrapped, avoid reloading
 Valid booking statuses:
 
 - `penciled`
+- `on_hold`
 - `contested`
 - `pending_approval`
 - `approved`
 - `denied`
 - `cancelled`
 - `expired`
+- `displaced`
+- `completed`
 
 There is no `confirmed` status.
+
+`contested` is legacy/backward-compatible terminology. Current runtime contention is strict 1v1 and should use `contentionRole` (`defender` / `challenger`) plus `challengingBookingId` as the source of truth. `on_hold` means a pencil is temporarily blocked by an overlapping firm blocker and may be rebuilt when that blocker is denied/cancelled.
 
 ## 5) Booking User-Facing Copy Rules
 

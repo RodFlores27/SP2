@@ -23,6 +23,8 @@
 
 Milestone 15 wires the current booking lifecycle into Kafka while preserving the modular monolith design.
 
+The "current booking lifecycle" here is the Milestone 13 stabilized lifecycle. Event payloads preserve contention metadata such as `contentionRole` and `challengingBookingId`, and event statuses can reflect post-refactor states like `on_hold`, `displaced`, and `completed`.
+
 New Kafka booking helper:
 
 - `server/utils/kafka/booking-events.js`

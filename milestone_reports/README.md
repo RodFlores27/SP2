@@ -230,6 +230,22 @@ These reports serve as:
 - Swagger documentation updated with Admin tag and 3 endpoints
 - Verification test script (14 automated scenarios + 17-point UI checklist)
 
+### Milestone 13: MVP Refactor, Booking Contention Rules, and Stabilization
+**File:** `MILESTONE-13-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** April 15-27, 2026
+**Deliverables:**
+- Cloudinary dev/prod folder isolation and MVP demo reset cleanup
+- Rebook lineage, authorization document hashing, and change summaries
+- Strict 1v1 pencil contention with defender/challenger roles and third-entrant rejection
+- `on_hold`, `displaced`, and `completed` booking lifecycle behavior
+- Firm approval deadline enforcement and pre-start firm cancellation handling
+- Expanded cron lifecycle handling for contention deadlines, pending firm expiry, and completion
+- My Bookings, Calendar, Staff Dashboard, and Admin Panel stabilization
+- Centralized booking message catalogs for client and server
+- Staff SOP, transition catalog, and booking-rule documentation refresh
+- Verification script: `npm run test:milestone-13`
+
 ### Milestone 14: Kafka Foundation
 **File:** `MILESTONE-14-COMPLETION-REPORT.md`
 **Status:** ✅ Complete
@@ -280,12 +296,15 @@ These reports serve as:
 
 ### Milestone 18: Analytics Consumer + Admin View
 **File:** `MILESTONE-18-COMPLETION-REPORT.md`
-**Status:** Draft / Not Started
+**Status:** ✅ Complete
 **Date:** April 27, 2026
 **Deliverables:**
-- Planning reference for the upcoming analytics consumer
-- Suggested lightweight admin analytics surface
-- Proposed verification and implementation scope
+- `BookingAnalyticsEvents` migration and Sequelize model
+- Kafka analytics consumer module (`analytics-consumer`) wired to `booking-events`
+- Event persistence with duplicate `eventId` deduplication
+- Admin analytics endpoint (`GET /api/admin/analytics`)
+- Admin Panel analytics cards and recent event summaries
+- Milestone 18 verification script with disabled and enabled Kafka checks
 
 ### Milestone 19: End-to-End Kafka Verification + Documentation
 **File:** `MILESTONE-19-COMPLETION-REPORT.md`

@@ -72,15 +72,23 @@
 
 **Tags:** Deploy, Frontend
 
-**Deploy:**
+**Final Status:** ✅ Complete as MVP refactor/stabilization (reconstructed from git, Apr 15-27)
+
+**Originally planned deploy scope:**
 
 - Full deployment push: Render backend live, Vercel frontend live, Supabase DB connected
 - Smoke test the full booking flow end-to-end on staging URL
 
-**Frontend:**
+**Actual completed scope before Kafka:**
 
-- Bug fixes from smoke test
-- Polish UI: empty states, loading spinners, error messages
+- MVP stabilization after Milestone 12 and before Kafka.
+- Rebooking lineage, authorization document hashing, and staff change summaries.
+- Strict 1v1 contention with defender/challenger roles.
+- Displacement and `on_hold` lifecycle handling for firm-over-pencil conflicts.
+- Firm approval deadline enforcement, pre-start cancellation, and expanded cron lifecycle jobs.
+- My Bookings, Calendar, Staff Dashboard, and booking copy catalog cleanup.
+- Staff SOP and transition-catalog documentation refresh.
+- Verification script: `npm run test:milestone-13`.
 
 ---
 
@@ -102,10 +110,10 @@
 | 8         | 8   | Apr 6  | Calendar view (React Big Calendar + availability API) | Frontend          | ✅ Complete          |
 | 9         | 9   | Apr 7  | Booking creation form                                 | Frontend          | ✅ Complete          |
 | 10        | 10  | Apr 8  | User booking dashboard + Resend emails                | Frontend, Backend | ✅ Complete          |
-| 11        | 11  | Apr 9  | Staff dashboard + conflict resolution view            | Frontend          | —                    |
-| 12        | 12  | Apr 10 | node-cron expiry job + admin panel                    | Backend, Frontend | —                    |
-| 13        | 13  | Apr 11 | Full deploy push + smoke test + UI polish             | Deploy, Frontend  | —                    |
-| 14        | 14  | Apr 12 | MVP presentation to PTCF                              | Client, Buffer    | —                    |
+| 11        | 11  | Apr 9  | Staff dashboard + conflict resolution view            | Frontend          | ✅ Complete          |
+| 12        | 12  | Apr 10 | node-cron expiry job + admin panel                    | Backend, Frontend | ✅ Complete          |
+| 13        | 13  | Apr 11 | MVP refactor + booking contention stabilization       | Backend, Frontend | ✅ Complete          |
+| 14        | 14  | Apr 12 | Replanned later as Kafka foundation                   | Backend, Kafka    | ✅ Complete Apr 27   |
 
 ---
 

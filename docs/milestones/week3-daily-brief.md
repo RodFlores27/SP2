@@ -49,7 +49,7 @@ This is enough to demonstrate event-driven architecture for SP2 while keeping th
 
 Use current booking lifecycle terms. Do not reintroduce the removed `confirmed` status.
 
-Initial event names:
+Event names:
 
 - `booking.created`
 - `booking.approved`
@@ -58,7 +58,10 @@ Initial event names:
 - `booking.expired`
 - `booking.expiring_soon`
 - `booking.contention_started`
+- `booking.converted_to_firm`
 - `booking.displaced_slot_reopened`
+
+These event names are based on the stabilized Milestone 13 lifecycle. Kafka events may carry statuses such as `on_hold`, `displaced`, and `completed`; strict 1v1 contention details travel through event payload fields such as `contentionRole` and `challengingBookingId`.
 
 Suggested shared event shape:
 
@@ -106,7 +109,7 @@ Acceptance:
 **Status:** Complete (completed Apr 27)
 
 - Publish booking lifecycle events after successful database changes.
-- Cover create, approve, deny, cancel, expiry, contention start, and displaced slot reopened.
+- Cover create, approve, deny, cancel, expiry, contention start, convert-to-firm, and displaced slot reopened.
 - Keep event publishing non-blocking where appropriate, but log failures clearly.
 - Preserve existing API response shapes.
 

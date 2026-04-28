@@ -31,8 +31,13 @@ PTCF Project/
 │   │   │   └── AuthContext.jsx  # Authentication state management
 │   │   ├── lib/                 # Utility libraries
 │   │   │   ├── axios.js         # Axios instance + JWT interceptor
+│   │   │   ├── convertFirmSuccessSession.js # Convert-to-firm success redirect/session helper
+│   │   │   ├── formatBookingDateRange.js # Cross-day booking date-range formatting
 │   │   │   ├── imageUpload.js   # Multipart/form-data upload helper
 │   │   │   └── utils.js         # cn() helper for class merging
+│   │   ├── messages/            # User-facing copy catalogs
+│   │   │   ├── bookingMessages.jsx # Booking UI messages and JSX fragments
+│   │   │   └── bookingMessages.js  # Compatibility re-export for JS importers
 │   │   ├── pages/               # Page components
 │   │   │   ├── BookingForm.jsx  # Booking creation form (protected)
 │   │   │   ├── Calendar.jsx     # Calendar view with availability
@@ -69,7 +74,9 @@ PTCF Project/
 │   ├── migrations/              # Database migrations
 │   ├── models/                  # Sequelize models (includes booking, audit logs, analytics events)
 │   ├── jobs/                    # Scheduled background jobs
-│   │   └── booking-expiry.js   # node-cron: auto-expire pencil bookings + 48hr/24hr warnings
+│   │   └── booking-expiry.js   # node-cron: booking expiry, warning, contention deadline, firm deadline, completion jobs
+│   ├── messages/                # Backend API/domain/email message catalogs
+│   │   └── bookingMessages.js   # Booking API messages, domain errors, and email copy
 │   ├── routes/                  # API routes
 │   │   ├── auth.routes.js       # Auth routes
 │   │   ├── admin.routes.js      # Admin routes (system_admin only, users, audit logs, analytics)
@@ -78,11 +85,18 @@ PTCF Project/
 │   │   └── room.routes.js       # Room routes
 │   ├── seeders/                 # Database seed data
 │   ├── scripts/                 # Local development and maintenance scripts
-│   │   └── check-kafka.js       # Kafka foundation connectivity check
+│   │   ├── check-kafka.js       # Kafka foundation connectivity check
+│   │   ├── clear-bookings.js    # Booking cleanup for repeatable demos/tests
+│   │   ├── reset-mvp-demo-data.js # MVP demo reset workflow
+│   │   └── seed-foundation-only.js # Foundation-only seed workflow
+│   ├── services/                # Domain services
+│   │   └── contention.service.js # Strict 1v1 contention, displacement, and on_hold rebuild rules
 │   └── utils/                   # Utility functions
 │       ├── cloudinary.js        # Cloudinary image upload utility
 │       ├── email.js             # Resend email transport wrapper
 │       ├── kafka/               # KafkaJS producer + booking event helpers + notification/audit/analytics consumers
+│       ├── booking-rules.js     # Booking lifecycle/status helper rules
+│       ├── file-hash.js         # Authorization document hash helper
 │       └── booking-notifications.js  # Transactional email templates (created/approved/denied/cancelled/expired/expiringSoon)
 ├── docs/                        # Project planning and workflow docs
 │   ├── milestones/              # Weekly milestone plans and daily routine
@@ -165,7 +179,15 @@ npm run test:milestone-7    # Booking lifecycle & staff approval endpoints
 npm run test:milestone-8    # Calendar view & availability API
 npm run test:milestone-9    # Booking creation form
 npm run test:milestone-10   # User booking dashboard + Resend transactional emails
+npm run test:milestone-11   # Staff dashboard + conflict resolution
+npm run test:milestone-12   # Scheduled jobs + admin panel
+npm run test:milestone-13   # Booking contention rules + displacement/on_hold lifecycle
+npm run test:milestone-14   # Kafka foundation
+npm run test:milestone-15   # Booking event publishing
+npm run test:milestone-16   # Kafka notification consumer
+npm run test:milestone-17   # Kafka audit log consumer
 npm run test:milestone-18   # Kafka analytics consumer + admin analytics endpoint
+npm run test:milestone-19   # End-to-end Kafka verification + documentation
 
 # Run all milestone tests
 npm run test:all
@@ -213,12 +235,13 @@ npm run test:all
 - Preparation Room (capacity: 4)
 
 ### Seeded Bookings
-- 8 demo bookings with various scenarios:
+- Demo bookings with various scenarios:
   - Pencil booking for equipment (student)
-  - Firm booking for room (staff)
-  - Contested pencil bookings (overlapping on same equipment)
-  - Firm booking **pending staff approval** (student, Growth Chamber)
+  - Firm booking for room (staff/admin workflows)
+  - Strict 1v1 contention scenarios (defender/challenger)
+  - Firm booking **pending staff approval**
   - Pencil booking (researcher1, Growth Chamber)
+  - Displaced/on-hold showcase rows in targeted seed workflows
   - Mix of users (student, staff, admin, researcher)
   - Mix of resources (equipment and rooms)
   - Future dates for all bookings

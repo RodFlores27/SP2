@@ -95,6 +95,8 @@ booking.displaced_slot_reopened
 
 Do not reintroduce the removed `confirmed` status. The current firm booking flow uses `pending_approval` and `approved`.
 
+The Kafka event contract follows the Milestone 13 booking lifecycle. Event `status` values may include `on_hold`, `displaced`, and `completed`, and strict 1v1 contention details are carried in payload fields such as `contentionRole` and `challengingBookingId`. The `booking.converted_to_firm` event exists because pencil-to-firm conversion became an explicit lifecycle transition before Kafka publishing was added.
+
 ## Producer Behavior
 
 The producer helper lives under `server/utils/kafka`.
