@@ -135,8 +135,8 @@ async function maybeReseedDatabase() {
     // Create a temporary script to run the truncate
     const truncateScript = `
       const { Sequelize } = require('sequelize');
-      require('dotenv').config();
-      
+      // The parent test process already loads server/.env, so the child process
+      // can inherit the same env values without loading dotenv again.
       const sequelize = new Sequelize(
         process.env.DB_DATABASE,
         process.env.DB_USERNAME,
@@ -694,7 +694,7 @@ async function testStaffApproval() {
 async function testStaffDenial() {
   console.log('--- Test Group 4: Staff Deny Booking ---\n');
 
-  // Test 17: Staff denies booking
+  // Test 17: Staff denies a firm booking awaiting approval
   console.log('Test 17: Staff denies booking');
   try {
     const window = isoAt(40, 13, 2);
@@ -706,13 +706,18 @@ async function testStaffDenial() {
       startTime: window.startTime,
       endTime: window.endTime,
       purpose: makePurpose('deny - basic')
-    }, {
-      headers: { Authorization: `Bearer ${studentToken}` }
-    });
+      }, {
+        headers: { Authorization: `Bearer ${studentToken}` }
+      });
     const bookingId = createResponse.data.booking.id;
+    const firmBooking = await convertBookingToFirmWithDoc(
+      bookingId,
+      studentToken,
+      'deny - basic'
+    );
 
     const denyResponse = await axios.patch(
-      `${BASE_URL}/bookings/${bookingId}/deny`,
+      `${BASE_URL}/bookings/${firmBooking.id}/deny`,
       {},
       {
         headers: { Authorization: `Bearer ${staffToken}` }
@@ -729,7 +734,7 @@ async function testStaffDenial() {
     throw error;
   }
 
-  // Test 18: Staff denies with remark
+  // Test 18: Staff denies a firm booking with remark
   console.log('\nTest 18: Staff denies booking with staffRemark');
   try {
     const window = isoAt(45, 14, 2);
@@ -741,13 +746,18 @@ async function testStaffDenial() {
       startTime: window.startTime,
       endTime: window.endTime,
       purpose: makePurpose('deny - with remark')
-    }, {
-      headers: { Authorization: `Bearer ${studentToken}` }
-    });
+      }, {
+        headers: { Authorization: `Bearer ${studentToken}` }
+      });
     const bookingId = createResponse.data.booking.id;
+    const firmBooking = await convertBookingToFirmWithDoc(
+      bookingId,
+      studentToken,
+      'deny - with remark'
+    );
 
     const denyResponse = await axios.patch(
-      `${BASE_URL}/bookings/${bookingId}/deny`,
+      `${BASE_URL}/bookings/${firmBooking.id}/deny`,
       {
         staffRemark: 'Equipment scheduled for maintenance during this period.'
       },
