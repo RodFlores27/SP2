@@ -10,10 +10,6 @@ const STUDENT_PASSWORD = 'password123';
 const SERVER_ROOT = path.join(__dirname, '..', 'server');
 const RUN_ID = `${Date.now()}-${process.pid}`;
 
-require(path.join(SERVER_ROOT, 'node_modules', 'dotenv')).config({
-  path: path.join(SERVER_ROOT, '.env'),
-});
-
 if (process.env.KAFKA_ENABLED === 'true') {
   process.env.KAFKA_NOTIFICATION_CONSUMER_GROUP = `notification-consumer-e2e-${RUN_ID}`;
   process.env.KAFKA_AUDIT_CONSUMER_GROUP = `audit-log-consumer-e2e-${RUN_ID}`;

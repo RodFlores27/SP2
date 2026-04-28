@@ -7,10 +7,6 @@ const ADMIN_EMAIL = 'admin@uplb.edu.ph';
 const ADMIN_PASSWORD = 'admin123';
 const SERVER_ROOT = path.join(__dirname, '..', 'server');
 
-require(path.join(SERVER_ROOT, 'node_modules', 'dotenv')).config({
-  path: path.join(SERVER_ROOT, '.env'),
-});
-
 let passed = 0;
 let failed = 0;
 
