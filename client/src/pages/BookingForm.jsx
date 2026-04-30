@@ -6,6 +6,7 @@ import * as z from 'zod';
 import { format } from 'date-fns';
 import axiosInstance from '@/lib/axios';
 import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
+import { getBookingReference } from '@/lib/bookingReference';
 import {
   peekConvertFirmSuccess,
   clearConvertFirmSuccessSession,
@@ -115,13 +116,14 @@ export default function BookingForm() {
     const date = new Date(isoString);
     if (Number.isNaN(date.getTime())) return bf.activeContentionUnavailable.deadlineUnknown;
     return date.toLocaleString('en-PH', {
+      timeZone: 'Asia/Manila',
       month: 'short',
       day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-    });
+    }) + ' (Asia/Manila)';
   };
 
   const form = useForm({
@@ -374,7 +376,8 @@ export default function BookingForm() {
             if (resData.requiresContentionConfirmation) {
               setPendingContentionConfirmation({
                 formData: data,
-                conflicts: resData.conflicts || []
+                conflicts: resData.conflicts || [],
+                deadlineAt: resData.contentionDeadlineAt || null,
               });
               return;
             }
@@ -450,6 +453,7 @@ export default function BookingForm() {
             setPendingContentionConfirmation({
               formData: data,
               conflicts: d.conflicts || [],
+              deadlineAt: d.contentionDeadlineAt || null,
             });
             return;
           }
@@ -571,7 +575,7 @@ export default function BookingForm() {
                 {submitSuccess.booking && (
                   <div className="text-sm text-green-700 space-y-1">
                     <p>
-                      {bf.success.bookingIdLabel()} #{submitSuccess.booking.id}
+                      {bf.success.bookingIdLabel()} {getBookingReference(submitSuccess.booking)}
                     </p>
                     <p>
                       {bf.success.statusLabel()}{' '}
@@ -717,7 +721,9 @@ export default function BookingForm() {
                 <div className="space-y-1">
                   {pendingConfirmation.ownPencilConflicts.map((c) => (
                     <div key={c.id} className="text-sm bg-white/60 border border-orange-200 rounded px-3 py-2">
-                      <p className="font-medium">{bf.confirmOwnPencilOverlap.pencilCardTitle({ id: c.id })}</p>
+                      <p className="font-medium">
+                        {bf.confirmOwnPencilOverlap.pencilCardTitle({ id: getBookingReference(c) })}
+                      </p>
                       <p className="text-xs text-orange-700">
                         Status: {formatStatusLabel(c.status)}
                         {c.status === 'on_hold' ? ' (currently on hold)' : ''}
@@ -766,7 +772,7 @@ export default function BookingForm() {
                       className="text-sm bg-white/60 border border-amber-200 rounded px-3 py-2"
                     >
                       <p className="font-medium">
-                        {bf.confirmForeignPencilOverlap.pencilCardTitle({ id: c.id })}
+                        {bf.confirmForeignPencilOverlap.pencilCardTitle({ id: getBookingReference(c) })}
                       </p>
                       <p className="text-xs text-amber-700">Status: {formatStatusLabel(c.status)}</p>
                       <p className="text-xs text-amber-700">{c.user?.email || 'Unknown user'}</p>
@@ -810,13 +816,22 @@ export default function BookingForm() {
                 )}
                 <p className="font-medium text-amber-900">{bf.confirmContention.title()}</p>
                 <p className="text-sm text-amber-800">{bf.confirmContention.subtitle()}</p>
+                {pendingContentionConfirmation.deadlineAt && (
+                  <p className="text-sm text-amber-900">
+                    {bf.confirmContention.deadlineLine({
+                      formattedDeadline: formatDeadlineForNotice(pendingContentionConfirmation.deadlineAt),
+                    })}
+                  </p>
+                )}
                 <div className="space-y-1">
                   {pendingContentionConfirmation.conflicts.map((c) => (
                     <div
                       key={c.id}
                       className="text-sm bg-white/60 rounded px-3 py-2 border border-amber-200"
                     >
-                      <p className="font-medium">{bf.confirmContention.conflictCardTitle({ id: c.id })}</p>
+                    <p className="font-medium">
+                      {bf.confirmContention.conflictCardTitle({ id: getBookingReference(c) })}
+                    </p>
                       <p className="text-xs text-amber-800">
                         {formatBookingDateRange(c.startTime, c.endTime)}
                       </p>
@@ -879,7 +894,7 @@ export default function BookingForm() {
                             {conflicts.map((c) => (
                               <p key={c.id} className="text-xs">
                                 {bf.formCard.conflictLine({
-                                  id: c.id,
+                                  id: getBookingReference(c),
                                   resourceName: selectedResourceName,
                                   typeLabel: formatBookingTypeLabel(c.bookingType),
                                   statusLabel: formatStatusLabel(c.status),

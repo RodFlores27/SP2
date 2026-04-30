@@ -80,6 +80,8 @@ const EQUIPMENT = [
     category: 'Sterilization Equipment',
     description: 'Class II Biological Safety Cabinet for sterile tissue culture work',
     imageUrl: null,
+    codeGroup: 'STE',
+    resourceCode: 'LFH',
     status: 'available',
   },
   {
@@ -87,6 +89,8 @@ const EQUIPMENT = [
     category: 'Sterilization Equipment',
     description: 'High-pressure steam sterilizer for media and glassware',
     imageUrl: null,
+    codeGroup: 'STE',
+    resourceCode: 'AUT',
     status: 'available',
   },
   {
@@ -94,6 +98,8 @@ const EQUIPMENT = [
     category: 'Incubation Equipment',
     description: 'Temperature and light-controlled chamber for plant tissue culture',
     imageUrl: null,
+    codeGroup: 'INC',
+    resourceCode: 'GCH',
     status: 'available',
   },
 ];
@@ -104,6 +110,8 @@ const ROOMS = [
     description: 'Primary tissue culture laboratory with laminar flow hoods',
     location: 'ICropS Building, 2nd Floor',
     capacity: 8,
+    codeGroup: 'ICR',
+    resourceCode: 'CRA',
     status: 'available',
   },
   {
@@ -111,6 +119,8 @@ const ROOMS = [
     description: 'Media preparation and sterilization area',
     location: 'ICropS Building, 2nd Floor',
     capacity: 4,
+    codeGroup: 'ICR',
+    resourceCode: 'PRM',
     status: 'available',
   },
 ];

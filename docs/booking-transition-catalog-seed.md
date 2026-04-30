@@ -132,7 +132,7 @@ All values exist on the model; **not every value is reachable for every `booking
 | G-02  | `POST /bookings` pencil   | Firm overlap                                                      | 409 + conflicts                      |
 | G-03  | `POST /bookings` pencil   | Own pencil overlap (`penciled` **or** `on_hold`)                 | 409                                  |
 | G-04  | `POST /bookings` pencil   | Foreign overlap includes active `defender` contention             | 409 `ACTIVE_CONTENTION_LOCKED` + `contentionDeadlineAt` |
-| G-04a | `POST /bookings` pencil   | Foreign overlap (no active defender) without `confirmContention`  | 409 `requiresContentionConfirmation` |
+| G-04a | `POST /bookings` pencil   | Foreign overlap (no active defender) without `confirmContention`  | 409 `requiresContentionConfirmation` + projected `contentionDeadlineAt` |
 | G-05  | `POST /bookings` firm     | Firm overlap                                                      | 409                                  |
 | G-06  | `POST /bookings` firm     | Own pencil overlap (`penciled` / `on_hold`) without `confirmOverlapOwn` | 409 `requiresConfirmation`           |
 | G-07  | `PATCH …/approve`         | Not firm pending                                                  | 400                                  |

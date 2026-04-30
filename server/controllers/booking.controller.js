@@ -3,6 +3,7 @@ const {
   User,
   Equipment,
   Room,
+  BookingReferenceSequence,
   sequelize
 } = require('../models');
 const { Op } = require('sequelize');
@@ -21,7 +22,12 @@ const {
   isKafkaEnabled,
   publishBookingLifecycleEvent,
 } = require('../utils/kafka');
-const { computePencilExpiryAt, assertStartNotWithinLockHours, isWithinLockHours } = require('../utils/booking-rules');
+const {
+  computeContentionDeadline,
+  computePencilExpiryAt,
+  assertStartNotWithinLockHours,
+  isWithinLockHours
+} = require('../utils/booking-rules');
 const contention = require('../services/contention.service');
 const { api } = require('../messages/bookingMessages');
 
@@ -46,12 +52,34 @@ function formatBookingOverlapSummary(row) {
   const u = row.user;
   return {
     id: row.id,
+    referenceCode: row.referenceCode || null,
     bookingType: row.bookingType,
     status: row.status,
     startTime: row.startTime,
     endTime: row.endTime,
     user: u ? { id: u.id, email: u.email } : null
   };
+}
+
+function getProjectedContentionDeadline(overlappingPencils, challengerStartTime) {
+  if (!overlappingPencils?.length) return null;
+  const defender = contention.pickDefenderBooking(overlappingPencils);
+  if (!defender?.expiryAt) return null;
+  const now = new Date();
+  const deadlineAt = computeContentionDeadline(now, challengerStartTime, defender.expiryAt);
+  return deadlineAt.getTime() > now.getTime() ? deadlineAt : null;
+}
+
+async function resolveBookingContentionDeadline(booking) {
+  if (!booking || !booking.contentionRole) return null;
+  if (booking.contentionRole === 'defender') return booking.contentionDeadlineAt || null;
+  if (booking.contentionRole === 'challenger' && booking.challengingBookingId) {
+    const defender = await Booking.findByPk(booking.challengingBookingId, {
+      attributes: ['contentionDeadlineAt']
+    });
+    return defender?.contentionDeadlineAt || null;
+  }
+  return null;
 }
 
 /**
@@ -93,6 +121,7 @@ async function attachDashboardOverlapHints(plain) {
 
 const THREAD_BOOKING_ATTRIBUTES = [
   'id',
+  'referenceCode',
   'bookingThreadId',
   'rebookedFromBookingId',
   'bookingType',
@@ -151,7 +180,7 @@ const buildBookingIncludes = ({ includeThreadHistory = false } = {}) => {
     model: Booking,
     as: 'displacedByBooking',
     required: false,
-    attributes: ['id', 'status', 'bookingType', 'startTime', 'endTime']
+    attributes: ['id', 'referenceCode', 'status', 'bookingType', 'startTime', 'endTime']
   });
 
   return includes;
@@ -181,6 +210,70 @@ function getLatestBookingIdByThread(bookings) {
 async function getNextBookingId() {
   const [rows] = await sequelize.query('SELECT nextval(\'"Bookings_id_seq"\') AS id;');
   return rows[0]?.id;
+}
+
+function normalizeReferencePart(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
+function acronymFallback(value, fallback) {
+  const cleaned = String(value || '').trim();
+  if (!cleaned) return fallback;
+
+  const initials = cleaned
+    .split(/\s+/)
+    .map((part) => part[0])
+    .join('');
+
+  return normalizeReferencePart(initials || cleaned).slice(0, 6) || fallback;
+}
+
+function resolveResourceCodeParts(resourceType, resource) {
+  const groupFallbackSource = resourceType === 'equipment' ? resource.category : resource.location;
+  const codeGroup =
+    normalizeReferencePart(resource.codeGroup) ||
+    acronymFallback(groupFallbackSource, resourceType === 'equipment' ? 'EQP' : 'ROM');
+  const resourceCode =
+    normalizeReferencePart(resource.resourceCode) ||
+    acronymFallback(resource.name, resourceType === 'equipment' ? 'EQUIP' : 'ROOM');
+
+  return {
+    codeGroup,
+    resourceCode,
+  };
+}
+
+async function generateBookingReferenceCode({ resourceType, resource, startTime, transaction }) {
+  const { codeGroup, resourceCode } = resolveResourceCodeParts(resourceType, resource);
+  const year = new Date(startTime).getFullYear();
+  const shortYear = String(year).slice(-2);
+
+  const where = {
+    resourceType,
+    codeGroup,
+    resourceCode,
+    year,
+  };
+
+  const [sequence] = await BookingReferenceSequence.findOrCreate({
+    where,
+    defaults: {
+      ...where,
+      lastNumber: 0,
+    },
+    transaction,
+    lock: transaction.LOCK.UPDATE,
+  });
+
+  await sequence.reload({ transaction, lock: transaction.LOCK.UPDATE });
+  sequence.lastNumber += 1;
+  await sequence.save({ transaction });
+
+  const sequenceText = String(sequence.lastNumber).padStart(3, '0');
+  return `${codeGroup}-${resourceCode}-${sequenceText}-${shortYear}`;
 }
 
 async function resolveResourceName(resourceType, resourceId) {
@@ -480,6 +573,7 @@ const createBooking = async (req, res) => {
     const formatConflicts = (list) =>
       list.map((c) => ({
         id: c.id,
+        referenceCode: c.referenceCode,
         bookingType: c.bookingType,
         status: c.status,
         startTime: c.startTime,
@@ -540,9 +634,11 @@ const createBooking = async (req, res) => {
         });
       }
       if (otherPencilOverlaps.length > 0 && !confirmContention) {
+        const projectedContentionDeadlineAt = getProjectedContentionDeadline(otherPencilOverlaps, start);
         return res.status(409).json({
           error: api.create.pencilForeignOverlapConfirm,
           requiresContentionConfirmation: true,
+          contentionDeadlineAt: projectedContentionDeadlineAt,
           conflicts: formatConflicts(otherPencilOverlaps)
         });
       }
@@ -614,12 +710,20 @@ const createBooking = async (req, res) => {
           }
         }
 
+        const referenceCode = await generateBookingReferenceCode({
+          resourceType,
+          resource,
+          startTime: start,
+          transaction: t,
+        });
+
         const created = await Booking.create(
           {
             ...(bookingId ? { id: bookingId } : {}),
             userId,
             resourceType,
             resourceId,
+            referenceCode,
             bookingType,
             status: bookingType === 'pencil' ? initialPencilStatus : initialFirmStatus,
             startTime: start,
@@ -687,6 +791,11 @@ const createBooking = async (req, res) => {
       throw txnErr;
     }
 
+    const createdContentionDeadlineAt =
+      bookingType === 'pencil' && otherPencilOverlaps.length > 0
+        ? await resolveBookingContentionDeadline(createdBooking)
+        : null;
+
     const response = {
       booking: createdBooking,
       message:
@@ -709,10 +818,14 @@ const createBooking = async (req, res) => {
 
     if (otherPencilOverlaps.length > 0 && bookingType === 'pencil') {
       response.conflicts = formatConflicts(otherPencilOverlaps);
+      response.contentionDeadlineAt = createdContentionDeadlineAt;
     }
 
     const bookingPlain = createdBooking.toJSON();
     bookingPlain.contentionChallenger = createdBooking.contentionRole === 'challenger';
+    if (createdContentionDeadlineAt && bookingPlain.contentionRole === 'challenger') {
+      bookingPlain.contentionDeadlineAt = createdContentionDeadlineAt;
+    }
     response.booking = bookingPlain;
 
     res.status(201).json(response);
@@ -1491,7 +1604,7 @@ const getAvailability = async (req, res) => {
     const bookings = await Booking.findAll({
       where: whereClause,
       attributes: [
-        'id', 'resourceType', 'resourceId', 'bookingType', 'status',
+        'id', 'referenceCode', 'resourceType', 'resourceId', 'bookingType', 'status',
         'startTime', 'endTime', 'contentionRole', 'contentionDeadlineAt', 'challengingBookingId'
       ],
       order: [['startTime', 'ASC']]
@@ -1501,6 +1614,7 @@ const getAvailability = async (req, res) => {
       const row = b.get({ plain: true });
       return {
         id: row.id,
+        referenceCode: row.referenceCode || null,
         resourceType: row.resourceType,
         resourceId: row.resourceId,
         bookingType: row.bookingType,

@@ -9,7 +9,9 @@
     "dev": "nodemon index.js",
     "kafka:check": "node scripts/check-kafka.js",
     "clear:bookings": "node scripts/clear-bookings.js",
+    "clear:supabase-auth": "node scripts/clear-supabase-auth-users.js",
     "reset:mvp-demo": "node scripts/reset-mvp-demo-data.js",
+    "sync:supabase-auth": "node scripts/sync-supabase-auth-users.js",
     "seed:all:local": "sequelize-cli db:seed:all --env development",
     "seed:foundation:local": "node scripts/seed-foundation-only.js",
     "seed:showcase:local": "sequelize-cli db:seed --seed 20260425130000-seed-calendar-showcase-day.js --env development",
@@ -20,6 +22,7 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.1",
     "axios": "^1.14.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.9.0",

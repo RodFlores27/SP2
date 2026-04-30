@@ -5,6 +5,9 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { Navigation } from '@/components/Navigation';
 import Login from '@/pages/Login';
 import Register from '@/pages/Register';
+import ForgotPassword from '@/pages/ForgotPassword';
+import ResetPassword from '@/pages/ResetPassword';
+import OAuthCallback from '@/pages/OAuthCallback';
 import Dashboard from '@/pages/Dashboard';
 import StaffDashboard from '@/pages/StaffDashboard';
 import AdminPanel from '@/pages/AdminPanel';
@@ -72,6 +75,9 @@ function App() {
             <Route path="/" element={<Navigate to="/equipment" replace />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/oauth/callback" element={<OAuthCallback />} />
             <Route path="/equipment" element={<EquipmentList />} />
             <Route
               path="/equipment/:id"

@@ -14,8 +14,7 @@ const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
   confirmPassword: z.string(),
-  accountType: z.enum(['regular_user', 'ptcf_staff', 'system_admin']),
-  userCategory: z.enum(['student', 'faculty', 'researcher', 'research_assistant', 'lab_technician', 'external', 'others']).optional(),
+  userCategory: z.enum(['student', 'faculty', 'researcher', 'research_assistant', 'lab_technician', 'external', 'others']),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ['confirmPassword'],
@@ -23,7 +22,7 @@ const registerSchema = z.object({
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register: registerUser, isAuthenticated } = useAuth();
+  const { register: registerUser, isAuthenticated, startOAuth } = useAuth();
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,12 +33,9 @@ export default function Register() {
       email: '',
       password: '',
       confirmPassword: '',
-      accountType: 'regular_user',
       userCategory: 'student',
     },
   });
-
-  const accountType = form.watch('accountType');
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -55,20 +51,30 @@ export default function Register() {
     const result = await registerUser(
       data.email,
       data.password,
-      data.accountType,
+      'regular_user',
       data.userCategory
     );
 
     if (result.success) {
-      setSuccess('Registration successful! Redirecting to login...');
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      setSuccess(result.data?.message || 'Registration successful. Check your email for verification, then log in.');
+      form.setValue('password', '');
+      form.setValue('confirmPassword', '');
     } else {
       setError(result.error);
     }
 
     setIsLoading(false);
+  };
+
+  const handleOAuth = async (provider) => {
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+    const result = await startOAuth(provider);
+    if (!result.success) {
+      setError(result.error);
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -131,55 +137,30 @@ export default function Register() {
 
               <FormField
                 control={form.control}
-                name="accountType"
+                name="userCategory"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Account Type</FormLabel>
+                    <FormLabel>User Category</FormLabel>
                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder="Select account type" />
+                          <SelectValue placeholder="Select user category" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="regular_user">Regular User</SelectItem>
-                        <SelectItem value="ptcf_staff">PTCF Staff</SelectItem>
-                        <SelectItem value="system_admin">System Admin</SelectItem>
+                        <SelectItem value="student">Student</SelectItem>
+                        <SelectItem value="faculty">Faculty</SelectItem>
+                        <SelectItem value="researcher">Researcher</SelectItem>
+                        <SelectItem value="research_assistant">Research Assistant</SelectItem>
+                        <SelectItem value="lab_technician">Lab Technician</SelectItem>
+                        <SelectItem value="external">External</SelectItem>
+                        <SelectItem value="others">Others</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              {accountType === 'regular_user' && (
-                <FormField
-                  control={form.control}
-                  name="userCategory"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>User Category</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select user category" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="student">Student</SelectItem>
-                          <SelectItem value="faculty">Faculty</SelectItem>
-                          <SelectItem value="researcher">Researcher</SelectItem>
-                          <SelectItem value="research_assistant">Research Assistant</SelectItem>
-                          <SelectItem value="lab_technician">Lab Technician</SelectItem>
-                          <SelectItem value="external">External</SelectItem>
-                          <SelectItem value="others">Others</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              )}
 
               {error && (
                 <div className="text-sm text-destructive">{error}</div>
@@ -192,6 +173,12 @@ export default function Register() {
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Registering...' : 'Register'}
               </Button>
+
+              <div className="grid grid-cols-1 gap-2">
+                <Button type="button" variant="secondary" onClick={() => handleOAuth('google')} disabled={isLoading}>
+                  Sign up with Google
+                </Button>
+              </div>
 
               <div className="text-center text-sm text-muted-foreground">
                 Already have an account?{' '}

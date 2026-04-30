@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { useAuth } from '@/contexts/useAuth';
 import axiosInstance from '@/lib/axios';
 import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
+import { getBookingReference, getBookingReferenceText } from '@/lib/bookingReference';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
@@ -929,6 +930,7 @@ export default function StaffDashboard() {
       if (query) {
         const searchable = [
           String(booking.id),
+          getBookingReferenceText(booking),
           getResourceName(booking, equipment, rooms),
           booking.purpose || '',
           booking.user?.email || '',
@@ -954,6 +956,7 @@ export default function StaffDashboard() {
         const sourceInfo = getSourceDeniedByInfo(booking);
         const searchable = [
           String(booking.id),
+          getBookingReferenceText(booking),
           getResourceName(booking, equipment, rooms),
           booking.purpose || '',
           booking.user?.email || '',
@@ -980,7 +983,7 @@ export default function StaffDashboard() {
         if (!participants.includes(participantEmailQuery)) return false;
       }
       if (query) {
-        const bookingIds = group.bookings.map((booking) => `#${booking.id}`).join(' ');
+        const bookingIds = group.bookings.map((booking) => getBookingReference(booking)).join(' ');
         const searchable = [
           group.resourceName,
           group.resourceType,
@@ -1007,6 +1010,7 @@ export default function StaffDashboard() {
       if (query) {
         const searchable = [
           String(booking.id),
+          getBookingReferenceText(booking),
           getResourceName(booking, equipment, rooms),
           booking.purpose || '',
           booking.user?.email || '',
@@ -1061,10 +1065,10 @@ export default function StaffDashboard() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
+      <div className="flex gap-1 border-b border-border overflow-x-auto pb-px">
         <button
           onClick={() => setActiveTab('approvals')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'approvals'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -1079,7 +1083,7 @@ export default function StaffDashboard() {
         </button>
         <button
           onClick={() => setActiveTab('deniedRebooks')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'deniedRebooks'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -1094,7 +1098,7 @@ export default function StaffDashboard() {
         </button>
         <button
           onClick={() => setActiveTab('contention')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'contention'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -1109,7 +1113,7 @@ export default function StaffDashboard() {
         </button>
         <button
           onClick={() => setActiveTab('approved')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+          className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
             activeTab === 'approved'
               ? 'border-primary text-primary'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -1345,7 +1349,7 @@ function ApprovedBookingCard({ booking, resourceName }) {
       <CardContent className="pt-4 pb-4">
         <div className="space-y-1.5 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm">#{booking.id}</span>
+            <span className="font-semibold text-sm">{getBookingReference(booking)}</span>
             <span className="font-medium truncate">{resourceName}</span>
             <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
           </div>
@@ -1412,7 +1416,9 @@ function ActiveConflictGroupCard({ group }) {
         <div className="rounded-md border border-orange-200/70 bg-orange-50/40 px-3 py-2 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-orange-900">Defender</span>
-            <span className="font-semibold text-sm">#{defenderBooking?.id || '—'}</span>
+            <span className="font-semibold text-sm">
+              {defenderBooking ? getBookingReference(defenderBooking) : '—'}
+            </span>
             {defenderBooking ? (
               <BookingStatusBadge status={defenderBooking.status} bookingType={defenderBooking.bookingType} />
             ) : (
@@ -1422,7 +1428,9 @@ function ActiveConflictGroupCard({ group }) {
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-wide text-orange-900">Challenger</span>
-            <span className="font-semibold text-sm">#{challengerBooking?.id || '—'}</span>
+            <span className="font-semibold text-sm">
+              {challengerBooking ? getBookingReference(challengerBooking) : '—'}
+            </span>
             {challengerBooking ? (
               <BookingStatusBadge status={challengerBooking.status} bookingType={challengerBooking.bookingType} />
             ) : (
@@ -1451,7 +1459,7 @@ function ActiveConflictGroupCard({ group }) {
             {group.bookings.map((booking) => (
               <div key={booking.id} className="space-y-1 border-b border-orange-100 pb-2 last:border-b-0 last:pb-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-sm">#{booking.id}</span>
+                  <span className="font-semibold text-sm">{getBookingReference(booking)}</span>
                   <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
                   {booking.contentionRole && (
                     <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[10px] font-medium capitalize text-orange-900 border border-orange-200">
@@ -1506,7 +1514,7 @@ function ApprovalCard({
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="space-y-1.5 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm">#{booking.id}</span>
+              <span className="font-semibold text-sm">{getBookingReference(booking)}</span>
               <span className="font-medium truncate">{resourceName}</span>
               <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
             </div>
@@ -1524,7 +1532,9 @@ function ApprovalCard({
               <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
                 <CornerDownRight className="h-3 w-3" />
                 <span className="underline decoration-dotted underline-offset-2">
-                  Rebooked from #{booking.rebookedFromBookingId}
+                  Rebooked from {booking.rebookedFromBooking?.referenceCode
+                    || booking.threadBookings?.find((attempt) => attempt.id === booking.rebookedFromBookingId)?.referenceCode
+                    || `#${booking.rebookedFromBookingId}`}
                 </span>
               </p>
             )}
@@ -1620,7 +1630,7 @@ function ApprovalCard({
                     {previousAttempts.map((attempt) => (
                       <div key={attempt.id} className="text-sm text-amber-900">
                         <p className="font-medium">
-                          Booking #{attempt.id} ({attempt.status?.replace('_', ' ')})
+                          Booking {getBookingReference(attempt)} ({attempt.status?.replace('_', ' ')})
                         </p>
                         <p className="text-xs text-amber-700">
                           {formatBookingDateRange(attempt.startTime, attempt.endTime)}

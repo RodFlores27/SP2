@@ -1,4 +1,5 @@
 import { formatBookingDateRange, formatCalendarEventTimeRange } from '@/lib/formatBookingDateRange';
+import { getBookingReference } from '@/lib/bookingReference';
 import { bookingMessages } from '@/messages/bookingMessages';
 
 /** Passed to react-big-calendar tooltipAccessor to avoid native `title` (duplicate of our custom tooltip). */
@@ -137,6 +138,7 @@ export function buildAggregateMemberRows(participantEvents) {
     const calendarStatus = toCalendarStatus(res);
     return {
       bookingId: res.id,
+      bookingReference: getBookingReference(res),
       calendarStatus,
       timeRange: formatCalendarEventTimeRange(res.startTime, res.endTime),
       roleLabel: formatAggregateMemberRoleLabel(res),
@@ -166,8 +168,7 @@ export function formatBookingHoverDetail(event) {
     }
     return `${headline}\n${countLine}\n${hint}`;
   }
-  const id = event.id ?? event.resource?.id;
-  const idPrefix = id != null && id !== '' ? `#${id} ` : '';
+  const idPrefix = `${getBookingReference(event.resource)} `;
   const { resourceName, bookingType, status, contentionChallenger } = event.resource;
   const name = resourceName ?? '';
   const kind = bookingType ?? '';

@@ -1,5 +1,6 @@
 /**
- * Wipes MVP application data: Bookings, Users, Equipment, Rooms.
+ * Wipes MVP application data: AuditLogs, BookingAnalyticsEvents, Bookings, Users, Equipment, Rooms.
+ * In Supabase Auth mode, also deletes all Supabase Auth users for the configured project.
  * Clears Sequelize CLI seed history (SequelizeData) when present so `db:seed:all` can run again.
  * Does not modify SequelizeMeta (migrations).
  *
@@ -31,6 +32,7 @@ require('dotenv').config();
 
 const path = require('path');
 const { sequelize } = require(path.join(__dirname, '..', 'models'));
+const { clearSupabaseAuthUsers } = require('./supabase-auth-admin');
 
 function isUndefinedTable(err) {
   const code = err?.parent?.code || err?.original?.code;
@@ -49,7 +51,14 @@ function isUndefinedTable(err) {
   try {
     await sequelize.authenticate();
 
+    const authClearResult = await clearSupabaseAuthUsers();
+    if (!authClearResult.skipped) {
+      console.log(`Cleared ${authClearResult.deleted} Supabase Auth user(s).`);
+    }
+
     await sequelize.transaction(async (transaction) => {
+      await sequelize.query('DELETE FROM "AuditLogs"', { transaction });
+      await sequelize.query('DELETE FROM "BookingAnalyticsEvents"', { transaction });
       await sequelize.query('DELETE FROM "Bookings"', { transaction });
       await sequelize.query('DELETE FROM "Users"', { transaction });
       await sequelize.query('DELETE FROM "Equipment"', { transaction });
@@ -65,8 +74,10 @@ function isUndefinedTable(err) {
     }
 
     console.log('MVP demo reset complete.');
-    console.log('Next: npx sequelize-cli db:seed:all --env production');
-    console.log('  (or --env development for local DB)');
+    console.log(`Next: npx sequelize-cli db:seed:all --env ${env}`);
+    if (process.env.AUTH_PROVIDER === 'supabase') {
+      console.log('Then: npm run sync:supabase-auth');
+    }
   } catch (err) {
     console.error(err);
     process.exitCode = 1;

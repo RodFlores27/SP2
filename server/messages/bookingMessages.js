@@ -46,7 +46,7 @@ const api = {
       'Firm booking overlaps another user’s pencil booking(s). Confirm to proceed — those bookings remain active until staff approval, then are displaced if approved.',
     firmAuthRequired: 'Authorization document is required when creating a firm booking',
     pencilOverlapsFirm: 'Cannot create pencil booking: time slot overlaps a firm booking',
-    pencilOwnDuplicate: 'You already have a pencil booking for this time slot',
+    pencilOwnDuplicate: "You already have a pencil booking for this time slot. Users are not allowed to overlap own pencils",
     pencilActiveContentionLocked: 'Slot is in active contention, please try again later',
     pencilForeignOverlapConfirm:
       'This pencil booking overlaps another user’s pencil booking. Confirm to proceed and start contention.',

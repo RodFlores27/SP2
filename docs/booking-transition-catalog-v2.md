@@ -34,7 +34,7 @@ Notes:
 2. Reject if overlapping own active pencil -> `409`.
 3. Evaluate foreign active pencil overlaps (`status='penciled'` only):
    - if any overlapping active contention participant exists (`defender` or `challenger`) -> `409 ACTIVE_CONTENTION_LOCKED` (include `contentionDeadlineAt` for UI notice when available).
-   - otherwise, require explicit user confirmation (`requiresContentionConfirmation`) before starting contention.
+   - otherwise, require explicit user confirmation (`requiresContentionConfirmation`) before starting contention, and include projected `contentionDeadlineAt` for the confirmation alert.
    - after confirmation, start 1v1 with earliest `createdAt` defender election.
 
 Defender election rule:

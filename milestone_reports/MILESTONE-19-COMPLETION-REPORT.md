@@ -148,3 +148,28 @@ Kafka-disabled mode exits safely with setup guidance
 ## Summary
 
 Milestone 19 makes the Week 3 Kafka integration demonstrable end-to-end. A booking action now has a verifiable event path through Kafka into notification, audit, and analytics side effects, with documentation suitable for demo and paper reference.
+
+---
+
+## Post-Milestone Addendum (Booking Reference Display Migration)
+
+After the core Milestone 19 verification, a focused display migration pass was completed to align user-visible booking labels with the new `referenceCode` format while keeping numeric `id` as the internal key.
+
+### Final display behavior
+
+- Internal operations continue to use numeric booking IDs.
+- User-facing views now prefer `referenceCode` and fall back to `#id` only for legacy/null rows.
+
+### Surfaces updated
+
+- Calendar: month/week/day/agenda labels and tooltip headline prefix
+- My Bookings: contention/overlap `View details` lists and previous attempts
+- Book Now: conflict cards and confirmation prompts
+- Staff Dashboard: resubmissions `Rebooked from ...`
+- Admin Panel: Recent Event Summaries
+
+### Key payload fixes applied
+
+- `/api/bookings/availability` now includes `referenceCode`
+- My Bookings overlap hint rows now include `referenceCode`
+- Admin analytics booking include now fetches `booking.referenceCode`

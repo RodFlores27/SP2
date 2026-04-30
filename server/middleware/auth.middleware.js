@@ -2,6 +2,10 @@
 
 const jwt = require("jsonwebtoken");
 const { User } = require("../models");
+const {
+  createSupabaseAuthClient,
+  isSupabaseAuthEnabled,
+} = require("../utils/supabase-auth");
 
 function normalizeRole(role) {
   return String(role || "")
@@ -17,6 +21,11 @@ function authenticateToken(req, res, next) {
   }
 
   const token = authHeader.slice('Bearer '.length);
+
+  if (isSupabaseAuthEnabled()) {
+    return authenticateSupabaseToken(token, req, res, next);
+  }
+
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     return res.status(500).json({ message: 'JWT_SECRET not configured' });
@@ -44,6 +53,53 @@ function authenticateToken(req, res, next) {
     };
     next();
   });
+}
+
+async function authenticateSupabaseToken(token, req, res, next) {
+  try {
+    const supabase = createSupabaseAuthClient();
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data.user?.id) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+
+    const email = data.user.email ? String(data.user.email).trim().toLowerCase() : null;
+    let user = await User.findOne({
+      where: { supabaseAuthId: data.user.id },
+      attributes: ['id', 'email', 'accountType', 'userCategory', 'supabaseAuthId'],
+    });
+
+    if (!user && email) {
+      user = await User.findOne({
+        where: { email },
+        attributes: ['id', 'email', 'accountType', 'userCategory', 'supabaseAuthId'],
+      });
+      if (user && !user.supabaseAuthId) {
+        user.supabaseAuthId = data.user.id;
+        await user.save();
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({
+        message: 'Session no longer matches this database. Sign in again (e.g. after a demo reset or re-seed).',
+        code: 'AUTH_USER_MISSING',
+      });
+    }
+
+    req.user = {
+      id: user.id,
+      email: user.email,
+      role: user.accountType,
+      userCategory: user.userCategory,
+      supabaseAuthId: data.user.id,
+    };
+    next();
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || 'Authentication check failed',
+    });
+  }
 }
 
 function authorizeRoles(allowedRoles = []) {

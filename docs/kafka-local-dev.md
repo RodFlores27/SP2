@@ -181,3 +181,30 @@ The test captures email calls in-process instead of sending real Resend email, s
 - Consumers run inside the backend process.
 - The analytics view is simple event-count reporting, not full utilization analytics.
 - Local KafkaJS runs may print a non-blocking `TimeoutNegativeWarning`; previous tests still passed when this warning appeared.
+
+## Booking Reference Display (UI)
+
+The system now keeps two booking identifiers:
+
+- Internal primary key: `Bookings.id` (numeric)
+- User-facing reference: `Bookings.referenceCode` (for example `ICR-CRA-004-26`)
+
+UI screens should display `referenceCode` when available and only fall back to `#id` for legacy/null rows.
+
+### If you still see old `#1234` values
+
+1. Restart the backend after pulling latest changes so updated controller payloads are loaded.
+2. Refresh the frontend page (hard refresh if needed).
+3. Re-seed using your normal flow (`npm run seed:all:local`) so seeded rows include `referenceCode`.
+4. Confirm these endpoints now return `referenceCode` where needed:
+   - `/api/bookings/availability` (calendar labels/tooltip paths)
+   - My Bookings overlap hint rows (`overlappingOnHoldPencils`, `overlappingFirmBookings`)
+   - Admin analytics recent events include booking relation with `referenceCode`
+
+### Display migration scope completed
+
+- Calendar (month/week/day/agenda labels and hover headline prefix)
+- My Bookings alerts (`View details` lists, contention detail lines, previous attempts)
+- Book Now conflict cards and confirmation prompts
+- Staff Dashboard resubmissions `Rebooked from ...`
+- Admin Panel `Recent Event Summaries`

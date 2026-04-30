@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
 import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
+import { getBookingReference } from '@/lib/bookingReference';
 import {
   CalendarDays,
   FileText,
@@ -130,7 +131,7 @@ export function ActiveBookingCard({
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-sm">#{booking.id}</span>
+              <span className="font-semibold text-sm">{getBookingReference(booking)}</span>
               <span className="font-medium truncate">{resourceName}</span>
               <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
             </div>
@@ -184,12 +185,12 @@ export function ActiveBookingCard({
                             {alerts.firmPendingOnHold.listHeading()}
                           </p>
                           <ul className="list-disc pl-4 space-y-1">
-                            {booking.overlappingOnHoldPencils.map((p) => (
-                              <li key={p.id}>
-                                #{p.id} — {formatBookingDateRange(p.startTime, p.endTime)}
-                                {p.user?.email ? ` (${p.user.email})` : ''}
-                              </li>
-                            ))}
+                              {booking.overlappingOnHoldPencils.map((p) => (
+                                <li key={p.id}>
+                                  {getBookingReference(p)} — {formatBookingDateRange(p.startTime, p.endTime)}
+                                  {p.user?.email ? ` (${p.user.email})` : ''}
+                                </li>
+                              ))}
                           </ul>
                         </div>
                       )}
@@ -242,7 +243,7 @@ export function ActiveBookingCard({
                             <ul className="list-disc pl-4 space-y-1">
                               {booking.overlappingFirmBookings.map((f) => (
                                 <li key={f.id}>
-                                  #{f.id} — {formatBookingTypeLabel(f.bookingType)} (
+                                  {getBookingReference(f)} — {formatBookingTypeLabel(f.bookingType)} (
                                   {formatStatusLabel(f.status)}) —{' '}
                                   {formatBookingDateRange(f.startTime, f.endTime)}
                                   {f.user?.email ? ` (${f.user.email})` : ''}
@@ -268,7 +269,7 @@ export function ActiveBookingCard({
                   {detail?.defender && detail?.deadlineAt ? (
                     <p>
                       {alerts.challenger.summaryLine({
-                        bookingId: detail.defender.bookingId,
+                        bookingId: detail.defender.referenceCode || detail.defender.bookingId,
                         formattedDeadline: format(new Date(detail.deadlineAt), 'MMM d, yyyy h:mm a'),
                       })}
                     </p>
@@ -311,7 +312,7 @@ export function ActiveBookingCard({
                           <ul className="list-disc pl-4 space-y-1">
                             <li>
                               {alerts.challenger.defenderSummaryLine({
-                                bookingId: detail.defender.bookingId,
+                                bookingId: detail.defender.referenceCode || detail.defender.bookingId,
                                 timeRange: formatBookingDateRange(
                                   detail.defender.startTime,
                                   detail.defender.endTime
@@ -391,7 +392,7 @@ export function ActiveBookingCard({
                           <ul className="list-disc pl-4 space-y-1">
                             <li>
                               {alerts.defender.challengerSummaryLine({
-                                bookingId: detail.challenger.bookingId,
+                                bookingId: detail.challenger.referenceCode || detail.challenger.bookingId,
                                 timeRange: formatBookingDateRange(
                                   detail.challenger.startTime,
                                   detail.challenger.endTime
@@ -449,7 +450,7 @@ export function ActiveBookingCard({
                       <div key={attempt.id}>
                         <p className="font-medium text-amber-900">
                           {ac.meta.previousAttempts.bookingLine({
-                            id: attempt.id,
+                            id: getBookingReference(attempt),
                             statusLabel: formatStatusLabel(attempt.status),
                           })}
                         </p>

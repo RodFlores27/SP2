@@ -109,7 +109,9 @@ Preferred scripts:
 - `npm run seed:calendar:demo:local` (clear bookings + showcase seeding)
 - `npm run clear:bookings` (delete all bookings rows only)
 - `npm run seed:all:local` (full seeders run)
-- `npm run reset:mvp-demo` (project-specific reset script)
+- `npm run reset:mvp-demo` (project-specific reset script; also clears Supabase Auth users when `AUTH_PROVIDER=supabase`)
+- `npm run sync:supabase-auth` (recreate/link demo Supabase Auth users after reseeding)
+- `npm run clear:supabase-auth` (delete Supabase Auth users only)
 
 Do not invent ad-hoc Sequelize/Node reseed commands when a package script exists.
 

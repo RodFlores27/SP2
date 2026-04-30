@@ -105,6 +105,8 @@ module.exports = {
         category: 'Sterilization Equipment',
         description: 'Class II Biological Safety Cabinet for sterile tissue culture work',
         imageUrl: null,
+        codeGroup: 'STE',
+        resourceCode: 'LFH',
         status: 'available',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -114,6 +116,8 @@ module.exports = {
         category: 'Sterilization Equipment',
         description: 'High-pressure steam sterilizer for media and glassware',
         imageUrl: null,
+        codeGroup: 'STE',
+        resourceCode: 'AUT',
         status: 'available',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -123,6 +127,8 @@ module.exports = {
         category: 'Incubation Equipment',
         description: 'Temperature and light-controlled chamber for plant tissue culture',
         imageUrl: null,
+        codeGroup: 'INC',
+        resourceCode: 'GCH',
         status: 'available',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -136,6 +142,8 @@ module.exports = {
         description: 'Primary tissue culture laboratory with laminar flow hoods',
         location: 'ICropS Building, 2nd Floor',
         capacity: 8,
+        codeGroup: 'ICR',
+        resourceCode: 'CRA',
         status: 'available',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -145,6 +153,8 @@ module.exports = {
         description: 'Media preparation and sterilization area',
         location: 'ICropS Building, 2nd Floor',
         capacity: 4,
+        codeGroup: 'ICR',
+        resourceCode: 'PRM',
         status: 'available',
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -198,24 +208,81 @@ module.exports = {
       return date;
     };
 
+    const normalizeCodePart = (value) =>
+      String(value || '')
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '')
+        .slice(0, 8);
+
+    const resolveReferenceParts = async (resourceType, resourceId) => {
+      const isEquipment = resourceType === 'equipment';
+      const tableName = isEquipment ? 'Equipment' : 'Rooms';
+      const fallbackGroup = isEquipment ? 'EQU' : 'ROM';
+      const fallbackResource = String(resourceId).padStart(3, '0').slice(-3);
+
+      const rows = await queryInterface.sequelize.query(
+        `SELECT "codeGroup", "resourceCode" FROM "${tableName}" WHERE id = :resourceId LIMIT 1`,
+        {
+          replacements: { resourceId },
+          type: Sequelize.QueryTypes.SELECT,
+        }
+      );
+      const record = rows[0] || {};
+
+      return {
+        codeGroup: normalizeCodePart(record.codeGroup) || fallbackGroup,
+        resourceCode: normalizeCodePart(record.resourceCode) || fallbackResource,
+      };
+    };
+
+    const nextReferenceCode = async (resourceType, resourceId, startTime) => {
+      const { codeGroup, resourceCode } = await resolveReferenceParts(resourceType, resourceId);
+      const year = new Date(startTime).getFullYear();
+      const yearShort = String(year).slice(-2);
+
+      const nextRows = await queryInterface.sequelize.query(
+        `INSERT INTO "BookingReferenceSequences"
+          ("resourceType", "codeGroup", "resourceCode", "year", "lastNumber", "createdAt", "updatedAt")
+         VALUES (:resourceType, :codeGroup, :resourceCode, :year, 1, NOW(), NOW())
+         ON CONFLICT ("resourceType", "codeGroup", "resourceCode", "year")
+         DO UPDATE SET
+           "lastNumber" = "BookingReferenceSequences"."lastNumber" + 1,
+           "updatedAt" = NOW()
+         RETURNING "lastNumber"`,
+        {
+          replacements: { resourceType, codeGroup, resourceCode, year },
+          type: Sequelize.QueryTypes.SELECT,
+        }
+      );
+
+      const nextNumber = Number(nextRows[0]?.lastNumber || 1);
+      return `${codeGroup}-${resourceCode}-${String(nextNumber).padStart(3, '0')}-${yearShort}`;
+    };
+
     const insertBooking = async (row) => {
+      const referenceCode = await nextReferenceCode(
+        row.resourceType,
+        row.resourceId,
+        row.startTime
+      );
       const inserted = await queryInterface.sequelize.query(
         `INSERT INTO "Bookings" (
           "userId", "resourceType", "resourceId", "bookingType", "status",
           "startTime", "endTime", "purpose", "authorizationDocUrl",
           "approvedByUserId", "approvedAt", "expiryAt",
           "contentionRole", "contentionDeadlineAt", "challengingBookingId",
-          "createdAt", "updatedAt", "bookingThreadId"
+          "createdAt", "updatedAt", "bookingThreadId", "referenceCode"
         ) VALUES (
           :userId, :resourceType, :resourceId, :bookingType, :status,
           :startTime, :endTime, :purpose, :authorizationDocUrl,
           :approvedByUserId, :approvedAt, :expiryAt,
           :contentionRole, :contentionDeadlineAt, :challengingBookingId,
-          :createdAt, :updatedAt, 0
+          :createdAt, :updatedAt, 0, :referenceCode
         ) RETURNING id`,
         {
           replacements: {
             ...row,
+            referenceCode,
             contentionRole: row.contentionRole ?? null,
             contentionDeadlineAt: row.contentionDeadlineAt ?? null,
             challengingBookingId: row.challengingBookingId ?? null,

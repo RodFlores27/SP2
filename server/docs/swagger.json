@@ -87,7 +87,7 @@
           "Authentication"
         ],
         "summary": "Register a new user",
-        "description": "Creates a new user account. Email must be unique. Password is hashed using bcrypt. No JWT token is returned (login-only JWT pattern).",
+        "description": "Creates a regular user account. In legacy mode the password is stored as a bcrypt hash locally. In Supabase mode the password is managed by Supabase Auth and the local Users row stores the application profile. Staff and admin roles must be assigned by an existing admin.",
         "operationId": "registerUser",
         "requestBody": {
           "required": true,
@@ -104,23 +104,6 @@
                     "password": "password123",
                     "accountType": "regular_user",
                     "userCategory": "student"
-                  }
-                },
-                "staffUser": {
-                  "summary": "PTCF staff registration",
-                  "value": {
-                    "email": "staff@uplb.edu.ph",
-                    "password": "staff123",
-                    "accountType": "ptcf_staff",
-                    "userCategory": "lab_technician"
-                  }
-                },
-                "adminUser": {
-                  "summary": "System admin registration",
-                  "value": {
-                    "email": "admin@uplb.edu.ph",
-                    "password": "admin123",
-                    "accountType": "system_admin"
                   }
                 }
               }
@@ -156,11 +139,24 @@
                       "message": "password is required"
                     }
                   },
-                  "missingAccountType": {
+                  "missingUserCategory": {
                     "value": {
-                      "message": "accountType is required"
+                      "message": "userCategory is required"
                     }
                   }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - Public registration cannot create staff or admin accounts",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Public registration is only available for regular users. Staff and admin accounts must be assigned by an admin."
                 }
               }
             }
@@ -187,7 +183,7 @@
           "Authentication"
         ],
         "summary": "User login",
-        "description": "Authenticates a user and returns a JWT token for subsequent authenticated requests.",
+        "description": "Authenticates a user and returns an access token. In legacy mode this is a local JWT. In Supabase mode this is a Supabase access token plus a refresh token.",
         "operationId": "loginUser",
         "requestBody": {
           "required": true,
@@ -224,7 +220,7 @@
         },
         "responses": {
           "200": {
-            "description": "Login successful - JWT token returned",
+            "description": "Login successful - access token returned",
             "content": {
               "application/json": {
                 "schema": {
@@ -275,13 +271,240 @@
         }
       }
     },
+    "/auth/refresh": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Refresh Supabase session",
+        "description": "Refreshes a Supabase Auth session when AUTH_PROVIDER=supabase. Legacy JWT mode does not use refresh tokens.",
+        "operationId": "refreshSupabaseSession",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshRequest"
+              },
+              "examples": {
+                "supabaseRefresh": {
+                  "summary": "Supabase refresh token",
+                  "value": {
+                    "refreshToken": "supabase-refresh-token"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session refreshed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing refresh token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "refreshToken is required"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid or expired refresh token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Invalid or expired refresh token"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Supabase Auth is not enabled or configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "Supabase Auth is not enabled"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password-reset-request": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Request Supabase password reset email",
+        "description": "Sends a Supabase Auth password reset email when AUTH_PROVIDER=supabase. The response is intentionally generic to avoid account enumeration.",
+        "operationId": "requestPasswordReset",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordResetRequest"
+              },
+              "examples": {
+                "reset": {
+                  "summary": "Request reset email",
+                  "value": {
+                    "email": "student@uplb.edu.ph",
+                    "redirectTo": "http://localhost:5173/reset-password"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset request accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                },
+                "example": {
+                  "message": "If that email is registered, a password reset link will be sent."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing email or Supabase Auth disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "email is required"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Supabase Auth request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/password": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Update Supabase password",
+        "description": "Updates the current Supabase Auth user password. Requires a valid Supabase access token, including a recovery-session token from a password reset link.",
+        "operationId": "updateSupabasePassword",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordUpdateRequest"
+              },
+              "examples": {
+                "update": {
+                  "summary": "Set new password",
+                  "value": {
+                    "password": "newPassword123"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                },
+                "example": {
+                  "message": "Password updated successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid password or Supabase Auth disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "password must be at least 6 characters"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid recovery/access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Supabase Auth password update failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/auth/me": {
       "get": {
         "tags": [
           "User"
         ],
         "summary": "Get current user info",
-        "description": "Returns the authenticated user's profile information. Requires a valid JWT token.",
+        "description": "Returns the authenticated user profile. Requires a valid legacy JWT or Supabase access token, depending on AUTH_PROVIDER.",
         "operationId": "getCurrentUser",
         "security": [
           {
@@ -2763,6 +2986,205 @@
           }
         }
       }
+    },
+    "/auth/email-verification/resend": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Resend verification email",
+        "description": "Resends a Supabase signup verification email when AUTH_PROVIDER=supabase. Response is intentionally generic.",
+        "operationId": "resendEmailVerification",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailVerificationResendRequest"
+              },
+              "examples": {
+                "resend": {
+                  "summary": "Resend verification link",
+                  "value": {
+                    "email": "student@uplb.edu.ph",
+                    "redirectTo": "http://localhost:5173/login"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification resend request accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                },
+                "example": {
+                  "message": "If that email is pending verification, a new verification link will be sent."
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing email or Supabase disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "message": "email is required"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Supabase resend request failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/oauth/start": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Start OAuth sign-in",
+        "description": "Starts Supabase OAuth flow and returns provider redirect URL.",
+        "operationId": "startOAuth",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthStartRequest"
+              },
+              "examples": {
+                "google": {
+                  "summary": "Start Google OAuth",
+                  "value": {
+                    "provider": "google",
+                    "redirectTo": "http://localhost:5173/oauth/callback"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OAuth URL returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthStartResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported provider or Supabase disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "OAuth startup failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/oauth/exchange": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Complete OAuth sign-in",
+        "description": "Exchanges Supabase OAuth tokens for normalized app session payload and local profile mapping.",
+        "operationId": "exchangeOAuth",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OAuthExchangeRequest"
+              },
+              "examples": {
+                "exchange": {
+                  "summary": "Exchange OAuth token",
+                  "value": {
+                    "accessToken": "supabase-access-token",
+                    "refreshToken": "supabase-refresh-token"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OAuth exchange successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing token or Supabase disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid OAuth access token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "OAuth exchange failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2772,7 +3194,7 @@
         "required": [
           "email",
           "password",
-          "accountType"
+          "userCategory"
         ],
         "properties": {
           "email": {
@@ -2784,17 +3206,15 @@
           "password": {
             "type": "string",
             "format": "password",
-            "description": "User password (will be hashed with bcrypt)",
+            "description": "User password. Supabase mode stores this in Supabase Auth instead of the local Users table.",
             "example": "password123"
           },
           "accountType": {
             "type": "string",
             "enum": [
-              "regular_user",
-              "ptcf_staff",
-              "system_admin"
+              "regular_user"
             ],
-            "description": "User role for access control",
+            "description": "Optional compatibility field. Public registration only accepts regular_user.",
             "example": "regular_user"
           },
           "userCategory": {
@@ -2808,7 +3228,7 @@
               "external",
               "others"
             ],
-            "description": "User category for classification (optional)",
+            "description": "Regular user category for classification",
             "example": "student"
           }
         }
@@ -2838,6 +3258,13 @@
               "userCategory": {
                 "type": "string",
                 "example": "student"
+              },
+              "supabaseAuthId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true,
+                "description": "Supabase Auth user UUID when AUTH_PROVIDER=supabase",
+                "example": "00000000-0000-0000-0000-000000000000"
               }
             }
           }
@@ -2869,7 +3296,7 @@
         "properties": {
           "token": {
             "type": "string",
-            "description": "JWT token for authenticated requests",
+            "description": "Access token for authenticated requests. Legacy mode returns a local JWT; Supabase mode returns a Supabase access token.",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
           },
           "user": {
@@ -2890,8 +3317,30 @@
               "userCategory": {
                 "type": "string",
                 "example": "student"
+              },
+              "supabaseAuthId": {
+                "type": "string",
+                "format": "uuid",
+                "nullable": true,
+                "description": "Supabase Auth user UUID when AUTH_PROVIDER=supabase",
+                "example": "00000000-0000-0000-0000-000000000000"
               }
             }
+          },
+          "refreshToken": {
+            "type": "string",
+            "nullable": true,
+            "description": "Supabase refresh token. Present only when AUTH_PROVIDER=supabase.",
+            "example": "supabase-refresh-token"
+          },
+          "authProvider": {
+            "type": "string",
+            "enum": [
+              "legacy",
+              "supabase"
+            ],
+            "description": "Authentication provider that issued the token.",
+            "example": "supabase"
           }
         }
       },
@@ -2910,6 +3359,18 @@
           "userCategory": {
             "type": "string",
             "example": "student"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "user@uplb.edu.ph"
+          },
+          "supabaseAuthId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Supabase Auth user UUID when AUTH_PROVIDER=supabase",
+            "example": "00000000-0000-0000-0000-000000000000"
           }
         }
       },
@@ -2971,6 +3432,12 @@
             "type": "string",
             "format": "date-time",
             "readOnly": true
+          },
+          "supabaseAuthId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Supabase Auth user UUID linked to this app user"
           }
         }
       },
@@ -3762,68 +4229,16 @@
           },
           "requiresContentionConfirmation": {
             "type": "boolean",
-            "description": "When true, resubmit with confirmContention to start automated pencil contention"
+            "description": "When true, resubmit with confirmContention to start automated pencil contention. Response may include projected contentionDeadlineAt for the confirmation UI."
           },
-          "willBeQueued": {
-            "type": "boolean",
-            "description": "When requiresContentionConfirmation is true: if true, this slot would join the contention waitlist (queued) instead of becoming the active challenger on a new episode"
-          },
-          "previewBookingId": {
-            "type": "integer",
-            "description": "Display-only likely next Bookings.id (MAX+1) for confirmation UI; actual id is assigned at create and may differ if concurrent inserts occur"
-          },
-          "contentionWaitlist": {
-            "type": "array",
-            "description": "When willBeQueued is true: full open-episode line (defender, challenger, queued bookings by position) for waitlist UI; overlaps-with-new-slot conflicts alone omit non-overlapping queue peers",
-            "items": {
-              "type": "object",
-              "properties": {
-                "role": {
-                  "type": "string",
-                  "enum": [
-                    "defender",
-                    "challenger",
-                    "queued"
-                  ]
-                },
-                "queuePosition": {
-                  "type": "integer",
-                  "description": "Set when role is queued (ContentionQueueItems.position)"
-                },
-                "id": {
-                  "type": "integer"
-                },
-                "bookingType": {
-                  "type": "string"
-                },
-                "status": {
-                  "type": "string"
-                },
-                "startTime": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "endTime": {
-                  "type": "string",
-                  "format": "date-time"
-                },
-                "user": {
-                  "type": "object",
-                  "properties": {
-                    "id": {
-                      "type": "integer"
-                    },
-                    "email": {
-                      "type": "string"
-                    }
-                  }
-                }
-              }
-            }
+          "contentionDeadlineAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Projected contention deadline for confirmation/lock notices. Included for ACTIVE_CONTENTION_LOCKED and may be included with requiresContentionConfirmation."
           },
           "code": {
             "type": "string",
-            "description": "Optional machine code (e.g. CONTESTATION_OUTCOME_CHANGED, PENCIL_OVERLAP_CHANGED, EXPECTED_WILL_BE_QUEUED_REQUIRED)"
+            "description": "Optional machine code (e.g. ACTIVE_CONTENTION_LOCKED, PENCIL_OVERLAP_CHANGED)"
           },
           "ownPencilConflicts": {
             "type": "array",
@@ -3868,6 +4283,133 @@
                 }
               }
             }
+          }
+        }
+      },
+      "RefreshRequest": {
+        "type": "object",
+        "required": [
+          "refreshToken"
+        ],
+        "properties": {
+          "refreshToken": {
+            "type": "string",
+            "description": "Supabase refresh token returned by /auth/login when AUTH_PROVIDER=supabase",
+            "example": "supabase-refresh-token"
+          }
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "properties": {
+          "message": {
+            "type": "string",
+            "example": "Operation completed successfully"
+          }
+        }
+      },
+      "PasswordResetRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "student@uplb.edu.ph"
+          },
+          "redirectTo": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "description": "Optional password reset redirect URL. Defaults to SUPABASE_PASSWORD_RESET_REDIRECT_URL, CLIENT_PASSWORD_RESET_URL, or CLIENT_URL.",
+            "example": "http://localhost:5173/reset-password"
+          }
+        }
+      },
+      "PasswordUpdateRequest": {
+        "type": "object",
+        "required": [
+          "password"
+        ],
+        "properties": {
+          "password": {
+            "type": "string",
+            "format": "password",
+            "minLength": 6,
+            "example": "newPassword123"
+          }
+        }
+      },
+      "EmailVerificationResendRequest": {
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "format": "email",
+            "example": "student@uplb.edu.ph"
+          },
+          "redirectTo": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "example": "http://localhost:5173/login"
+          }
+        }
+      },
+      "OAuthStartRequest": {
+        "type": "object",
+        "required": [
+          "provider"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "google"
+            ],
+            "example": "google"
+          },
+          "redirectTo": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true,
+            "example": "http://localhost:5173/oauth/callback"
+          }
+        }
+      },
+      "OAuthStartResponse": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri",
+            "example": "https://<project-ref>.supabase.co/auth/v1/authorize?..."
+          },
+          "provider": {
+            "type": "string",
+            "example": "google"
+          }
+        }
+      },
+      "OAuthExchangeRequest": {
+        "type": "object",
+        "required": [
+          "accessToken"
+        ],
+        "properties": {
+          "accessToken": {
+            "type": "string",
+            "example": "supabase-access-token"
+          },
+          "refreshToken": {
+            "type": "string",
+            "nullable": true,
+            "example": "supabase-refresh-token"
           }
         }
       }

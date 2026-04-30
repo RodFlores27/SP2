@@ -18,6 +18,11 @@ module.exports = (sequelize, DataTypes) => {
   }
   User.init({
     email: DataTypes.STRING,
+    supabaseAuthId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      unique: true,
+    },
     passwordHash: DataTypes.STRING,
     accountType: DataTypes.STRING,
     userCategory: DataTypes.STRING

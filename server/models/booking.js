@@ -257,6 +257,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(64),
       allowNull: true
     },
+    referenceCode: {
+      type: DataTypes.STRING(64),
+      allowNull: true,
+      unique: true
+    },
     rebookedFromBookingId: {
       type: DataTypes.INTEGER,
       allowNull: true

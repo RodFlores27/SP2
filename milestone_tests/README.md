@@ -500,6 +500,28 @@ node milestone_tests/milestone-{number}-{description}.js
 - `GET /api/admin/audit-logs` and `GET /api/admin/analytics`
 - Week 3 Kafka documentation and completion report
 
+### Supabase Auth Verification
+**File:** `supabase-auth-verification.js`
+**Run:** `npm run test:supabase-auth` (from project root; server on `http://localhost:4000`)
+
+**Tests:**
+- Server health check
+- Safe guidance path when `AUTH_PROVIDER` is not `supabase`
+- Demo user login through Supabase Auth
+- Supabase refresh-token endpoint
+- `/auth/me` token validation
+- Existing role gates for regular users and admins
+- Password reset endpoint validation without sending email by default
+- Real booking creation using a Supabase-issued access token
+- Optional Kafka audit and analytics persistence checks when `KAFKA_ENABLED=true`
+
+**Technologies Verified:**
+- Supabase Auth token issuance and refresh
+- Local `Users.supabaseAuthId` mapping
+- `POST /api/auth/password-reset-request`
+- `POST /api/auth/password`
+- Existing booking/Kafka path with Supabase-authenticated `req.user.id`
+
 ## Notes
 
 - Tests use axios for HTTP requests

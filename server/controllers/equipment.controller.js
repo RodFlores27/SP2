@@ -1,6 +1,8 @@
 const { Equipment } = require('../models');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 
+const normalizeCode = (value) => String(value || '').trim().toUpperCase();
+
 const getAllEquipment = async (req, res) => {
   try {
     const equipment = await Equipment.findAll({
@@ -32,10 +34,12 @@ const getEquipmentById = async (req, res) => {
 const createEquipment = async (req, res) => {
   try {
     const { name, category, description, status } = req.body;
+    const codeGroup = normalizeCode(req.body.codeGroup);
+    const resourceCode = normalizeCode(req.body.resourceCode);
 
-    if (!name || !category || !description) {
+    if (!name || !category || !description || !codeGroup || !resourceCode) {
       return res.status(400).json({ 
-        error: 'Missing required fields: name, category, and description are required' 
+        error: 'Missing required fields: name, category, description, code group, and resource code are required' 
       });
     }
 
@@ -54,6 +58,8 @@ const createEquipment = async (req, res) => {
       category,
       description,
       imageUrl,
+      codeGroup,
+      resourceCode,
       status: status || 'available',
     });
 
@@ -68,6 +74,8 @@ const updateEquipment = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, category, description, status, removeImage } = req.body;
+    const codeGroup = req.body.codeGroup !== undefined ? normalizeCode(req.body.codeGroup) : undefined;
+    const resourceCode = req.body.resourceCode !== undefined ? normalizeCode(req.body.resourceCode) : undefined;
 
     const equipment = await Equipment.findByPk(id);
     if (!equipment) {
@@ -93,6 +101,8 @@ const updateEquipment = async (req, res) => {
       name: name || equipment.name,
       category: category || equipment.category,
       description: description || equipment.description,
+      codeGroup: codeGroup || equipment.codeGroup,
+      resourceCode: resourceCode || equipment.resourceCode,
       status: status || equipment.status,
       imageUrl,
     });

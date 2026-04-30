@@ -22,6 +22,7 @@ import {
   buildAggregateMemberRows,
 } from '@/components/bookingCalendarUtils';
 import { formatCalendarEventTimeRange } from '@/lib/formatBookingDateRange';
+import { getBookingReference } from '@/lib/bookingReference';
 import { useBookingCalendarSideEffects } from '@/components/useBookingCalendarSideEffects';
 import { bookingMessages } from '@/messages/bookingMessages';
 
@@ -146,7 +147,7 @@ function ContentionOverlapFlyout({ panel, onClose }) {
               />
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-foreground">
-                  #{row.bookingId}{' '}
+                  {row.bookingReference || `#${row.bookingId}`}{' '}
                   <span className="font-normal text-muted-foreground">· {row.roleLabel}</span>
                 </div>
                 <div className="text-muted-foreground">{row.timeRange}</div>
@@ -205,7 +206,7 @@ function BookingEventLabel({ event, title }) {
 
 function toBaseCalendarEvent(booking, resourceName, resourceStatus) {
   const timeRange = formatCalendarEventTimeRange(booking.startTime, booking.endTime);
-  const title = `#${booking.id} ${timeRange} [${resourceName}]`;
+  const title = `${getBookingReference(booking)} ${timeRange} [${resourceName}]`;
   return {
     id: booking.id,
     title,
@@ -400,7 +401,7 @@ function AgendaEventCell({ event }) {
   return (
     <div className="ptcf-agenda-event-row">
       <span className="ptcf-agenda-event-title">
-        #{booking?.id} {booking?.resourceName ? `[${booking.resourceName}]` : ''}
+        {getBookingReference(booking)} {booking?.resourceName ? `[${booking.resourceName}]` : ''}
       </span>
     </div>
   );

@@ -185,7 +185,7 @@ const getAnalytics = async (req, res) => {
             model: Booking,
             as: 'booking',
             required: false,
-            attributes: ['id', 'resourceType', 'resourceId', 'bookingType', 'status'],
+            attributes: ['id', 'referenceCode', 'resourceType', 'resourceId', 'bookingType', 'status'],
           },
         ],
       }),

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
+import { getBookingReference } from '@/lib/bookingReference';
 import { AlertTriangle, CalendarDays } from 'lucide-react';
 import { BookingStatusBadge } from '@/components/BookingStatusBadge';
 import { AuthorizationDocButton } from './AuthorizationDocButton';
@@ -51,7 +52,7 @@ export function PastBookingRow({ booking, resourceName, rebookTo }) {
         )}
 
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="font-semibold text-xs text-muted-foreground">#{booking.id}</span>
+          <span className="font-semibold text-xs text-muted-foreground">{getBookingReference(booking)}</span>
           <span className="font-medium text-sm truncate">{resourceName}</span>
           <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
         </div>
@@ -95,7 +96,7 @@ export function PastBookingRow({ booking, resourceName, rebookTo }) {
                 {previousAttempts.map((attempt) => (
                   <div key={attempt.id}>
                     <p className="font-medium text-amber-900">
-                      Booking #{attempt.id} ({attempt.status?.replace('_', ' ')})
+                      Booking {getBookingReference(attempt)} ({attempt.status?.replace('_', ' ')})
                     </p>
                   {!!attempt.staffRemark && (
                     <p className="text-amber-700">{attempt.staffRemark}</p>

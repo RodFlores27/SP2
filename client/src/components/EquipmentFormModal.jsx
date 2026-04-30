@@ -33,11 +33,15 @@ import {
 const equipmentSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   category: z.string().min(1, 'Category is required'),
+  codeGroup: z.string().min(2, 'Code group is required').max(16, 'Code group is too long').regex(/^[A-Za-z0-9]+$/, 'Use letters and numbers only'),
+  resourceCode: z.string().min(2, 'Resource code is required').max(16, 'Resource code is too long').regex(/^[A-Za-z0-9]+$/, 'Use letters and numbers only'),
   description: z.string().min(1, 'Description is required'),
   status: z.enum(['available', 'in-use', 'maintenance', 'unavailable']),
 });
 
-export function EquipmentFormModal({ open, onOpenChange, equipment, onSuccess }) {
+const normalizeCodeInput = (value) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+export function EquipmentFormModal({ open, onOpenChange, equipment, onSuccess, codeGroupOptions = [] }) {
   const [imageFile, setImageFile] = useState(null);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,6 +52,8 @@ export function EquipmentFormModal({ open, onOpenChange, equipment, onSuccess })
     defaultValues: {
       name: '',
       category: '',
+      codeGroup: '',
+      resourceCode: '',
       description: '',
       status: 'available',
     },
@@ -58,6 +64,8 @@ export function EquipmentFormModal({ open, onOpenChange, equipment, onSuccess })
       form.reset({
         name: equipment.name || '',
         category: equipment.category || '',
+        codeGroup: equipment.codeGroup || '',
+        resourceCode: equipment.resourceCode || '',
         description: equipment.description || '',
         status: equipment.status || 'available',
       });
@@ -67,6 +75,8 @@ export function EquipmentFormModal({ open, onOpenChange, equipment, onSuccess })
       form.reset({
         name: '',
         category: '',
+        codeGroup: '',
+        resourceCode: '',
         description: '',
         status: 'available',
       });
@@ -151,6 +161,52 @@ export function EquipmentFormModal({ open, onOpenChange, equipment, onSuccess })
                 </FormItem>
               )}
             />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="codeGroup"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category Code</FormLabel>
+                    <FormControl>
+                      <>
+                        <Input
+                          placeholder="e.g., STE"
+                          list="equipment-code-groups"
+                          {...field}
+                          onChange={(e) => field.onChange(normalizeCodeInput(e.target.value))}
+                        />
+                        <datalist id="equipment-code-groups">
+                          {codeGroupOptions.map((code) => (
+                            <option key={code} value={code} />
+                          ))}
+                        </datalist>
+                      </>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="resourceCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Equipment Code</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., AUT"
+                        {...field}
+                        onChange={(e) => field.onChange(normalizeCodeInput(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}

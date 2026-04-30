@@ -34,13 +34,17 @@ const roomSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().min(1, 'Description is required'),
   location: z.string().min(1, 'Location is required'),
+  codeGroup: z.string().min(2, 'Code group is required').max(16, 'Code group is too long').regex(/^[A-Za-z0-9]+$/, 'Use letters and numbers only'),
+  resourceCode: z.string().min(2, 'Room code is required').max(16, 'Room code is too long').regex(/^[A-Za-z0-9]+$/, 'Use letters and numbers only'),
   capacity: z.string().min(1, 'Capacity is required').refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: 'Capacity must be a positive number',
   }),
   status: z.enum(['available', 'in-use', 'maintenance', 'unavailable']),
 });
 
-export function RoomFormModal({ open, onOpenChange, room, onSuccess }) {
+const normalizeCodeInput = (value) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+export function RoomFormModal({ open, onOpenChange, room, onSuccess, codeGroupOptions = [] }) {
   const [imageFile, setImageFile] = useState(null);
   const [removeExistingImage, setRemoveExistingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,6 +56,8 @@ export function RoomFormModal({ open, onOpenChange, room, onSuccess }) {
       name: '',
       description: '',
       location: '',
+      codeGroup: '',
+      resourceCode: '',
       capacity: '',
       status: 'available',
     },
@@ -63,6 +69,8 @@ export function RoomFormModal({ open, onOpenChange, room, onSuccess }) {
         name: room.name || '',
         description: room.description || '',
         location: room.location || '',
+        codeGroup: room.codeGroup || '',
+        resourceCode: room.resourceCode || '',
         capacity: room.capacity?.toString() || '',
         status: room.status || 'available',
       });
@@ -73,6 +81,8 @@ export function RoomFormModal({ open, onOpenChange, room, onSuccess }) {
         name: '',
         description: '',
         location: '',
+        codeGroup: '',
+        resourceCode: '',
         capacity: '',
         status: 'available',
       });
@@ -157,6 +167,52 @@ export function RoomFormModal({ open, onOpenChange, room, onSuccess }) {
                 </FormItem>
               )}
             />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="codeGroup"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Room Group Code</FormLabel>
+                    <FormControl>
+                      <>
+                        <Input
+                          placeholder="e.g., ICR"
+                          list="room-code-groups"
+                          {...field}
+                          onChange={(e) => field.onChange(normalizeCodeInput(e.target.value))}
+                        />
+                        <datalist id="room-code-groups">
+                          {codeGroupOptions.map((code) => (
+                            <option key={code} value={code} />
+                          ))}
+                        </datalist>
+                      </>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="resourceCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Room Code</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="e.g., CRA"
+                        {...field}
+                        onChange={(e) => field.onChange(normalizeCodeInput(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
 
             <FormField
               control={form.control}

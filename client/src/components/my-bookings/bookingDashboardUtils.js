@@ -1,4 +1,5 @@
 import { bookingMessages } from '@/messages/bookingMessages';
+import { getBookingReferenceText } from '@/lib/bookingReference';
 
 /** Lookup resource display name from the pre-fetched lists. */
 export function getResourceName(booking, equipment, rooms) {
@@ -137,7 +138,7 @@ export function contentionDeadlineQualifierSentence(qualifier) {
 
 /**
  * Filter a booking list against the current toolbar state.
- * Matches search against booking #id, resource name, and purpose (case-insensitive).
+ * Matches search against booking id/reference code, resource name, and purpose.
  */
 export function filterBookings(bookings, { query, statusFilter, resourceTypeFilter }, getNameFn) {
   let result = bookings;
@@ -156,6 +157,7 @@ export function filterBookings(bookings, { query, statusFilter, resourceTypeFilt
       const name = getNameFn(b).toLowerCase();
       return (
         String(b.id).includes(q) ||
+        getBookingReferenceText(b).toLowerCase().includes(q) ||
         name.includes(q) ||
         (b.purpose ?? '').toLowerCase().includes(q)
       );

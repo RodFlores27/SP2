@@ -11,6 +11,11 @@
 
 import { AlertTriangle, Info } from 'lucide-react';
 
+const bookingLabel = (id) => {
+  const value = String(id ?? 'n/a');
+  return value.startsWith('#') || value.includes('-') ? value : `#${value}`;
+};
+
 export const bookingMessages = {
   // ---------------------------------------------------------------------------
   // My Bookings — ActiveBookingCard
@@ -83,7 +88,7 @@ export const bookingMessages = {
           ),
           summaryLine: ({ bookingId, formattedDeadline }) => (
             <>
-              You are currently challenging Booking <strong>#{bookingId}</strong>. You will win this contention if the holder does not
+              You are currently challenging Booking <strong>{bookingLabel(bookingId)}</strong>. You will win this contention if the holder does not
               confirm by <strong>{formattedDeadline}</strong>.
             </>
           ),
@@ -96,7 +101,7 @@ export const bookingMessages = {
           whoDefenderHeading: () => <>Booking you are challenging</>,
           defenderSummaryLine: ({ bookingId, timeRange }) => (
             <>
-              Booking #{bookingId} — {timeRange}
+              Booking {bookingLabel(bookingId)} — {timeRange}
             </>
           ),
           toggleHideDetails: 'Hide details',
@@ -136,7 +141,7 @@ export const bookingMessages = {
           whoChallengesHeading: () => <>Booking challenging you</>,
           challengerSummaryLine: ({ bookingId, timeRange }) => (
             <>
-              Booking #{bookingId} — {timeRange}
+              Booking {bookingLabel(bookingId)} — {timeRange}
             </>
           ),
           toggleViewDetails: 'View details',
@@ -155,7 +160,7 @@ export const bookingMessages = {
           hide: () => <>Hide</>,
           bookingLine: ({ id, statusLabel }) => (
             <>
-              Booking #{id} ({statusLabel})
+              Booking {bookingLabel(id)} ({statusLabel})
             </>
           ),
         },
@@ -178,7 +183,7 @@ export const bookingMessages = {
         convertConflictsHeading: () => <>Conflicting bookings:</>,
         convertConflictLine: ({ id, resourceName, typeLabel, statusLabel, range }) => (
           <>
-            #{id} {resourceName} — {typeLabel} ({statusLabel}) — {range}
+            {bookingLabel(id)} {resourceName} — {typeLabel} ({statusLabel}) — {range}
           </>
         ),
         convertAuthLabel: () => <>Authorization Document</>,
@@ -275,7 +280,7 @@ export const bookingMessages = {
           Creating this firm booking will automatically cancel the following pencil booking(s):
         </>
       ),
-      pencilCardTitle: ({ id }) => <>Pencil Booking #{id}</>,
+    pencilCardTitle: ({ id }) => <>Pencil Booking {bookingLabel(id)}</>,
       confirmLoading: 'Creating...',
       confirm: 'Confirm & Cancel Pencil Booking(s)',
       goBack: 'Go Back',
@@ -292,7 +297,7 @@ export const bookingMessages = {
     their active status.
         </>
       ),
-      pencilCardTitle: ({ id }) => <>Pencil Booking #{id}</>,
+    pencilCardTitle: ({ id }) => <>Pencil Booking {bookingLabel(id)}</>,
       confirmLoading: 'Submitting...',
       confirm: 'Confirm & Submit Firm Request',
       goBack: 'Go Back',
@@ -309,7 +314,12 @@ export const bookingMessages = {
           <strong> 24 hours before the schedule start</strong>, or <strong>the current holder&apos;s pencil expiry time</strong>.
         </>
       ),
-      conflictCardTitle: ({ id }) => <>Booking #{id}</>,
+      deadlineLine: ({ formattedDeadline }) => (
+        <>
+          If you confirm, the contention timer will resolve by: <strong>{formattedDeadline}</strong>.
+        </>
+      ),
+    conflictCardTitle: ({ id }) => <>Booking {bookingLabel(id)}</>,
       confirmLoading: 'Creating...',
       confirm: 'Confirm & start contention',
       goBack: 'Go Back',
@@ -339,7 +349,7 @@ export const bookingMessages = {
       conflictingBookingsHeading: () => <>Conflicting bookings:</>,
       conflictLine: ({ id, resourceName, typeLabel, statusLabel, range }) => (
         <>
-          #{id} {resourceName} — {typeLabel} ({statusLabel}) — {range}
+          {bookingLabel(id)} {resourceName} — {typeLabel} ({statusLabel}) — {range}
         </>
       ),
     },

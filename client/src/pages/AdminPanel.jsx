@@ -378,7 +378,7 @@ export default function AdminPanel() {
                             {formatAnalyticsLabel(event.eventType)}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            Booking #{event.bookingId ?? 'n/a'} - {formatAnalyticsLabel(event.resourceType)} - {formatAnalyticsLabel(event.bookingType)} - {formatAnalyticsLabel(event.status)}
+                            Booking {event.booking?.referenceCode || (event.bookingId != null ? `#${event.bookingId}` : 'n/a')} - {formatAnalyticsLabel(event.resourceType)} - {formatAnalyticsLabel(event.bookingType)} - {formatAnalyticsLabel(event.status)}
                           </p>
                         </div>
                         <div className="text-xs text-muted-foreground sm:text-right">

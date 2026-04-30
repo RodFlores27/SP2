@@ -200,14 +200,22 @@ DATABASE_URL=postgresql://postgres:[PASSWORD]@db.xxx.supabase.co:5432/postgres
 # JWT Secret (generate a random string)
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
 
+# Auth mode
+AUTH_PROVIDER=supabase
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-or-publishable-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_AUTH_REDIRECT_URL=https://your-frontend-domain.com
+SUPABASE_PASSWORD_RESET_REDIRECT_URL=https://your-frontend-domain.com/reset-password
+
 # Cloudinary (your existing credentials)
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 
-# Resend (transactional email)
+# Resend (app/booking transactional email)
 RESEND_API_KEY=your-resend-api-key
-RESEND_FROM_EMAIL=your-verified-sender@example.com
+RESEND_FROM_EMAIL=noreply@mail.yourdomain.dev
 
 # Node Environment
 NODE_ENV=production
@@ -215,6 +223,8 @@ NODE_ENV=production
 # Port (Render provides this automatically, but you can set it)
 PORT=4000
 ```
+
+Supabase Auth email verification and password reset emails are not sent by `RESEND_FROM_EMAIL` directly. Configure **Supabase > Authentication > Emails > SMTP Settings** to use Resend SMTP, then use the same verified sender domain here for app/booking emails. See `docs/supabase-auth.md` for the full Google OAuth, Resend SMTP, and DNS checklist.
 
 ### Step 4: Deploy
 

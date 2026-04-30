@@ -1,6 +1,8 @@
 const { Room } = require('../models');
 const { uploadToCloudinary } = require('../utils/cloudinary');
 
+const normalizeCode = (value) => String(value || '').trim().toUpperCase();
+
 const getAllRooms = async (req, res) => {
   try {
     const rooms = await Room.findAll({
@@ -32,10 +34,12 @@ const getRoomById = async (req, res) => {
 const createRoom = async (req, res) => {
   try {
     const { name, description, location, capacity, status } = req.body;
+    const codeGroup = normalizeCode(req.body.codeGroup);
+    const resourceCode = normalizeCode(req.body.resourceCode);
 
-    if (!name || !description || !location || !capacity) {
+    if (!name || !description || !location || !capacity || !codeGroup || !resourceCode) {
       return res.status(400).json({ 
-        error: 'Missing required fields: name, description, location, and capacity are required' 
+        error: 'Missing required fields: name, description, location, capacity, code group, and resource code are required' 
       });
     }
 
@@ -55,6 +59,8 @@ const createRoom = async (req, res) => {
       location,
       capacity: parseInt(capacity),
       imageUrl,
+      codeGroup,
+      resourceCode,
       status: status || 'available',
     });
 
@@ -69,6 +75,8 @@ const updateRoom = async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, location, capacity, status, removeImage } = req.body;
+    const codeGroup = req.body.codeGroup !== undefined ? normalizeCode(req.body.codeGroup) : undefined;
+    const resourceCode = req.body.resourceCode !== undefined ? normalizeCode(req.body.resourceCode) : undefined;
 
     const room = await Room.findByPk(id);
     if (!room) {
@@ -95,6 +103,8 @@ const updateRoom = async (req, res) => {
       description: description || room.description,
       location: location || room.location,
       capacity: capacity ? parseInt(capacity) : room.capacity,
+      codeGroup: codeGroup || room.codeGroup,
+      resourceCode: resourceCode || room.resourceCode,
       status: status || room.status,
       imageUrl,
     });

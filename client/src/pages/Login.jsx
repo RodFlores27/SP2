@@ -16,10 +16,18 @@ const loginSchema = z.object({
 
 export default function Login() {
   const navigate = useNavigate();
-  const { login, isAuthenticated, logoutReason, clearLogoutReason } = useAuth();
+  const {
+    login,
+    isAuthenticated,
+    logoutReason,
+    clearLogoutReason,
+    resendVerificationEmail,
+    startOAuth,
+  } = useAuth();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [sessionNotice, setSessionNotice] = useState('');
+  const [verificationMessage, setVerificationMessage] = useState('');
 
   const form = useForm({
     resolver: zodResolver(loginSchema),
@@ -48,6 +56,7 @@ export default function Login() {
   const onSubmit = async (data) => {
     setIsLoading(true);
     setError('');
+    setVerificationMessage('');
 
     const result = await login(data.email, data.password);
 
@@ -55,11 +64,44 @@ export default function Login() {
       navigate('/dashboard');
     } else {
       setError(result.error);
+      if (/not confirmed|verify/i.test(result.error || '')) {
+        setVerificationMessage('Need a new verification link? Use the button below.');
+      }
       // Clear only the password field, keep email intact
       form.setValue('password', '');
     }
 
     setIsLoading(false);
+  };
+
+  const handleResendVerification = async () => {
+    const email = form.getValues('email');
+    if (!email) {
+      setError('Enter your email first so we can resend verification.');
+      return;
+    }
+    setIsLoading(true);
+    const result = await resendVerificationEmail(email);
+    if (result.success) {
+      setVerificationMessage(
+        result.message || 'If your email is pending verification, a new link has been sent.'
+      );
+      setError('');
+    } else {
+      setError(result.error);
+    }
+    setIsLoading(false);
+  };
+
+  const handleOAuth = async (provider) => {
+    setError('');
+    setVerificationMessage('');
+    setIsLoading(true);
+    const result = await startOAuth(provider);
+    if (!result.success) {
+      setError(result.error);
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -114,10 +156,38 @@ export default function Login() {
                   {sessionNotice}
                 </div>
               )}
+              {verificationMessage && (
+                <div className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+                  {verificationMessage}
+                </div>
+              )}
 
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? 'Logging in...' : 'Login'}
               </Button>
+              {verificationMessage && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  disabled={isLoading}
+                  onClick={handleResendVerification}
+                >
+                  Resend verification email
+                </Button>
+              )}
+
+              <div className="grid grid-cols-1 gap-2">
+                <Button type="button" variant="secondary" onClick={() => handleOAuth('google')} disabled={isLoading}>
+                  Continue with Google
+                </Button>
+              </div>
+
+              <div className="text-center text-sm">
+                <Link to="/forgot-password" className="text-primary hover:underline">
+                  Forgot your password?
+                </Link>
+              </div>
 
               <div className="text-center text-sm text-muted-foreground">
                 Don't have an account?{' '}
