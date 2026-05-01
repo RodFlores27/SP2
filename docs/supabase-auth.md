@@ -29,6 +29,100 @@ Only the backend should use `SUPABASE_SERVICE_ROLE_KEY`. Never expose it in the 
 
 After changing `.env`, restart the backend because environment variables are read on startup.
 
+## Production Environment
+
+Production uses the same Supabase Auth project configuration, but the backend and frontend URLs must point to deployed services instead of localhost.
+
+### Backend Environment
+
+Set these in the production backend host, such as Render:
+
+```env
+AUTH_PROVIDER=supabase
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-anon-or-publishable-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+SUPABASE_AUTH_REDIRECT_URL=https://your-frontend-domain.com
+SUPABASE_PASSWORD_RESET_REDIRECT_URL=https://your-frontend-domain.com/reset-password
+
+RESEND_API_KEY=your-resend-api-key
+RESEND_FROM_EMAIL=noreply@mail.yourdomain.dev
+```
+
+`SUPABASE_AUTH_REDIRECT_URL` should be the deployed frontend origin only, without a trailing auth path. The backend appends paths such as `/oauth/callback` when needed.
+
+`SUPABASE_PASSWORD_RESET_REDIRECT_URL` should point directly to the deployed password reset page.
+
+### Frontend Environment
+
+Set this in the production frontend host, such as Vercel:
+
+```env
+VITE_API_URL=https://your-backend-domain.com/api
+```
+
+After changing Vercel environment variables, redeploy the frontend. Vite only exposes variables that exist at build time.
+
+### Supabase Production URLs
+
+In **Supabase > Authentication > URL Configuration**:
+
+```txt
+Site URL:
+https://your-frontend-domain.com
+
+Redirect URLs:
+https://your-frontend-domain.com/oauth/callback
+https://your-frontend-domain.com/reset-password
+```
+
+For Vercel preview deployments, add preview URLs only if you intend to test OAuth/reset links from preview builds. Keep production URLs explicit when possible.
+
+### Google Cloud Production URLs
+
+In the same Google OAuth web client used by Supabase:
+
+```txt
+Authorized JavaScript origins:
+http://localhost:5173
+https://your-frontend-domain.com
+
+Authorized redirect URIs:
+https://your-project-ref.supabase.co/auth/v1/callback
+```
+
+The Google authorized redirect URI remains the Supabase callback URL. Do not add `/oauth/callback` as a Google redirect URI; that URL belongs in Supabase redirect URL settings.
+
+If the OAuth app is still in **Testing**, only configured test users can sign in. Publish it to **In production** to allow normal Google accounts.
+
+### Production Email
+
+Production Supabase Auth emails still require **Supabase > Authentication > Emails > SMTP Settings** to use Resend SMTP. The backend `RESEND_FROM_EMAIL` is for app/booking emails only; it does not configure Supabase Auth delivery by itself.
+
+Use a verified Resend sender, for example:
+
+```txt
+noreply@mail.yourdomain.dev
+```
+
+Avoid `onboarding@resend.dev` in production because it is more likely to be treated as test/shared-sender mail.
+
+### Production Reset Safety
+
+`npm run reset:mvp-demo` and `npm run clear:supabase-auth` can delete Supabase Auth users. In production, both require:
+
+```powershell
+$env:ALLOW_MVP_DEMO_RESET="1"
+```
+
+Use this only for deliberate demo resets. After a production reset and reseed, run:
+
+```bash
+npm run sync:supabase-auth
+```
+
+to recreate and relink seeded demo users.
+
 ## Supabase Dashboard Setup
 
 In Supabase, open the project referenced by `SUPABASE_URL`.
@@ -281,8 +375,10 @@ This account was deleted. Register again to reactivate it, or contact an adminis
 
 When the same email registers again:
 
-- Password registration restores the old soft-deleted local `Users` row instead of creating a new profile. If the Supabase Auth account already exists, the API sends a password reset email instead of overwriting the password with the service role.
-- Google OAuth also restores the old soft-deleted local `Users` row instead of creating a new profile.
+- Password registration restores the old soft-deleted local `Users` row instead of creating a new profile.
+  - If the Supabase Auth account still exists, the API sends a password reset email and only restores the local row after that email request succeeds. It does not overwrite the existing Supabase password with the service role.
+  - If the Supabase Auth account no longer exists, the API creates a new Supabase Auth user and sends the normal verification email before restoring the local row.
+- Google OAuth restores the old soft-deleted local `Users` row immediately after Supabase validates the Google OAuth token.
 - Existing bookings stay attached because the same local `Users.id` is restored.
 
 If a duplicate local profile was created before this restore behavior existed, inspect the duplicate rows before deleting or merging them. Preserve the row that owns the historical bookings.

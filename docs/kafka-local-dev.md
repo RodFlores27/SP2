@@ -1,6 +1,17 @@
-# Kafka Local Development and Week 3 Reference
+# Kafka Local Development and Production Reference
 
 Week 3 adds Kafka as an opt-in event layer inside the existing Express + Sequelize backend. The booking API still writes PostgreSQL first; Kafka carries booking lifecycle events to side-effect consumers for notification, audit, and analytics.
+
+This project now supports two Kafka deployment modes:
+
+- local development with Docker Compose
+- production deployment with Aiven for Apache Kafka
+
+The architecture stays the same in both modes:
+
+- PostgreSQL remains the source of truth
+- the Render backend still runs the Kafka producer and all consumers in-process
+- Kafka remains a side-effect/event layer for notification, audit, and analytics
 
 ## Local Kafka
 
@@ -24,6 +35,32 @@ docker compose -f docker-compose.kafka.yml down -v
 
 Docker Desktop must be running before these commands. If Docker is closed, Docker may report that it cannot connect to the `dockerDesktopLinuxEngine` pipe.
 
+## Production Kafka (Aiven)
+
+Production does not use the local Docker Kafka container. Instead, the deployed backend should connect to an Aiven-managed Kafka cluster.
+
+Recommended production environment values:
+
+```env
+KAFKA_ENABLED=true
+KAFKA_CLIENT_ID=ptcf-booking-system
+KAFKA_BROKERS=<aiven-host>:<aiven-port>
+KAFKA_SSL=true
+KAFKA_USERNAME=<aiven-username>
+KAFKA_PASSWORD=<aiven-password>
+KAFKA_SASL_MECHANISM=plain
+KAFKA_BOOKING_EVENTS_TOPIC=booking-events
+KAFKA_NOTIFICATION_CONSUMER_GROUP=notification-consumer
+KAFKA_AUDIT_CONSUMER_GROUP=audit-log-consumer
+KAFKA_ANALYTICS_CONSUMER_GROUP=analytics-consumer
+```
+
+Use local Docker Kafka only for development and local milestone verification. Do not point production at `localhost:9092`.
+
+### Aiven topic note
+
+The backend still attempts to ensure the `booking-events` topic exists. If your Aiven service user does not have topic-management permission, create `booking-events` in Aiven before deploying or use credentials that can manage topics.
+
 ## Server Environment
 
 Use these values in `server/.env` when Kafka should run locally:
@@ -45,6 +82,17 @@ KAFKA_ENABLED=false
 ```
 
 When Kafka is disabled, booking APIs still work. Direct notification fallbacks remain active where needed, and Kafka producer/consumer helpers return controlled disabled-mode results instead of crashing the server.
+
+### Validation behavior
+
+When `KAFKA_ENABLED=true`, the server and `npm run kafka:check` now report configuration issues more clearly. Common production setup mistakes that are surfaced include:
+
+- missing or empty `KAFKA_BROKERS`
+- `KAFKA_USERNAME` without `KAFKA_PASSWORD`, or vice versa
+- hosted Kafka configuration with `KAFKA_SSL=false`
+- hosted Kafka configuration without SASL credentials
+
+Misconfiguration does not stop booking writes to PostgreSQL, but it does put Kafka side effects into degraded mode until the Kafka connection is fixed.
 
 ## Topic
 
@@ -158,6 +206,19 @@ npm run test:milestone-19
 ```
 
 Milestone 19 requires `KAFKA_ENABLED=true`, local Kafka running, and the backend running on `http://localhost:4000`. With Kafka disabled, the script exits safely with setup guidance.
+
+For production-style connectivity validation without running local Docker Kafka:
+
+```bash
+cd server
+npm run kafka:check
+```
+
+Run that command with Aiven-backed environment variables to verify:
+
+- the broker is reachable
+- producer connectivity works
+- the `booking-events` topic exists or can be created
 
 ## End-to-End Demonstration
 

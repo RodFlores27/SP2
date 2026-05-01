@@ -53,6 +53,14 @@ async function ensureBookingEventsTopic() {
       return { enabled: true, topic, created: true };
     }
     return { enabled: true, topic, created: false };
+  } catch (error) {
+    const topic = kafkaConfig.topics.bookingEvents;
+    const message = [
+      `Unable to ensure Kafka topic "${topic}" is available.`,
+      'If this is an Aiven production cluster, create the topic ahead of time or grant topic-management permissions to this service user.',
+      `Original error: ${error.message}`,
+    ].join(' ');
+    throw new Error(message);
   } finally {
     await admin.disconnect();
   }

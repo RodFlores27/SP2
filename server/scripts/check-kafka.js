@@ -10,13 +10,39 @@ const {
 async function main() {
   console.log('--- Kafka Foundation Check ---');
   console.log(`Enabled: ${kafkaConfig.enabled}`);
+  console.log(`Mode: ${kafkaConfig.inferKafkaMode()}`);
   console.log(`Client ID: ${kafkaConfig.clientId}`);
   console.log(`Brokers: ${kafkaConfig.brokers.join(', ')}`);
+  console.log(`SSL: ${kafkaConfig.ssl}`);
+  console.log(`SASL configured: ${kafkaConfig.sasl ? 'yes' : 'no'}`);
   console.log(`Booking events topic: ${kafkaConfig.topics.bookingEvents}`);
 
   if (!kafkaConfig.enabled) {
     console.log('Kafka is disabled. Set KAFKA_ENABLED=true to test broker connectivity.');
     return;
+  }
+
+  const validation = kafkaConfig.validateKafkaConfig();
+  if (!validation.valid) {
+    console.error('Kafka configuration is invalid:');
+    validation.errors.forEach((error) => {
+      console.error(`- ${error}`);
+    });
+    if (validation.warnings.length > 0) {
+      console.warn('Warnings:');
+      validation.warnings.forEach((warning) => {
+        console.warn(`- ${warning}`);
+      });
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  if (validation.warnings.length > 0) {
+    console.warn('Kafka configuration warnings:');
+    validation.warnings.forEach((warning) => {
+      console.warn(`- ${warning}`);
+    });
   }
 
   const topicResult = await ensureBookingEventsTopic();

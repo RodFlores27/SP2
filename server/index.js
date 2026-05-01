@@ -5,6 +5,7 @@ const cors = require('cors');
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./docs/swagger.json');
 const { devHttpErrorLog } = require('./middleware/dev-http-error-log.middleware');
+const kafkaConfig = require('./config/kafka');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -65,6 +66,21 @@ sequelize.authenticate()
       startNotificationConsumer,
     } = require('./utils/kafka');
     if (isKafkaEnabled()) {
+      const validation = kafkaConfig.validateKafkaConfig();
+      console.log(`[kafka] Mode: ${validation.mode}`);
+      if (validation.warnings.length > 0) {
+        validation.warnings.forEach((warning) => {
+          console.warn(`[kafka] Warning: ${warning}`);
+        });
+      }
+      if (!validation.valid) {
+        validation.errors.forEach((error) => {
+          console.error(`[kafka] Config error: ${error}`);
+        });
+        console.warn(
+          '[kafka] Invalid configuration detected. Booking writes will continue, but Kafka side effects are starting in degraded mode.'
+        );
+      }
       connectKafkaProducer().then((result) => {
         if (!result.connected) {
           console.warn('[kafka] Server continuing without Kafka producer connection');

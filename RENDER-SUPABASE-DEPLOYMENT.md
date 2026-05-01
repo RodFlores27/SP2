@@ -21,6 +21,7 @@
 - Frontend: Vercel (React + Vite)
 - Backend: Render (Node.js + Express)
 - Database: Supabase (PostgreSQL)
+- Event broker: Aiven for Apache Kafka (production), Docker Compose Kafka (local development only)
 - Monitoring: UptimeRobot (prevents Render sleep)
 
 **Total Cost:** $0/month (all free tiers)
@@ -217,6 +218,19 @@ CLOUDINARY_API_SECRET=your-api-secret
 RESEND_API_KEY=your-resend-api-key
 RESEND_FROM_EMAIL=noreply@mail.yourdomain.dev
 
+# Kafka (Aiven production broker)
+KAFKA_ENABLED=true
+KAFKA_CLIENT_ID=ptcf-booking-system
+KAFKA_BROKERS=your-aiven-host:your-aiven-port
+KAFKA_SSL=true
+KAFKA_USERNAME=your-aiven-username
+KAFKA_PASSWORD=your-aiven-password
+KAFKA_SASL_MECHANISM=plain
+KAFKA_BOOKING_EVENTS_TOPIC=booking-events
+KAFKA_NOTIFICATION_CONSUMER_GROUP=notification-consumer
+KAFKA_AUDIT_CONSUMER_GROUP=audit-log-consumer
+KAFKA_ANALYTICS_CONSUMER_GROUP=analytics-consumer
+
 # Node Environment
 NODE_ENV=production
 
@@ -225,6 +239,12 @@ PORT=4000
 ```
 
 Supabase Auth email verification and password reset emails are not sent by `RESEND_FROM_EMAIL` directly. Configure **Supabase > Authentication > Emails > SMTP Settings** to use Resend SMTP, then use the same verified sender domain here for app/booking emails. See `docs/supabase-auth.md` for the full Google OAuth, Resend SMTP, and DNS checklist.
+
+Kafka note:
+
+- Production should use Aiven, not the local Docker Kafka container.
+- Keep `KAFKA_SSL=true` for Aiven.
+- If your Aiven service user cannot create topics, create `booking-events` manually before deployment.
 
 ### Step 4: Deploy
 
@@ -242,6 +262,44 @@ curl https://ptcf-backend.onrender.com/api/health
 # Should return:
 # {"status":"ok","message":"PTCF server is running"}
 ```
+
+### Step 6: Kafka production setup and validation
+
+1. Provision an **Aiven for Apache Kafka** service in the closest practical region.
+2. Create or confirm the Kafka topic:
+
+```txt
+booking-events
+```
+
+3. Copy the Aiven broker host, port, username, and password into the Render environment variables listed above.
+4. Redeploy the backend after saving the new Kafka settings.
+5. Run the Kafka connectivity check against the deployed configuration.
+
+Local check command:
+
+```bash
+cd server
+npm run kafka:check
+```
+
+The check should confirm:
+
+- Kafka is enabled
+- hosted mode is detected
+- producer connectivity succeeds
+- `booking-events` is reachable
+
+6. Perform one real test booking in the deployed app and verify:
+
+- booking write succeeds
+- Kafka event publish succeeds in logs
+- notification side effect runs
+- `AuditLogs` receives a row
+- `BookingAnalyticsEvents` receives a row
+- admin endpoints expose the new audit/analytics side effects
+
+If Kafka credentials are wrong or Aiven is unavailable, the booking API should still persist to PostgreSQL while Kafka side effects degrade until the connection is fixed.
 
 ---
 
@@ -449,6 +507,10 @@ Ngrok URLs change when restarted; use only for short demos.
 ### Why not host the Express app on Vercel?
 
 Serverless functions on Vercel expect a different shape than a long-running Express server. This repo uses **Render** for the backend so file uploads, sessions, and PostgreSQL via Sequelize stay straightforward.
+
+### Why not use Docker Kafka in production?
+
+The local `docker-compose.kafka.yml` setup is only for development and milestone testing. Production should use Aiven so Kafka stays available independently of the app host and does not rely on a local broker container.
 
 ---
 
