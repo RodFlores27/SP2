@@ -23,6 +23,26 @@ function buildSaslConfig() {
   };
 }
 
+function normalizePem(raw) {
+  if (!raw || !String(raw).trim()) return null;
+  return String(raw)
+    .replace(/\\n/g, '\n')
+    .trim();
+}
+
+function buildSslConfig() {
+  const sslEnabled = readBoolean(process.env.KAFKA_SSL, false);
+  if (!sslEnabled) return false;
+
+  const ca = normalizePem(process.env.KAFKA_CA_CERT);
+  if (!ca) return true;
+
+  return {
+    rejectUnauthorized: true,
+    ca: [ca],
+  };
+}
+
 function isLocalBroker(broker) {
   const normalized = String(broker || '').trim().toLowerCase();
   return (
@@ -36,7 +56,7 @@ const kafkaConfig = {
   enabled: readBoolean(process.env.KAFKA_ENABLED, false),
   clientId: process.env.KAFKA_CLIENT_ID || 'ptcf-booking-system',
   brokers: readList(process.env.KAFKA_BROKERS, 'localhost:9092'),
-  ssl: readBoolean(process.env.KAFKA_SSL, false),
+  ssl: buildSslConfig(),
   sasl: buildSaslConfig(),
   topics: {
     bookingEvents: process.env.KAFKA_BOOKING_EVENTS_TOPIC || 'booking-events',
@@ -78,9 +98,11 @@ function validateKafkaConfig(config = kafkaConfig) {
   const rawUsername = process.env.KAFKA_USERNAME;
   const rawPassword = process.env.KAFKA_PASSWORD;
   const rawMechanism = process.env.KAFKA_SASL_MECHANISM;
+  const rawCaCert = normalizePem(process.env.KAFKA_CA_CERT);
   const hasUsername = Boolean(rawUsername && String(rawUsername).trim());
   const hasPassword = Boolean(rawPassword && String(rawPassword).trim());
   const hasMechanism = Boolean(rawMechanism && String(rawMechanism).trim());
+  const hasCaCert = Boolean(rawCaCert);
   const mode = inferKafkaMode(config);
 
   if (brokers.length === 0) {
@@ -110,6 +132,12 @@ function validateKafkaConfig(config = kafkaConfig) {
   if (mode === 'hosted' && !config.sasl) {
     warnings.push(
       'Hosted Kafka configuration detected without SASL credentials. Aiven production Kafka normally requires KAFKA_USERNAME and KAFKA_PASSWORD.'
+    );
+  }
+
+  if (mode === 'hosted' && !hasCaCert) {
+    warnings.push(
+      'Hosted Kafka configuration detected without KAFKA_CA_CERT. If Aiven Quick Connect shows ssl.ca.location/ca.pem, add the CA certificate to Render.'
     );
   }
 

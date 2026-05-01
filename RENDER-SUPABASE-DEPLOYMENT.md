@@ -227,7 +227,8 @@ KAFKA_BROKERS=your-aiven-host:your-aiven-port
 KAFKA_SSL=true
 KAFKA_USERNAME=your-aiven-username
 KAFKA_PASSWORD=your-aiven-password
-KAFKA_SASL_MECHANISM=plain
+KAFKA_SASL_MECHANISM=your-aiven-sasl-mechanism
+KAFKA_CA_CERT=-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----
 KAFKA_BOOKING_EVENTS_TOPIC=booking-events
 KAFKA_NOTIFICATION_CONSUMER_GROUP=notification-consumer
 KAFKA_AUDIT_CONSUMER_GROUP=audit-log-consumer
@@ -246,6 +247,8 @@ Kafka note:
 
 - Production should use Aiven, not the local Docker Kafka container.
 - Keep `KAFKA_SSL=true` for Aiven.
+- Use the SASL mechanism shown by Aiven Quick Connect. Do not assume `plain` if Quick Connect shows `SCRAM-SHA-256`.
+- If Aiven Quick Connect shows `ssl.ca.location = "ca.pem"`, copy that certificate into `KAFKA_CA_CERT` on Render.
 - If your Aiven service user cannot create topics, create `booking-events` manually before deployment.
 
 ### Step 4: Deploy

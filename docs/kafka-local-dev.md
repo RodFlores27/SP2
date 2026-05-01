@@ -48,7 +48,8 @@ KAFKA_BROKERS=<aiven-host>:<aiven-port>
 KAFKA_SSL=true
 KAFKA_USERNAME=<aiven-username>
 KAFKA_PASSWORD=<aiven-password>
-KAFKA_SASL_MECHANISM=plain
+KAFKA_SASL_MECHANISM=<value from Aiven Quick Connect, often SCRAM-SHA-256>
+KAFKA_CA_CERT=-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----
 KAFKA_BOOKING_EVENTS_TOPIC=booking-events
 KAFKA_NOTIFICATION_CONSUMER_GROUP=notification-consumer
 KAFKA_AUDIT_CONSUMER_GROUP=audit-log-consumer
@@ -60,6 +61,16 @@ Use local Docker Kafka only for development and local milestone verification. Do
 ### Aiven topic note
 
 The backend still attempts to ensure the `booking-events` topic exists. If your Aiven service user does not have topic-management permission, create `booking-events` in Aiven before deploying or use credentials that can manage topics.
+
+### Aiven Quick Connect note
+
+Treat Aiven Quick Connect as the source of truth for hosted Kafka connection settings.
+
+- Copy the broker host and port from Quick Connect
+- Copy the SASL mechanism from Quick Connect
+- If Quick Connect shows `ssl.ca.location = "ca.pem"`, add that certificate to `KAFKA_CA_CERT`
+
+The app accepts pasted PEM content in `KAFKA_CA_CERT`. If you store the cert in Render as a single-line value with escaped `\n`, the backend converts it back to normal PEM line breaks automatically.
 
 ## Server Environment
 
@@ -91,6 +102,7 @@ When `KAFKA_ENABLED=true`, the server and `npm run kafka:check` now report confi
 - `KAFKA_USERNAME` without `KAFKA_PASSWORD`, or vice versa
 - hosted Kafka configuration with `KAFKA_SSL=false`
 - hosted Kafka configuration without SASL credentials
+- hosted Kafka configuration without `KAFKA_CA_CERT` when Aiven requires a project CA
 
 Misconfiguration does not stop booking writes to PostgreSQL, but it does put Kafka side effects into degraded mode until the Kafka connection is fixed.
 
