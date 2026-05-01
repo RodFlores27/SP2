@@ -99,6 +99,12 @@ If the OAuth app is still in **Testing**, only configured test users can sign in
 
 Production Supabase Auth emails still require **Supabase > Authentication > Emails > SMTP Settings** to use Resend SMTP. The backend `RESEND_FROM_EMAIL` is for app/booking emails only; it does not configure Supabase Auth delivery by itself.
 
+In this codebase:
+
+- Booking lifecycle emails are sent directly by the backend through Resend.
+- Manual signup and password reset links can also be sent by the backend through Resend-generated Supabase admin links.
+- Supabase Auth still owns flows such as **resend verification email**, so SMTP must be pointed at Resend if you want every auth email to come from Resend instead of Supabase's default limited sender.
+
 Use a verified Resend sender, for example:
 
 ```txt

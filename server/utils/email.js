@@ -10,10 +10,12 @@ const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
  * Send a transactional email via Resend.
  * Failures are logged but do not throw — callers should not fail on email errors.
  */
-async function sendEmail({ to, subject, html, text }) {
+async function sendEmail({ to, subject, html, text, throwOnError = false }) {
   if (!resend) {
-    console.warn('[email] RESEND_API_KEY not set — skipping email to:', to);
-    return;
+    const message = `[email] RESEND_API_KEY not set — skipping email to: ${to}`;
+    console.warn(message);
+    if (throwOnError) throw new Error(message);
+    return false;
   }
 
   try {
@@ -27,12 +29,16 @@ async function sendEmail({ to, subject, html, text }) {
 
     if (error) {
       console.error('[email] Resend rejected email:', error);
-      return;
+      if (throwOnError) throw new Error(error.message || 'Resend rejected email');
+      return false;
     }
 
     console.log(`[email] Email sent to ${to} — "${subject}"`);
+    return true;
   } catch (err) {
     console.error('[email] Failed to send email:', err.message);
+    if (throwOnError) throw err;
+    return false;
   }
 }
 

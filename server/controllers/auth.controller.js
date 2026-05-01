@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const { User } = require('../models');
+const { sendEmail } = require('../utils/email');
 const {
   createSupabaseAdminClient,
   createSupabaseAuthClient,
@@ -139,15 +140,66 @@ function getAuthRedirectUrl(fallbackPath = '/') {
   }
 }
 
+function buildAuthEmailHtml({ title, introHtml, ctaLabel, actionLink, outroHtml = '' }) {
+  return `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8" /></head>
+<body style="font-family: sans-serif; background: #f9fafb; padding: 24px; color: #111;">
+  <div style="max-width: 560px; margin: 0 auto; background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; padding: 32px;">
+    <h2 style="margin-top: 0; color: #1e3a5f;">PTCF Reservation System</h2>
+    <h3 style="color: #374151;">${title}</h3>
+    ${introHtml}
+    <p><a href="${actionLink}" style="color:#2563eb;font-weight:600;">${ctaLabel}</a></p>
+    ${outroHtml}
+    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
+    <p style="font-size: 12px; color: #9ca3af;">
+      This is an automated message from the PTCF Reservation System. Please do not reply to this email.
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
+async function generateSupabaseAuthLink(params) {
+  const admin = createSupabaseAdminClient();
+  const { data, error } = await admin.auth.admin.generateLink(params);
+  if (error) throw error;
+  const actionLink = data?.properties?.action_link;
+  if (!actionLink) {
+    throw new Error(`Supabase did not return an action link for ${params.type}`);
+  }
+  return {
+    actionLink,
+    user: data?.user || null,
+  };
+}
+
 async function createSupabaseAuthUser(email, password, emailRedirectTo) {
-  const supabase = createSupabaseAuthClient();
-  const { data, error } = await supabase.auth.signUp({
+  const { actionLink, user } = await generateSupabaseAuthLink({
+    type: 'signup',
     email,
     password,
     options: emailRedirectTo ? { emailRedirectTo } : undefined,
   });
-  if (error) throw error;
-  return data.user;
+
+  await sendEmail({
+    to: email,
+    subject: '[PTCF] Confirm your account',
+    html: buildAuthEmailHtml({
+      title: 'Confirm your account',
+      introHtml:
+        '<p>Your account has been created. Confirm your email address to activate your access to the PTCF Reservation System.</p>',
+      ctaLabel: 'Confirm your email',
+      actionLink,
+      outroHtml:
+        '<p>If you did not request this account, you can ignore this email.</p>',
+    }),
+    text: `PTCF Reservation System\n\nYour account has been created. Confirm your email address to activate your access.\n\nConfirm your email:\n${actionLink}\n\nIf you did not request this account, you can ignore this email.`,
+    throwOnError: true,
+  });
+
+  return user;
 }
 
 async function findSupabaseAuthUserByEmail(admin, email) {
@@ -183,6 +235,54 @@ async function sendPasswordResetEmail(email, redirectTo) {
   const options = redirectTo ? { redirectTo } : undefined;
   const { error } = await supabase.auth.resetPasswordForEmail(email, options);
   if (error) throw error;
+}
+
+async function sendPasswordResetEmailViaResend(email, redirectTo) {
+  const { actionLink } = await generateSupabaseAuthLink({
+    type: 'recovery',
+    email,
+    options: redirectTo ? { redirectTo } : undefined,
+  });
+
+  await sendEmail({
+    to: email,
+    subject: '[PTCF] Restore your account password',
+    html: buildAuthEmailHtml({
+      title: 'Restore your account',
+      introHtml:
+        '<p>We found a previously deleted account using this email address and started the restoration process.</p><p>To finish restoring access, choose a new password using the link below:</p>',
+      ctaLabel: 'Reset your password',
+      actionLink,
+      outroHtml:
+        '<p>If you did not request this, you can ignore this email.</p>',
+    }),
+    text: `PTCF Reservation System\n\nWe found a previously deleted account using this email address and started the restoration process.\n\nTo finish restoring access, choose a new password using this link:\n${actionLink}\n\nIf you did not request this, you can ignore this email.`,
+    throwOnError: true,
+  });
+}
+
+async function sendForgotPasswordEmailViaResend(email, redirectTo) {
+  const { actionLink } = await generateSupabaseAuthLink({
+    type: 'recovery',
+    email,
+    options: redirectTo ? { redirectTo } : undefined,
+  });
+
+  await sendEmail({
+    to: email,
+    subject: '[PTCF] Reset your password',
+    html: buildAuthEmailHtml({
+      title: 'Reset your password',
+      introHtml:
+        '<p>We received a request to reset the password for your PTCF Reservation System account.</p><p>Use the link below to set a new password:</p>',
+      ctaLabel: 'Reset your password',
+      actionLink,
+      outroHtml:
+        '<p>If you did not request this, you can ignore this email.</p>',
+    }),
+    text: `PTCF Reservation System\n\nWe received a request to reset the password for your account.\n\nReset your password:\n${actionLink}\n\nIf you did not request this, you can ignore this email.`,
+    throwOnError: true,
+  });
 }
 
 async function registerWithSupabase(req, res) {
@@ -243,7 +343,10 @@ async function registerWithSupabase(req, res) {
     let user;
     if (deletedProfile?.deletedAt) {
       if (!emailSent) {
-        await sendPasswordResetEmail(emailNormalized, process.env.SUPABASE_PASSWORD_RESET_REDIRECT_URL || null);
+        await sendPasswordResetEmailViaResend(
+          emailNormalized,
+          process.env.SUPABASE_PASSWORD_RESET_REDIRECT_URL || null
+        );
         emailSent = true;
         restorationRequiresPasswordReset = true;
       }
@@ -431,12 +534,10 @@ async function requestPasswordReset(req, res) {
     process.env.CLIENT_URL;
 
   try {
-    const supabase = createSupabaseAuthClient();
-    const options = configuredRedirect ? { redirectTo: configuredRedirect } : undefined;
-    const { error } = await supabase.auth.resetPasswordForEmail(emailNormalized, options);
-
-    if (error) {
-      return res.status(502).json({ message: error.message || 'Password reset request failed' });
+    const admin = createSupabaseAdminClient();
+    const supabaseUser = await findSupabaseAuthUserByEmail(admin, emailNormalized);
+    if (supabaseUser?.id) {
+      await sendForgotPasswordEmailViaResend(emailNormalized, configuredRedirect || null);
     }
 
     // Keep the response generic so the endpoint does not become an account-enumeration oracle.
