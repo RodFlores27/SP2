@@ -232,12 +232,12 @@ If Google is disabled, the app blocks the OAuth attempt before redirecting and r
 
 ## Resend and Supabase Auth Email Setup
 
-There are two email paths in this project:
+There are two possible email paths in this project:
 
-- App/booking emails use `server/utils/email.js` and `RESEND_API_KEY`.
-- Supabase Auth emails use Supabase's configured email provider.
+- App-triggered booking and auth emails use `server/utils/email.js` and `RESEND_API_KEY`.
+- Supabase-managed Auth emails, if any future flow uses them directly, use Supabase's configured SMTP provider.
 
-Setting `RESEND_API_KEY` in `server/.env` is not enough for Supabase Auth verification and password reset emails. Supabase must be configured with custom SMTP.
+Current app flows for manual signup, resend verification, deleted-account restoration, and forgot password generate Supabase Auth links on the backend and send them through Resend. Supabase SMTP is still useful as a platform fallback for Supabase-hosted email flows outside this app.
 
 ### Resend Domain
 
@@ -426,23 +426,25 @@ You can later promote roles through existing admin flows.
 
 ## Password Reset
 
-Supabase password reset is wired through the backend so the service-role key stays server-only.
+Password reset is wired through the backend so the service-role key stays server-only and the email is sent by Resend.
 
 1. The user opens `/forgot-password`.
 2. The client calls `POST /api/auth/password-reset-request`.
-3. The backend calls Supabase `resetPasswordForEmail`.
-4. Supabase emails a reset link through the configured SMTP provider.
+3. The backend generates a Supabase recovery link with the service-role admin API.
+4. The backend emails the reset link through Resend.
 5. The user lands on `/reset-password`.
 6. The client submits the new password to `POST /api/auth/password` with the recovery access token.
 7. The backend validates the token, maps it to `Users.supabaseAuthId`, and updates the Supabase Auth password.
 
 ## Email Verification
 
-Registration keeps verification in Supabase Auth:
+Registration keeps verification state in Supabase Auth, but the email is sent by the backend through Resend:
 
 1. Registering with `POST /api/auth/register` creates a Supabase Auth user.
-2. Supabase sends the verification email through the configured SMTP provider.
-3. If a user needs another link, call `POST /api/auth/email-verification/resend`.
+2. The backend generates a Supabase signup verification link with the service-role admin API.
+3. The backend emails the verification link through Resend.
+4. After confirmation, the user lands on `/login?verified=1` and sees a success notice.
+5. If a user needs another link, call `POST /api/auth/email-verification/resend`; this generates and sends a fresh verification link through Resend.
 
 The API response is generic to avoid account enumeration.
 

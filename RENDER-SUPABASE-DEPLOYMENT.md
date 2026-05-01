@@ -256,7 +256,7 @@ If you also want any Supabase-managed Auth emails outside the app to come from R
   - `Sender name: PTCF Reservation System`
   - `Sender email: your verified Resend sender`
 
-See `docs/supabase-auth.md` for the full Google OAuth, Resend SMTP, and DNS checklist.
+See `docs/supabase-auth.md` for the full Google OAuth, Resend SMTP, and DNS checklist. Use `docs/email-testing-checklist.md` for the end-to-end auth and booking email test pass.
 
 Kafka note:
 
