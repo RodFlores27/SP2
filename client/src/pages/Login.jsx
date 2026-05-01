@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -17,6 +17,7 @@ const loginSchema = z.object({
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     login,
     isAuthenticated,
@@ -29,6 +30,7 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionNotice, setSessionNotice] = useState('');
   const [verificationMessage, setVerificationMessage] = useState('');
+  const [verifiedNotice, setVerifiedNotice] = useState('');
 
   const form = useForm({
     resolver: zodResolver(loginSchema),
@@ -54,10 +56,20 @@ export default function Login() {
     }
   }, [logoutReason, clearLogoutReason]);
 
+  useEffect(() => {
+    if (searchParams.get('verified') === '1') {
+      setVerifiedNotice('Your email has been verified. Please log in.');
+      const next = new URLSearchParams(searchParams);
+      next.delete('verified');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
   const onSubmit = async (data) => {
     setIsLoading(true);
     setError('');
     setVerificationMessage('');
+    setVerifiedNotice('');
 
     const result = await login(data.email, data.password);
 
@@ -97,6 +109,7 @@ export default function Login() {
   const handleOAuth = async (provider) => {
     setError('');
     setVerificationMessage('');
+    setVerifiedNotice('');
     setIsLoading(true);
     const result = await startOAuth(provider);
     if (!result.success) {
@@ -155,6 +168,11 @@ export default function Login() {
               {sessionNotice && (
                 <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
                   {sessionNotice}
+                </div>
+              )}
+              {verifiedNotice && (
+                <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                  {verifiedNotice}
                 </div>
               )}
               {verificationMessage && (

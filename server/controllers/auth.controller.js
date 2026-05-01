@@ -304,7 +304,7 @@ async function registerWithSupabase(req, res) {
   }
 
   const emailNormalized = email.trim().toLowerCase();
-  const emailRedirectTo = getAuthRedirectUrl('/login');
+  const emailRedirectTo = getAuthRedirectUrl('/login?verified=1');
 
   const existing = await User.findOne({ where: { email: emailNormalized } });
   if (existing) {
@@ -602,7 +602,7 @@ async function resendEmailVerification(req, res) {
   }
 
   const emailNormalized = email.trim().toLowerCase();
-  const emailRedirectTo = redirectTo || getAuthRedirectUrl('/login');
+  const emailRedirectTo = redirectTo || getAuthRedirectUrl('/login?verified=1');
 
   try {
     const admin = createSupabaseAdminClient();
