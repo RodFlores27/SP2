@@ -132,7 +132,10 @@ function getAuthRedirectUrl(fallbackPath = '/') {
   try {
     const url = new URL(raw);
     if (fallbackPath && fallbackPath !== '/') {
-      url.pathname = fallbackPath;
+      const fallbackUrl = new URL(fallbackPath, url.origin);
+      url.pathname = fallbackUrl.pathname;
+      url.search = fallbackUrl.search;
+      url.hash = fallbackUrl.hash;
     }
     return url.toString();
   } catch {
