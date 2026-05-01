@@ -242,7 +242,21 @@ NODE_ENV=production
 PORT=4000
 ```
 
-Supabase Auth email verification and password reset emails are not sent by `RESEND_FROM_EMAIL` directly. Configure **Supabase > Authentication > Emails > SMTP Settings** to use Resend SMTP, then use the same verified sender domain here for app/booking emails. See `docs/supabase-auth.md` for the full Google OAuth, Resend SMTP, and DNS checklist.
+App-triggered booking emails and the app's normal auth emails are sent through the backend Resend transport, so `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are the key production settings here.
+
+If you also want any Supabase-managed Auth emails outside the app to come from Resend, configure Supabase SMTP too:
+
+- Backend email transport:
+  - `RESEND_API_KEY`
+  - `RESEND_FROM_EMAIL`
+- Supabase Auth email transport:
+  - `Host: smtp.resend.com`
+  - `Username: resend`
+  - `Password: your Resend API key`
+  - `Sender name: PTCF Reservation System`
+  - `Sender email: your verified Resend sender`
+
+See `docs/supabase-auth.md` for the full Google OAuth, Resend SMTP, and DNS checklist.
 
 Kafka note:
 

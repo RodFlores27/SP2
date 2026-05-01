@@ -97,13 +97,14 @@ If the OAuth app is still in **Testing**, only configured test users can sign in
 
 ### Production Email
 
-Production Supabase Auth emails still require **Supabase > Authentication > Emails > SMTP Settings** to use Resend SMTP. The backend `RESEND_FROM_EMAIL` is for app/booking emails only; it does not configure Supabase Auth delivery by itself.
+The backend `RESEND_FROM_EMAIL` is for app/booking/auth emails sent directly by this application through Resend.
 
 In this codebase:
 
 - Booking lifecycle emails are sent directly by the backend through Resend.
-- Manual signup and password reset links can also be sent by the backend through Resend-generated Supabase admin links.
-- Supabase Auth still owns flows such as **resend verification email**, so SMTP must be pointed at Resend if you want every auth email to come from Resend instead of Supabase's default limited sender.
+- Manual signup, resend verification, deleted-account restoration, and password reset links are also sent by the backend through Resend-generated Supabase admin links.
+- For the app's normal user-facing flows, email delivery no longer depends on Supabase's built-in sender.
+- Custom Supabase SMTP is still recommended if you plan to use Supabase-hosted email flows outside this app or future Auth features that send mail directly from Supabase.
 
 Use a verified Resend sender, for example:
 
@@ -299,7 +300,9 @@ Password: your Resend API key
 
 The password is the Resend API key, not the Resend account password.
 
-After saving, Supabase Auth signup, verification resend, password reset, and recovery emails should route through Resend SMTP.
+If you want to use STARTTLS instead of SMTPS, you can also use port `587` with the same host, username, sender, and API key.
+
+After saving, any Supabase-managed Auth emails you still use outside the app can also route through Resend SMTP.
 
 ### Email Troubleshooting
 

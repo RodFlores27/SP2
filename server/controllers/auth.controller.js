@@ -183,21 +183,7 @@ async function createSupabaseAuthUser(email, password, emailRedirectTo) {
     options: emailRedirectTo ? { emailRedirectTo } : undefined,
   });
 
-  await sendEmail({
-    to: email,
-    subject: '[PTCF] Confirm your account',
-    html: buildAuthEmailHtml({
-      title: 'Confirm your account',
-      introHtml:
-        '<p>Your account has been created. Confirm your email address to activate your access to the PTCF Reservation System.</p>',
-      ctaLabel: 'Confirm your email',
-      actionLink,
-      outroHtml:
-        '<p>If you did not request this account, you can ignore this email.</p>',
-    }),
-    text: `PTCF Reservation System\n\nYour account has been created. Confirm your email address to activate your access.\n\nConfirm your email:\n${actionLink}\n\nIf you did not request this account, you can ignore this email.`,
-    throwOnError: true,
-  });
+  await sendSignupVerificationEmailViaResend(email, actionLink, 'created');
 
   return user;
 }
@@ -220,21 +206,35 @@ async function findSupabaseAuthUserByEmail(admin, email) {
   }
 }
 
+async function sendSignupVerificationEmailViaResend(email, actionLink, mode = 'created') {
+  const isResend = mode === 'resend';
+  await sendEmail({
+    to: email,
+    subject: isResend ? '[PTCF] Confirm your account' : '[PTCF] Confirm your account',
+    html: buildAuthEmailHtml({
+      title: isResend ? 'Confirm your account' : 'Confirm your account',
+      introHtml: isResend
+        ? '<p>You asked for a new verification link for your PTCF Reservation System account.</p><p>Use the link below to confirm your email address and activate your access:</p>'
+        : '<p>Your account has been created. Confirm your email address to activate your access to the PTCF Reservation System.</p>',
+      ctaLabel: 'Confirm your email',
+      actionLink,
+      outroHtml:
+        '<p>If you did not request this email, you can ignore it.</p>',
+    }),
+    text: isResend
+      ? `PTCF Reservation System\n\nYou asked for a new verification link for your account.\n\nConfirm your email:\n${actionLink}\n\nIf you did not request this email, you can ignore it.`
+      : `PTCF Reservation System\n\nYour account has been created. Confirm your email address to activate your access.\n\nConfirm your email:\n${actionLink}\n\nIf you did not request this account, you can ignore this email.`,
+    throwOnError: true,
+  });
+}
+
 async function resendSignupVerificationEmail(email, emailRedirectTo) {
-  const supabase = createSupabaseAuthClient();
-  const { error } = await supabase.auth.resend({
+  const { actionLink } = await generateSupabaseAuthLink({
     type: 'signup',
     email,
     options: emailRedirectTo ? { emailRedirectTo } : undefined,
   });
-  if (error) throw error;
-}
-
-async function sendPasswordResetEmail(email, redirectTo) {
-  const supabase = createSupabaseAuthClient();
-  const options = redirectTo ? { redirectTo } : undefined;
-  const { error } = await supabase.auth.resetPasswordForEmail(email, options);
-  if (error) throw error;
+  await sendSignupVerificationEmailViaResend(email, actionLink, 'resend');
 }
 
 async function sendPasswordResetEmailViaResend(email, redirectTo) {
@@ -598,15 +598,12 @@ async function resendEmailVerification(req, res) {
   const emailRedirectTo = redirectTo || getAuthRedirectUrl('/login');
 
   try {
-    const supabase = createSupabaseAuthClient();
-    const { error } = await supabase.auth.resend({
-      type: 'signup',
-      email: emailNormalized,
-      options: emailRedirectTo ? { emailRedirectTo } : undefined,
-    });
+    const admin = createSupabaseAdminClient();
+    const supabaseUser = await findSupabaseAuthUserByEmail(admin, emailNormalized);
+    const emailConfirmedAt = supabaseUser?.email_confirmed_at || supabaseUser?.confirmed_at || null;
 
-    if (error) {
-      return res.status(502).json({ message: error.message || 'Verification email resend failed' });
+    if (supabaseUser?.id && !emailConfirmedAt) {
+      await resendSignupVerificationEmail(emailNormalized, emailRedirectTo || null);
     }
 
     return res.json({
