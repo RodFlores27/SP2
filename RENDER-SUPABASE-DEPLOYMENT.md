@@ -206,6 +206,8 @@ AUTH_PROVIDER=supabase
 SUPABASE_URL=https://your-project-ref.supabase.co
 SUPABASE_ANON_KEY=your-anon-or-publishable-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+CLIENT_URL=https://your-frontend-domain.com
+FRONTEND_URL=https://your-frontend-domain.com
 SUPABASE_AUTH_REDIRECT_URL=https://your-frontend-domain.com
 SUPABASE_PASSWORD_RESET_REDIRECT_URL=https://your-frontend-domain.com/reset-password
 

@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import GoogleIcon from '@/components/GoogleIcon';
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -175,7 +176,14 @@ export default function Register() {
               </Button>
 
               <div className="grid grid-cols-1 gap-2">
-                <Button type="button" variant="secondary" onClick={() => handleOAuth('google')} disabled={isLoading}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full gap-2"
+                  onClick={() => handleOAuth('google')}
+                  disabled={isLoading}
+                >
+                  <GoogleIcon />
                   Sign up with Google
                 </Button>
               </div>

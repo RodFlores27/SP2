@@ -1,7 +1,27 @@
 const { sendEmail } = require('./email');
 const { email: E } = require('../messages/bookingMessages');
 
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://ptcf.vercel.app';
+function getFrontendUrl() {
+  const candidates = [
+    process.env.FRONTEND_URL,
+    process.env.CLIENT_URL,
+    process.env.SUPABASE_AUTH_REDIRECT_URL,
+  ];
+
+  for (const raw of candidates) {
+    if (!raw) continue;
+    try {
+      const url = new URL(raw);
+      return url.origin.replace(/\/$/, '');
+    } catch {
+      return String(raw).replace(/\/+$/, '');
+    }
+  }
+
+  return 'http://localhost:5173';
+}
+
+const FRONTEND_URL = getFrontendUrl();
 
 function formatDateTime(dateStr) {
   const d = new Date(dateStr);
@@ -17,6 +37,10 @@ function formatDateTime(dateStr) {
 
 function formatBookingType(type) {
   return type === 'firm' ? 'Firm' : 'Pencil';
+}
+
+function getBookingReference(booking) {
+  return booking?.referenceCode || (booking?.id != null ? `#${booking.id}` : 'n/a');
 }
 
 function baseEmailWrapper(title, bodyHtml) {
@@ -42,7 +66,7 @@ function bookingDetailsBlock(booking, resourceName) {
   const L = E.bookingDetailsLabels;
   return `
 <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin: 16px 0;">
-  <tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">${L.bookingId}</td><td style="padding: 6px 0; font-weight: 600;">#${booking.id}</td></tr>
+  <tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">${L.bookingId}</td><td style="padding: 6px 0; font-weight: 600;">${getBookingReference(booking)}</td></tr>
   <tr><td style="padding: 6px 0; color: #6b7280;">${L.resource}</td><td style="padding: 6px 0;">${resourceName} <span style="color:#9ca3af;">(${booking.resourceType})</span></td></tr>
   <tr><td style="padding: 6px 0; color: #6b7280;">${L.bookingType}</td><td style="padding: 6px 0;">${formatBookingType(booking.bookingType)}</td></tr>
   <tr><td style="padding: 6px 0; color: #6b7280;">${L.start}</td><td style="padding: 6px 0;">${formatDateTime(booking.startTime)}</td></tr>
@@ -92,7 +116,7 @@ async function notifyBookingCreated(booking, resourceName) {
 
   await sendEmail({
     to: recipientEmail,
-    subject: C.subject({ id: booking.id }),
+    subject: C.subject({ bookingLabel: getBookingReference(booking) }),
     html,
   });
 }
@@ -115,7 +139,7 @@ async function notifyBookingApproved(booking, resourceName) {
 
   await sendEmail({
     to: recipientEmail,
-    subject: A.subject({ id: booking.id }),
+    subject: A.subject({ bookingLabel: getBookingReference(booking) }),
     html,
   });
 }
@@ -139,7 +163,7 @@ async function notifyBookingDenied(booking, resourceName) {
 
   await sendEmail({
     to: recipientEmail,
-    subject: D.subject({ id: booking.id }),
+    subject: D.subject({ bookingLabel: getBookingReference(booking) }),
     html,
   });
 }
@@ -169,7 +193,7 @@ async function notifyBookingCancelled(booking, resourceName, cancelledBy) {
 
   await sendEmail({
     to: recipientEmail,
-    subject: X.subject({ id: booking.id }),
+    subject: X.subject({ bookingLabel: getBookingReference(booking) }),
     html,
   });
 }
@@ -201,7 +225,7 @@ async function notifyBookingExpired(booking, resourceName) {
 
   await sendEmail({
     to: recipientEmail,
-    subject: X.subject({ id: booking.id }),
+    subject: X.subject({ bookingLabel: getBookingReference(booking) }),
     html,
   });
 }
@@ -232,7 +256,7 @@ async function notifyBookingExpiringSoon(booking, resourceName, hoursLeft) {
 
   await sendEmail({
     to: recipientEmail,
-    subject: S.subject({ id: booking.id, hours: hoursLeft }),
+    subject: S.subject({ bookingLabel: getBookingReference(booking), hours: hoursLeft }),
     html,
   });
 }
@@ -267,12 +291,12 @@ async function notifyContentionStarted({ defender, challenger }, resourceName) {
 
   await sendEmail({
     to: defender.user.email,
-    subject: C.defenderSubject({ id: defender.id }),
+    subject: C.defenderSubject({ bookingLabel: getBookingReference(defender) }),
     html: defenderHtml
   });
   await sendEmail({
     to: challenger.user.email,
-    subject: C.challengerSubject({ id: challenger.id }),
+    subject: C.challengerSubject({ bookingLabel: getBookingReference(challenger) }),
     html: challengerHtml
   });
 }
@@ -290,13 +314,13 @@ async function notifyDisplacedUsersSlotReopened(displacedBooking, firmBooking, r
     `<p>${R.body}</p>
     <p><strong>${R.yourBookingLabel}</strong> (for reference):</p>
     ${bookingDetailsBlock(displacedBooking, resourceName)}
-    <p><strong>${R.firmCancelledLabel}</strong> #${firmBooking.id}</p>
+    <p><strong>${R.firmCancelledLabel}</strong> ${getBookingReference(firmBooking)}</p>
     <p><a href="${FRONTEND_URL}/bookings/new" style="color:#2563eb;">${R.tryAgain}</a></p>`
   );
 
   await sendEmail({
     to: recipientEmail,
-    subject: R.subject({ firmId: firmBooking.id }),
+    subject: R.subject({ firmBookingLabel: getBookingReference(firmBooking) }),
     html
   });
 }

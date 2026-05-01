@@ -156,7 +156,7 @@ const email = {
   created: {
     title: 'Booking Submitted',
     body: 'Your booking has been received. Here are the details:',
-    subject: ({ id }) => `[PTCF] Booking #${id} Submitted`,
+    subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Submitted`,
     viewDashboard: 'View your bookings →',
     defenderNote:
       '⚠️ Your pencil booking is being <strong>challenged</strong>. Another user is challenging your slot. Convert to a firm booking before the contention deadline to keep the reservation.',
@@ -172,7 +172,7 @@ const email = {
     title: 'Booking Approved',
     body:
       'Great news! Your booking has been <strong style="color:#16a34a;">approved</strong> by PTCF staff.',
-    subject: ({ id }) => `[PTCF] Booking #${id} Approved`,
+    subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Approved`,
     staffRemarkLabel: 'Staff remark:',
     viewDashboard: 'View your bookings →',
   },
@@ -183,7 +183,7 @@ const email = {
       'Unfortunately, your booking has been <strong style="color:#dc2626;">denied</strong> by PTCF staff.',
     reasonLabel: 'Reason:',
     contactFacility: 'If you have questions, please contact the PTCF facility directly.',
-    subject: ({ id }) => `[PTCF] Booking #${id} Denied`,
+    subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Denied`,
     createNew: 'Create a new booking →',
   },
 
@@ -192,7 +192,7 @@ const email = {
     body: 'Your booking has been <strong>cancelled</strong>.',
     staffCancelledNote:
       'ℹ️ This booking was cancelled by a staff member.',
-    subject: ({ id }) => `[PTCF] Booking #${id} Cancelled`,
+    subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Cancelled`,
     createNew: 'Create a new booking →',
   },
 
@@ -207,7 +207,7 @@ const email = {
       'Your pencil booking has <strong style="color:#dc2626;">expired</strong> because it was not converted to a firm booking in time.',
     pencilCallout:
       'Pencil bookings must be converted to firm bookings within 3 days of creation (and before other pencil expiry rules). This booking has been automatically expired.',
-    subject: ({ id }) => `[PTCF] Booking #${id} Expired`,
+    subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Expired`,
     createNew: 'Create a new booking →',
   },
 
@@ -218,7 +218,7 @@ const email = {
     callout:
       'To secure this booking, upload your authorization document and convert it to a firm booking before it expires.',
     convertCta: 'Convert to Firm Booking →',
-    subject: ({ id, hours }) => `[PTCF] Booking #${id} Expires in ${hours}h — Action Required`,
+    subject: ({ bookingLabel, hours }) => `[PTCF] Booking ${bookingLabel} Expires in ${hours}h — Action Required`,
   },
 
   contentionStarted: {
@@ -229,13 +229,13 @@ const email = {
     defenderAction:
       'To keep this slot, convert your booking to a <strong>firm</strong> booking and upload your authorization document before the deadline.',
     defenderDashboard: 'Open your dashboard →',
-    defenderSubject: ({ id }) => `[PTCF] Booking #${id} — being challenged`,
+    defenderSubject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} — being challenged`,
     challengerTitle: 'You started a pencil contention',
     challengerBody:
       'Your overlapping pencil booking is now challenging the current holder. If they do not convert to firm in time, you will take the slot.',
     challengerResolvesBy: 'Contention resolves by:',
     challengerDashboard: 'View your booking →',
-    challengerSubject: ({ id }) => `[PTCF] Booking #${id} — contention started`,
+    challengerSubject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} — contention started`,
     timezoneNote: '(Asia/Manila)',
   },
 
@@ -246,7 +246,7 @@ const email = {
     yourBookingLabel: 'Your displaced pencil booking',
     firmCancelledLabel: 'Firm booking cancelled:',
     tryAgain: 'Try booking again →',
-    subject: ({ firmId }) => `[PTCF] Slot notice — firm booking #${firmId} cancelled`,
+    subject: ({ firmBookingLabel }) => `[PTCF] Slot notice — firm booking ${firmBookingLabel} cancelled`,
   },
 };
 
