@@ -68,6 +68,7 @@ sequelize.authenticate()
     if (isKafkaEnabled()) {
       const validation = kafkaConfig.validateKafkaConfig();
       console.log(`[kafka] Mode: ${validation.mode}`);
+      console.log(`[kafka] SSL CA configured: ${kafkaConfig.sslCaConfigured ? 'yes' : 'no'}`);
       if (validation.warnings.length > 0) {
         validation.warnings.forEach((warning) => {
           console.warn(`[kafka] Warning: ${warning}`);

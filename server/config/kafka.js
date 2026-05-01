@@ -57,6 +57,7 @@ const kafkaConfig = {
   clientId: process.env.KAFKA_CLIENT_ID || 'ptcf-booking-system',
   brokers: readList(process.env.KAFKA_BROKERS, 'localhost:9092'),
   ssl: buildSslConfig(),
+  sslCaConfigured: Boolean(normalizePem(process.env.KAFKA_CA_CERT)),
   sasl: buildSaslConfig(),
   topics: {
     bookingEvents: process.env.KAFKA_BOOKING_EVENTS_TOPIC || 'booking-events',
