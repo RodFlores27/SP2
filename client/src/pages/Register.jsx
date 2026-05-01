@@ -23,10 +23,11 @@ const registerSchema = z.object({
 
 export default function Register() {
   const navigate = useNavigate();
-  const { register: registerUser, isAuthenticated, startOAuth } = useAuth();
+  const { register: registerUser, isAuthenticated, startOAuth, resendVerificationEmail } = useAuth();
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
 
   const form = useForm({
     resolver: zodResolver(registerSchema),
@@ -58,6 +59,7 @@ export default function Register() {
 
     if (result.success) {
       setSuccess(result.data?.message || 'Registration successful. Check your email for verification, then log in.');
+      setRegisteredEmail(data.email);
       form.setValue('password', '');
       form.setValue('confirmPassword', '');
     } else {
@@ -76,6 +78,24 @@ export default function Register() {
       setError(result.error);
       setIsLoading(false);
     }
+  };
+
+  const handleResendVerification = async () => {
+    const email = registeredEmail || form.getValues('email');
+    if (!email) {
+      setError('Enter your email first so we can resend verification.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    const result = await resendVerificationEmail(email);
+    if (result.success) {
+      setSuccess(result.message || 'If your email is pending verification, a new link has been sent.');
+    } else {
+      setError(result.error);
+    }
+    setIsLoading(false);
   };
 
   return (
@@ -168,7 +188,18 @@ export default function Register() {
               )}
 
               {success && (
-                <div className="text-sm text-green-600">{success}</div>
+                <div className="space-y-3">
+                  <div className="text-sm text-green-600">{success}</div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={isLoading}
+                    onClick={handleResendVerification}
+                  >
+                    Resend verification email
+                  </Button>
+                </div>
               )}
 
               <Button type="submit" className="w-full" disabled={isLoading}>

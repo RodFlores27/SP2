@@ -404,6 +404,13 @@ async function loginWithSupabase(req, res) {
     });
 
     if (error) {
+      const authMessage = String(error.message || '');
+      if (/email not confirmed|not confirmed|email.*verify|verify your email/i.test(authMessage)) {
+        return res.status(403).json({
+          message: 'Email not confirmed. Please verify your email before logging in.',
+          code: 'AUTH_EMAIL_NOT_CONFIRMED',
+        });
+      }
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 

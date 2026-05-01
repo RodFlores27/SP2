@@ -11,6 +11,12 @@
  *   cd server
  *   npm run sync:supabase-auth
  */
+const resolvedEnv =
+  process.env.NODE_ENV ||
+  (process.env.ALLOW_MVP_DEMO_RESET === '1' ? 'production' : 'development');
+const envFile = resolvedEnv === 'production' ? '.env.production' : '.env';
+
+require('dotenv').config({ path: envFile });
 require('dotenv').config();
 
 const path = require('path');
