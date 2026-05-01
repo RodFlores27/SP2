@@ -74,6 +74,7 @@ https://your-frontend-domain.com
 Redirect URLs:
 https://your-frontend-domain.com/oauth/callback
 https://your-frontend-domain.com/reset-password
+https://your-frontend-domain.com/login?verified=1
 ```
 
 For Vercel preview deployments, add preview URLs only if you intend to test OAuth/reset links from preview builds. Keep production URLs explicit when possible.
@@ -146,6 +147,7 @@ http://localhost:5173
 ```txt
 http://localhost:5173/oauth/callback
 http://localhost:5173/reset-password
+http://localhost:5173/login?verified=1
 ```
 
 4. For production, also add deployed frontend URLs:
@@ -153,6 +155,7 @@ http://localhost:5173/reset-password
 ```txt
 https://your-production-domain.com/oauth/callback
 https://your-production-domain.com/reset-password
+https://your-production-domain.com/login?verified=1
 ```
 
 5. Go to **Authentication > Sign In / Providers**.

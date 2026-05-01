@@ -65,6 +65,18 @@ function StaffProtectedRoute({ children }) {
   return children;
 }
 
+function RootRedirect() {
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const queryParams = new URLSearchParams(window.location.search);
+  const authType = hashParams.get('type') || queryParams.get('type');
+
+  if (authType === 'signup') {
+    return <Navigate to="/login?verified=1" replace />;
+  }
+
+  return <Navigate to="/equipment" replace />;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -72,7 +84,7 @@ function App() {
         <div className="min-h-screen bg-background">
           <Navigation />
           <Routes>
-            <Route path="/" element={<Navigate to="/equipment" replace />} />
+            <Route path="/" element={<RootRedirect />} />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
