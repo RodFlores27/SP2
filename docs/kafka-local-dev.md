@@ -51,6 +51,7 @@ KAFKA_PASSWORD=<aiven-password>
 KAFKA_SASL_MECHANISM=<value from Aiven Quick Connect, often SCRAM-SHA-256>
 KAFKA_CA_CERT=-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----
 KAFKA_BOOKING_EVENTS_TOPIC=booking-events
+KAFKA_AUTO_CREATE_TOPICS=false
 KAFKA_NOTIFICATION_CONSUMER_GROUP=notification-consumer
 KAFKA_AUDIT_CONSUMER_GROUP=audit-log-consumer
 KAFKA_ANALYTICS_CONSUMER_GROUP=analytics-consumer
@@ -60,7 +61,15 @@ Use local Docker Kafka only for development and local milestone verification. Do
 
 ### Aiven topic note
 
-The backend still attempts to ensure the `booking-events` topic exists. If your Aiven service user does not have topic-management permission, create `booking-events` in Aiven before deploying or use credentials that can manage topics.
+Create `booking-events` in Aiven before deploying. The backend checks that the topic exists, but production defaults should not depend on app startup creating managed Kafka topics.
+
+If you intentionally want the app to create the topic and the Aiven service user has permission, set:
+
+```env
+KAFKA_AUTO_CREATE_TOPICS=true
+```
+
+For normal production use, leave `KAFKA_AUTO_CREATE_TOPICS=false`.
 
 ### Aiven Quick Connect note
 

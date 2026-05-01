@@ -59,6 +59,7 @@ const kafkaConfig = {
   ssl: buildSslConfig(),
   sslCaConfigured: Boolean(normalizePem(process.env.KAFKA_CA_CERT)),
   sasl: buildSaslConfig(),
+  autoCreateTopics: readBoolean(process.env.KAFKA_AUTO_CREATE_TOPICS, false),
   topics: {
     bookingEvents: process.env.KAFKA_BOOKING_EVENTS_TOPIC || 'booking-events',
   },

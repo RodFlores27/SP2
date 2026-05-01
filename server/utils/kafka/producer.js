@@ -46,6 +46,15 @@ async function ensureBookingEventsTopic() {
     const existingTopics = await admin.listTopics();
     const topic = kafkaConfig.topics.bookingEvents;
     if (!existingTopics.includes(topic)) {
+      const shouldCreateTopic =
+        kafkaConfig.autoCreateTopics || kafkaConfig.inferKafkaMode() === 'local';
+
+      if (!shouldCreateTopic) {
+        throw new Error(
+          `Kafka topic "${topic}" does not exist. Create it in Aiven first, or set KAFKA_AUTO_CREATE_TOPICS=true if the service user is allowed to create topics.`
+        );
+      }
+
       await admin.createTopics({
         topics: [{ topic, numPartitions: 1, replicationFactor: 1 }],
         waitForLeaders: true,

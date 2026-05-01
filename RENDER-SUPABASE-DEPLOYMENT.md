@@ -230,6 +230,7 @@ KAFKA_PASSWORD=your-aiven-password
 KAFKA_SASL_MECHANISM=your-aiven-sasl-mechanism
 KAFKA_CA_CERT=-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----
 KAFKA_BOOKING_EVENTS_TOPIC=booking-events
+KAFKA_AUTO_CREATE_TOPICS=false
 KAFKA_NOTIFICATION_CONSUMER_GROUP=notification-consumer
 KAFKA_AUDIT_CONSUMER_GROUP=audit-log-consumer
 KAFKA_ANALYTICS_CONSUMER_GROUP=analytics-consumer
@@ -249,7 +250,7 @@ Kafka note:
 - Keep `KAFKA_SSL=true` for Aiven.
 - Use the SASL mechanism shown by Aiven Quick Connect. Do not assume `plain` if Quick Connect shows `SCRAM-SHA-256`.
 - If Aiven Quick Connect shows `ssl.ca.location = "ca.pem"`, copy that certificate into `KAFKA_CA_CERT` on Render.
-- If your Aiven service user cannot create topics, create `booking-events` manually before deployment.
+- Create `booking-events` manually in Aiven and keep `KAFKA_AUTO_CREATE_TOPICS=false` for normal production use.
 
 ### Step 4: Deploy
 
@@ -271,13 +272,13 @@ curl https://ptcf-backend.onrender.com/api/health
 ### Step 6: Kafka production setup and validation
 
 1. Provision an **Aiven for Apache Kafka** service in the closest practical region.
-2. Create or confirm the Kafka topic:
+2. Create or confirm the Kafka topic in Aiven:
 
 ```txt
 booking-events
 ```
 
-3. Copy the Aiven broker host, port, username, and password into the Render environment variables listed above.
+3. Copy the Aiven broker host, port, username, password, SASL mechanism, and CA certificate into the Render environment variables listed above.
 4. Redeploy the backend after saving the new Kafka settings.
 5. Run the Kafka connectivity check against the deployed configuration.
 
