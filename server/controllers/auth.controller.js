@@ -143,22 +143,40 @@ function getAuthRedirectUrl(fallbackPath = '/') {
   }
 }
 
+const AUTH_EMAIL_THEME = {
+  maroon: '#8A1538',
+  forest: '#00573F',
+  gold: '#FFB81C',
+  spotBlack: '#231F20',
+  parchment: '#F8F5EF',
+  card: '#FFFFFF',
+  border: '#E5D8C7',
+  muted: '#6F6466',
+};
+
+const AUTH_EMAIL_LINK_STYLE = `color:${AUTH_EMAIL_THEME.maroon};font-weight:600;text-decoration:underline;text-decoration-color:${AUTH_EMAIL_THEME.gold};text-underline-offset:3px;`;
+
 function buildAuthEmailHtml({ title, introHtml, ctaLabel, actionLink, outroHtml = '' }) {
   return `
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8" /></head>
-<body style="font-family: sans-serif; background: #f9fafb; padding: 24px; color: #111;">
-  <div style="max-width: 560px; margin: 0 auto; background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; padding: 32px;">
-    <h2 style="margin-top: 0; color: #1e3a5f;">PTCF Reservation System</h2>
-    <h3 style="color: #374151;">${title}</h3>
+<body style="margin:0;font-family:Avenir,'Avenir Next',Helvetica,Arial,sans-serif;background:${AUTH_EMAIL_THEME.parchment};padding:24px;color:${AUTH_EMAIL_THEME.spotBlack};">
+  <div style="max-width:600px;margin:0 auto;background:${AUTH_EMAIL_THEME.card};border-radius:14px;border:1px solid ${AUTH_EMAIL_THEME.border};overflow:hidden;box-shadow:0 10px 30px rgba(35,31,32,0.08);">
+    <div style="height:6px;background:${AUTH_EMAIL_THEME.maroon};"></div>
+    <div style="height:3px;background:${AUTH_EMAIL_THEME.gold};"></div>
+    <div style="padding:28px 32px 32px;">
+    <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${AUTH_EMAIL_THEME.forest};">Plant Tissue Culture Facility</p>
+    <h2 style="margin:0;color:${AUTH_EMAIL_THEME.maroon};font-family:Optima,Candara,'Noto Sans',Arial,sans-serif;font-size:24px;line-height:1.2;">PTCF Reservation</h2>
+    <h3 style="margin:20px 0 12px;color:${AUTH_EMAIL_THEME.spotBlack};font-size:18px;line-height:1.35;">${title}</h3>
     ${introHtml}
-    <p><a href="${actionLink}" style="color:#2563eb;font-weight:600;">${ctaLabel}</a></p>
+    <p><a href="${actionLink}" style="${AUTH_EMAIL_LINK_STYLE}">${ctaLabel}</a></p>
     ${outroHtml}
-    <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
-    <p style="font-size: 12px; color: #9ca3af;">
-      This is an automated message from the PTCF Reservation System. Please do not reply to this email.
+    <hr style="border:none;border-top:1px solid ${AUTH_EMAIL_THEME.border};margin:24px 0;" />
+    <p style="font-size:12px;line-height:1.5;color:${AUTH_EMAIL_THEME.muted};">
+      This is an automated message from PTCF Reservation. Please do not reply to this email.
     </p>
+    </div>
   </div>
 </body>
 </html>`;
@@ -217,16 +235,16 @@ async function sendSignupVerificationEmailViaResend(email, actionLink, mode = 'c
     html: buildAuthEmailHtml({
       title: isResend ? 'Confirm your account' : 'Confirm your account',
       introHtml: isResend
-        ? '<p>You asked for a new verification link for your PTCF Reservation System account.</p><p>Use the link below to confirm your email address and activate your access:</p>'
-        : '<p>Your account has been created. Confirm your email address to activate your access to the PTCF Reservation System.</p>',
+        ? '<p>You asked for a new verification link for your PTCF Reservation account.</p><p>Use the link below to confirm your email address and activate your access:</p>'
+        : '<p>Your account has been created. Confirm your email address to activate your access to PTCF Reservation.</p>',
       ctaLabel: 'Confirm your email',
       actionLink,
       outroHtml:
         '<p>If you did not request this email, you can ignore it.</p>',
     }),
     text: isResend
-      ? `PTCF Reservation System\n\nYou asked for a new verification link for your account.\n\nConfirm your email:\n${actionLink}\n\nIf you did not request this email, you can ignore it.`
-      : `PTCF Reservation System\n\nYour account has been created. Confirm your email address to activate your access.\n\nConfirm your email:\n${actionLink}\n\nIf you did not request this account, you can ignore this email.`,
+      ? `PTCF Reservation\n\nYou asked for a new verification link for your account.\n\nConfirm your email:\n${actionLink}\n\nIf you did not request this email, you can ignore it.`
+      : `PTCF Reservation\n\nYour account has been created. Confirm your email address to activate your access.\n\nConfirm your email:\n${actionLink}\n\nIf you did not request this account, you can ignore this email.`,
     throwOnError: true,
   });
 }
@@ -259,7 +277,7 @@ async function sendPasswordResetEmailViaResend(email, redirectTo) {
       outroHtml:
         '<p>If you did not request this, you can ignore this email.</p>',
     }),
-    text: `PTCF Reservation System\n\nWe found a previously deleted account using this email address and started the restoration process.\n\nTo finish restoring access, choose a new password using this link:\n${actionLink}\n\nIf you did not request this, you can ignore this email.`,
+    text: `PTCF Reservation\n\nWe found a previously deleted account using this email address and started the restoration process.\n\nTo finish restoring access, choose a new password using this link:\n${actionLink}\n\nIf you did not request this, you can ignore this email.`,
     throwOnError: true,
   });
 }
@@ -277,13 +295,13 @@ async function sendForgotPasswordEmailViaResend(email, redirectTo) {
     html: buildAuthEmailHtml({
       title: 'Reset your password',
       introHtml:
-        '<p>We received a request to reset the password for your PTCF Reservation System account.</p><p>Use the link below to set a new password:</p>',
+        '<p>We received a request to reset the password for your PTCF Reservation account.</p><p>Use the link below to set a new password:</p>',
       ctaLabel: 'Reset your password',
       actionLink,
       outroHtml:
         '<p>If you did not request this, you can ignore this email.</p>',
     }),
-    text: `PTCF Reservation System\n\nWe received a request to reset the password for your account.\n\nReset your password:\n${actionLink}\n\nIf you did not request this, you can ignore this email.`,
+    text: `PTCF Reservation\n\nWe received a request to reset the password for your account.\n\nReset your password:\n${actionLink}\n\nIf you did not request this, you can ignore this email.`,
     throwOnError: true,
   });
 }

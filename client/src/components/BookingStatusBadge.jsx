@@ -9,27 +9,27 @@ export function BookingStatusBadge({
   const getStatusStyles = (s) => {
     switch (s) {
       case 'approved':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-up-forest-green/10 text-up-forest-green border-up-forest-green/25';
       case 'pending_approval':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'bg-up-gold/25 text-up-spot-black border-up-gold/50';
       case 'penciled':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-up-parchment text-up-spot-black border-border';
       case 'on_hold':
-        return 'bg-amber-100 text-amber-900 border-amber-300';
+        return 'bg-up-gold/15 text-up-spot-black border-up-gold/45';
       case 'contested':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
+        return 'bg-primary/10 text-primary border-primary/25';
       case 'displaced':
-        return 'bg-slate-100 text-slate-700 border-slate-200';
+        return 'bg-muted text-muted-foreground border-border';
       case 'denied':
-        return 'bg-red-100 text-red-800 border-red-200';
+        return 'bg-destructive/10 text-destructive border-destructive/25';
       case 'cancelled':
-        return 'bg-gray-100 text-gray-500 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
       case 'expired':
-        return 'bg-gray-100 text-gray-400 border-gray-200';
+        return 'bg-muted text-muted-foreground/80 border-border';
       case 'completed':
-        return 'bg-emerald-50 text-emerald-900 border-emerald-200';
+        return 'bg-up-forest-green/10 text-up-forest-green border-up-forest-green/25';
       default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+        return 'bg-muted text-muted-foreground border-border';
     }
   };
 
@@ -61,12 +61,12 @@ export function BookingStatusBadge({
         </span>
       )}
       {showChallengerBadge && (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-sky-300 bg-sky-100 text-sky-900">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-up-forest-green/30 bg-secondary text-up-forest-green">
           Challenger
         </span>
       )}
       {showDefenderBadge && (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-orange-300 bg-orange-100 text-orange-900">
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border border-primary/30 bg-primary/10 text-primary">
           Defender
         </span>
       )}

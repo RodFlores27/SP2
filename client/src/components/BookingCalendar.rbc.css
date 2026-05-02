@@ -52,7 +52,7 @@
 
 /* Current time indicator */
 .rbc-current-time-indicator {
-  background-color: #ef4444 !important;
+  background-color: hsl(var(--primary)) !important;
   height: 2px !important;
   z-index: 10;
 }
@@ -61,7 +61,7 @@
   position: absolute;
   left: -45px;
   top: -8px;
-  background-color: #ef4444;
+  background-color: hsl(var(--primary));
   color: white;
   padding: 2px 8px;
   border-radius: 4px;
@@ -76,7 +76,7 @@
   top: -4px;
   width: 10px;
   height: 10px;
-  background-color: #ef4444;
+  background-color: hsl(var(--primary));
   border-radius: 50%;
   border: 2px solid white;
 }
@@ -133,7 +133,7 @@
   background-color: hsl(var(--muted));
 }
 [data-selectable='true'] .rbc-month-view .rbc-day-bg.rbc-off-range-bg:hover {
-  background-color: #d4d4d4;
+  background-color: hsl(var(--muted));
 }
 [data-selectable='true'] .rbc-month-view .rbc-date-cell {
   cursor: pointer;
@@ -156,7 +156,7 @@
   )
   > .rbc-row-bg
   > .rbc-day-bg:nth-child(1).rbc-off-range-bg {
-  background-color: #d4d4d4;
+  background-color: hsl(var(--muted));
 }
 [data-selectable='true']
   .rbc-month-view
@@ -174,7 +174,7 @@
   )
   > .rbc-row-bg
   > .rbc-day-bg:nth-child(2).rbc-off-range-bg {
-  background-color: #d4d4d4;
+  background-color: hsl(var(--muted));
 }
 [data-selectable='true']
   .rbc-month-view
@@ -192,7 +192,7 @@
   )
   > .rbc-row-bg
   > .rbc-day-bg:nth-child(3).rbc-off-range-bg {
-  background-color: #d4d4d4;
+  background-color: hsl(var(--muted));
 }
 [data-selectable='true']
   .rbc-month-view
@@ -210,7 +210,7 @@
   )
   > .rbc-row-bg
   > .rbc-day-bg:nth-child(4).rbc-off-range-bg {
-  background-color: #d4d4d4;
+  background-color: hsl(var(--muted));
 }
 [data-selectable='true']
   .rbc-month-view
@@ -228,7 +228,7 @@
   )
   > .rbc-row-bg
   > .rbc-day-bg:nth-child(5).rbc-off-range-bg {
-  background-color: #d4d4d4;
+  background-color: hsl(var(--muted));
 }
 [data-selectable='true']
   .rbc-month-view
@@ -246,7 +246,7 @@
   )
   > .rbc-row-bg
   > .rbc-day-bg:nth-child(6).rbc-off-range-bg {
-  background-color: #d4d4d4;
+  background-color: hsl(var(--muted));
 }
 [data-selectable='true']
   .rbc-month-view
@@ -264,7 +264,7 @@
   )
   > .rbc-row-bg
   > .rbc-day-bg:nth-child(7).rbc-off-range-bg {
-  background-color: #d4d4d4;
+  background-color: hsl(var(--muted));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -275,8 +275,8 @@
 /* -------------------------------------------------------------------------- */
 
 .rbc-agenda-view {
-  --ptcf-agenda-date-border-color: #b8b2a1;
-  --ptcf-agenda-column-divider-color: #94a3b8;
+  --ptcf-agenda-date-border-color: hsl(var(--border));
+  --ptcf-agenda-column-divider-color: hsl(var(--primary) / 0.35);
 }
 
 .rbc-agenda-view .rbc-agenda-table {
@@ -429,11 +429,11 @@
   border-bottom: 1px solid var(--ptcf-agenda-border-color) !important;
 }
 
-.rbc-agenda-view .ptcf-agenda-status-approved { --ptcf-agenda-border-color: #16a34a; }
-.rbc-agenda-view .ptcf-agenda-status-pending_approval { --ptcf-agenda-border-color: #ca8a04; }
-.rbc-agenda-view .ptcf-agenda-status-penciled { --ptcf-agenda-border-color: #9ca3af; }
-.rbc-agenda-view .ptcf-agenda-status-on_hold { --ptcf-agenda-border-color: #fcd34d; }
-.rbc-agenda-view .ptcf-agenda-status-contesting { --ptcf-agenda-border-color: #0284c7; }
-.rbc-agenda-view .ptcf-agenda-status-contested { --ptcf-agenda-border-color: #ea580c; }
-.rbc-agenda-view .ptcf-agenda-status-completed { --ptcf-agenda-border-color: #34d399; }
-.rbc-agenda-view .ptcf-agenda-status-displaced { --ptcf-agenda-border-color: #64748b; }
+.rbc-agenda-view .ptcf-agenda-status-approved { --ptcf-agenda-border-color: #004632; }
+.rbc-agenda-view .ptcf-agenda-status-pending_approval { --ptcf-agenda-border-color: #b87900; }
+.rbc-agenda-view .ptcf-agenda-status-penciled { --ptcf-agenda-border-color: #b8ab98; }
+.rbc-agenda-view .ptcf-agenda-status-on_hold { --ptcf-agenda-border-color: #ffb81c; }
+.rbc-agenda-view .ptcf-agenda-status-contesting { --ptcf-agenda-border-color: #00573f; }
+.rbc-agenda-view .ptcf-agenda-status-contested { --ptcf-agenda-border-color: #6f102d; }
+.rbc-agenda-view .ptcf-agenda-status-completed { --ptcf-agenda-border-color: #00573f; }
+.rbc-agenda-view .ptcf-agenda-status-displaced { --ptcf-agenda-border-color: #8c8173; }

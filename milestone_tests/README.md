@@ -500,6 +500,27 @@ node milestone_tests/milestone-{number}-{description}.js
 - `GET /api/admin/audit-logs` and `GET /api/admin/analytics`
 - Week 3 Kafka documentation and completion report
 
+### Milestone 20: UP Visual Identity Reskin + Email Branding
+**File:** `milestone-20-up-visual-identity-reskin.js`
+**Run:** `npm run test:milestone-20` (from project root; server on `http://localhost:4000`)
+
+**Tests:**
+- Server health check
+- UP-inspired frontend brand tokens and Tailwind v4 `@theme` utilities
+- Browser and navigation naming boundaries (`PTCF Reservation`, `Plant Tissue Culture Facility`)
+- No UP Seal or Oblation references in client source
+- App-owned booking/auth email branding and sender name
+- Retired product name and old email colors removed from active app/email files
+- Reskin brief presence and no-Seal/no-Oblation boundary
+- Server syntax checks for changed email modules
+
+**Technologies Verified:**
+- Tailwind CSS v4 CSS-first theming
+- shadcn-compatible HSL design tokens
+- React frontend reskin surfaces
+- Resend app-owned email templates
+- `server/messages/bookingMessages.js` email copy catalog
+
 ### Supabase Auth Verification
 **File:** `supabase-auth-verification.js`
 **Run:** `npm run test:supabase-auth` (from project root; server on `http://localhost:4000`)

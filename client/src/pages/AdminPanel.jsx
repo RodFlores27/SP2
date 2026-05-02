@@ -82,8 +82,8 @@ function buildRoleChangeDescription(email, fromRole, toRole) {
 function RoleBadge({ accountType }) {
   const colors = {
     regular_user: 'bg-secondary text-secondary-foreground',
-    ptcf_staff: 'bg-blue-100 text-blue-800',
-    system_admin: 'bg-purple-100 text-purple-800',
+    ptcf_staff: 'bg-secondary text-up-forest-green',
+    system_admin: 'bg-primary/10 text-primary',
   };
   return (
     <span
@@ -282,34 +282,34 @@ export default function AdminPanel() {
 
       {/* Global errors */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
       {roleError && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{roleError}</span>
-          <button onClick={() => setRoleError(null)} className="ml-auto text-red-600 hover:text-red-800">
+          <button onClick={() => setRoleError(null)} className="ml-auto text-destructive/80 hover:text-destructive">
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
       {deleteError && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{deleteError}</span>
-          <button onClick={() => setDeleteError(null)} className="ml-auto text-red-600 hover:text-red-800">
+          <button onClick={() => setDeleteError(null)} className="ml-auto text-destructive/80 hover:text-destructive">
             <X className="h-4 w-4" />
           </button>
         </div>
       )}
       {analyticsError && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-accent border border-up-gold/30 text-accent-foreground px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{analyticsError}</span>
-          <button onClick={() => setAnalyticsError(null)} className="ml-auto text-amber-700 hover:text-amber-900">
+          <button onClick={() => setAnalyticsError(null)} className="ml-auto text-accent-foreground/75 hover:text-accent-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>

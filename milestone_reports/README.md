@@ -314,3 +314,16 @@ These reports serve as:
 - End-to-end Kafka verification script for booking API action to notification/audit/analytics side effects
 - Paper-ready Kafka reference covering topic, event names, event envelope, consumer groups, env vars, and limitations
 - Milestone 19 test registration as `npm run test:milestone-19`
+
+### Milestone 20: UP Visual Identity Reskin and Email Branding
+**File:** `MILESTONE-20-COMPLETION-REPORT.md`
+**Status:** ✅ Complete
+**Date:** May 2, 2026
+**Deliverables:**
+- UP-inspired frontend visual identity using official Pantone Connect color references
+- Tailwind v4 CSS-first brand tokens and `@theme` utilities
+- Reskinned navigation, auth pages, resource pages, dashboards, booking form, status badges, and calendar UI
+- App-owned booking/auth email template reskin through Resend wrappers
+- Product naming cleaned to `PTCF Reservation` / `Plant Tissue Culture Facility`
+- Seal/Oblation usage boundary preserved
+- Milestone 20 verification script registered as `npm run test:milestone-20`

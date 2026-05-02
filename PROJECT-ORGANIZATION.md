@@ -10,6 +10,7 @@ PTCF Project/
 │   │   ├── components/          # React components
 │   │   │   ├── ui/              # shadcn/ui components
 │   │   │   │   ├── alert-dialog.jsx
+│   │   │   │   ├── button-variants.js # Shared button variants for non-component imports
 │   │   │   │   ├── button.jsx
 │   │   │   │   ├── card.jsx
 │   │   │   │   ├── dialog.jsx
@@ -52,9 +53,8 @@ PTCF Project/
 │   │   │   └── RoomList.jsx     # Room listing (public)
 │   │   ├── App.jsx              # Main app with router
 │   │   ├── main.jsx             # App entry point
-│   │   └── index.css            # Global styles with Tailwind
+│   │   └── index.css            # Global Tailwind v4 styles and @theme design tokens
 │   ├── components.json          # shadcn/ui configuration
-│   ├── tailwind.config.js       # Tailwind CSS configuration
 │   ├── vite.config.js           # Vite configuration (with Tailwind v4 plugin)
 │   └── package.json             # Frontend dependencies
 ├── server/                      # Backend (Express + Sequelize)
@@ -99,6 +99,8 @@ PTCF Project/
 │       ├── file-hash.js         # Authorization document hash helper
 │       └── booking-notifications.js  # Transactional email templates (created/approved/denied/cancelled/expired/expiringSoon)
 ├── docs/                        # Project planning and workflow docs
+│   ├── design/                  # Visual identity and design implementation briefs
+│   │   └── up-visual-identity-reskin.md # UP-inspired PTCF reskin source-of-truth brief
 │   ├── milestones/              # Weekly milestone plans and daily routine
 │   │   ├── milestone-daily-routine.md
 │   │   ├── week2-daily-brief.md
@@ -188,6 +190,7 @@ npm run test:milestone-16   # Kafka notification consumer
 npm run test:milestone-17   # Kafka audit log consumer
 npm run test:milestone-18   # Kafka analytics consumer + admin analytics endpoint
 npm run test:milestone-19   # End-to-end Kafka verification + documentation
+npm run test:milestone-20   # UP visual identity reskin + email branding
 
 # Run all milestone tests
 npm run test:all

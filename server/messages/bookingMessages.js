@@ -140,9 +140,9 @@ const domain = {
 };
 
 const email = {
-  appName: 'PTCF Reservation System',
+  appName: 'PTCF Reservation',
   automatedFooter:
-    'This is an automated message from the PTCF Reservation System. Please do not reply to this email.',
+    'This is an automated message from PTCF Reservation. Please do not reply to this email.',
 
   bookingDetailsLabels: {
     bookingId: 'Booking ID',
@@ -171,7 +171,7 @@ const email = {
   approved: {
     title: 'Booking Approved',
     body:
-      'Great news! Your booking has been <strong style="color:#16a34a;">approved</strong> by PTCF staff.',
+      'Great news! Your booking has been <strong style="color:#00573F;">approved</strong> by PTCF staff.',
     subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Approved`,
     staffRemarkLabel: 'Staff remark:',
     viewDashboard: 'View your bookings →',
@@ -180,7 +180,7 @@ const email = {
   denied: {
     title: 'Booking Denied',
     body:
-      'Unfortunately, your booking has been <strong style="color:#dc2626;">denied</strong> by PTCF staff.',
+      'Unfortunately, your booking has been <strong style="color:#8A1538;">denied</strong> by PTCF staff.',
     reasonLabel: 'Reason:',
     contactFacility: 'If you have questions, please contact the PTCF facility directly.',
     subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Denied`,
@@ -200,11 +200,11 @@ const email = {
     firmTitle: 'Firm Request Expired',
     pencilTitle: 'Pencil Booking Expired',
     firmBody:
-      'Your <strong>firm</strong> booking request has <strong style="color:#dc2626;">expired</strong> because staff did not approve it at least <strong>24 hours before</strong> the scheduled start.',
+      'Your <strong>firm</strong> booking request has <strong style="color:#8A1538;">expired</strong> because staff did not approve it at least <strong>24 hours before</strong> the scheduled start.',
     firmCallout:
       'Submit a new request with enough lead time for staff review if you still need the slot.',
     pencilBody:
-      'Your pencil booking has <strong style="color:#dc2626;">expired</strong> because it was not converted to a firm booking in time.',
+      'Your pencil booking has <strong style="color:#8A1538;">expired</strong> because it was not converted to a firm booking in time.',
     pencilCallout:
       'Pencil bookings must be converted to firm bookings within 3 days of creation (and before other pencil expiry rules). This booking has been automatically expired.',
     subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Expired`,

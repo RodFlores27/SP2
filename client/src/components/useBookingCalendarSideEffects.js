@@ -134,7 +134,7 @@ export function useBookingCalendarSideEffects({
         host.removeEventListener('click', onClickCapture, true);
       }
     };
-  }, [onSelectSlot]);
+  }, [calendarHostRef, onSelectSlot]);
 
   // Month: route booking taps through elementsFromPoint (events use pointer-events: none).
   useEffect(() => {
@@ -184,7 +184,7 @@ export function useBookingCalendarSideEffects({
 
     host.addEventListener('pointerdown', onPointerDownCapture, true);
     return () => host.removeEventListener('pointerdown', onPointerDownCapture, true);
-  }, [currentView, events, onSelectEvent, onSelectSlot]);
+  }, [calendarHostRef, currentView, events, onSelectEvent, onSelectSlot]);
 
   // Month: custom tooltip (native title unreliable with pointer-events: none on events).
   useEffect(() => {
@@ -302,7 +302,7 @@ export function useBookingCalendarSideEffects({
       document.removeEventListener('pointermove', onDocPointerMove);
       clearTooltip();
     };
-  }, [currentView, events]);
+  }, [calendarHostRef, currentView, events]);
 
   // Week/day: lock header gutters to .rbc-time-content and match scrollbar margin.
   useLayoutEffect(() => {
@@ -423,7 +423,7 @@ export function useBookingCalendarSideEffects({
       mo?.disconnect();
       clearInjectedLayout();
     };
-  }, [currentView, events, height]);
+  }, [calendarHostRef, currentView, events, height]);
 
   const handleShowMore = useCallback(() => {
     if (pendingShowMoreAnchorRef.current) {

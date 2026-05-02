@@ -270,7 +270,7 @@ function StaffBookingToolbar({
             onClick={() => setShowAdvancedFilters((prev) => !prev)}
             className={`inline-flex items-center justify-center gap-1 px-3 h-9 text-sm border rounded-md transition-colors ${
               hasAnyFilter
-                ? 'border-blue-300 text-blue-700 bg-blue-50/40 hover:bg-blue-50'
+                ? 'border-primary/30 text-primary bg-primary/5 hover:bg-primary/10'
                 : 'hover:bg-accent'
             }`}
             aria-expanded={showAdvancedFilters}
@@ -279,7 +279,7 @@ function StaffBookingToolbar({
             <SlidersHorizontal className="h-4 w-4" />
             Filters
             {!showAdvancedFilters && hasAnyFilter && (
-              <span className="inline-block h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />
+              <span className="inline-block h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
             )}
             {showAdvancedFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           </button>
@@ -662,7 +662,7 @@ function getRebookChangeItems(booking) {
 
 function RebookChangeRow({ item }) {
   return (
-    <p className="text-xs text-blue-800">
+    <p className="text-xs text-up-forest-green/90">
       {item.detail != null ? (
         <>
           {item.label}: {item.detail}
@@ -1051,14 +1051,14 @@ export default function StaffDashboard() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {actionError && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{actionError}</span>
         </div>
@@ -1076,7 +1076,7 @@ export default function StaffDashboard() {
         >
           Pending Approvals
           {pendingBookings.length > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-600 text-white text-xs w-5 h-5">
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs w-5 h-5">
               {pendingBookings.length}
             </span>
           )}
@@ -1091,7 +1091,7 @@ export default function StaffDashboard() {
         >
           Resubmissions
           {deniedRebookQueueCount > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-violet-600 text-white text-xs min-w-5 h-5 px-1">
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-up-forest-green text-white text-xs min-w-5 h-5 px-1">
               {deniedRebookQueueCount}
             </span>
           )}
@@ -1106,7 +1106,7 @@ export default function StaffDashboard() {
         >
           Active conflicts
           {activeConflictGroupCount > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-orange-500 text-white text-xs min-w-5 h-5 px-1">
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs min-w-5 h-5 px-1">
               {activeConflictGroupCount}
             </span>
           )}
@@ -1121,7 +1121,7 @@ export default function StaffDashboard() {
         >
           Approved Bookings
           {approvedBookings.length > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-emerald-600 text-white text-xs min-w-5 h-5 px-1">
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-up-forest-green text-white text-xs min-w-5 h-5 px-1">
               {approvedBookings.length}
             </span>
           )}
@@ -1345,7 +1345,7 @@ function ApprovedBookingCard({ booking, resourceName }) {
     : booking.user?.email || 'Unknown user';
 
   return (
-    <Card className="border-emerald-200/60">
+    <Card className="border-up-forest-green/20">
       <CardContent className="pt-4 pb-4">
         <div className="space-y-1.5 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -1393,7 +1393,7 @@ function ActiveConflictGroupCard({ group }) {
   const defenderDeadline = group.urgencyAt ? format(new Date(group.urgencyAt), 'MMM d, yyyy h:mm a') : 'No active deadline';
 
   return (
-    <Card className="border-orange-200/60">
+    <Card className="border-primary/20">
       <CardContent className="pt-4 pb-4 space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
@@ -1407,15 +1407,15 @@ function ActiveConflictGroupCard({ group }) {
             </div>
           </div>
           <div className="flex gap-1.5 flex-wrap justify-end">
-            <span className="inline-flex items-center rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-[11px] font-medium text-orange-800">
+            <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
               Defender deadline: {defenderDeadline}
             </span>
           </div>
         </div>
 
-        <div className="rounded-md border border-orange-200/70 bg-orange-50/40 px-3 py-2 space-y-2">
+        <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-orange-900">Defender</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-primary">Defender</span>
             <span className="font-semibold text-sm">
               {defenderBooking ? getBookingReference(defenderBooking) : '—'}
             </span>
@@ -1427,7 +1427,7 @@ function ActiveConflictGroupCard({ group }) {
             <span className="text-sm text-muted-foreground">{defenderBooking?.user?.email || 'Unknown user'}</span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-orange-900">Challenger</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-up-forest-green">Challenger</span>
             <span className="font-semibold text-sm">
               {challengerBooking ? getBookingReference(challengerBooking) : '—'}
             </span>
@@ -1443,7 +1443,7 @@ function ActiveConflictGroupCard({ group }) {
         <button
           type="button"
           onClick={() => setShowDetails((prev) => !prev)}
-          className="inline-flex items-center gap-1 text-xs font-medium text-orange-900"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary"
           aria-expanded={showDetails}
         >
           {showDetails ? 'Hide member bookings' : 'View member bookings'}
@@ -1455,14 +1455,14 @@ function ActiveConflictGroupCard({ group }) {
         </button>
 
         {showDetails && (
-          <div className="rounded-md border border-orange-200/70 bg-orange-50/40 px-3 py-2 space-y-2">
+          <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 space-y-2">
             {group.bookings.map((booking) => (
-              <div key={booking.id} className="space-y-1 border-b border-orange-100 pb-2 last:border-b-0 last:pb-0">
+              <div key={booking.id} className="space-y-1 border-b border-primary/10 pb-2 last:border-b-0 last:pb-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-sm">{getBookingReference(booking)}</span>
                   <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
                   {booking.contentionRole && (
-                    <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-[10px] font-medium capitalize text-orange-900 border border-orange-200">
+                    <span className="inline-flex items-center rounded-full bg-card px-2 py-0.5 text-[10px] font-medium capitalize text-primary border border-primary/20">
                       {booking.contentionRole}
                     </span>
                   )}
@@ -1522,7 +1522,7 @@ function ApprovalCard({
             <div className="flex items-center gap-2 flex-wrap">
               <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
               {showUrgentRebookBadge && (
-                <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700">
+                <span className="inline-flex items-center rounded-full border border-up-forest-green/20 bg-secondary px-2 py-0.5 text-[11px] font-medium text-up-forest-green">
                   Rebooked
                 </span>
               )}
@@ -1585,14 +1585,14 @@ function ApprovalCard({
         {reviewOpen && (
           <div className="mt-4 border-t pt-4 space-y-3">
             {isRebookAttempt && (
-              <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2">
+              <div className="rounded-md border border-up-forest-green/20 bg-secondary px-3 py-2">
                 <button
                   type="button"
                   onClick={() => setShowRebookChanges((prev) => !prev)}
                   className="flex w-full items-center justify-between gap-2 text-left"
                 >
-                  <span className="text-sm font-medium text-blue-900">Changes from previous attempt</span>
-                  <span className="text-xs text-blue-700">
+                  <span className="text-sm font-medium text-up-forest-green">Changes from previous attempt</span>
+                  <span className="text-xs text-up-forest-green/80">
                     {showRebookChanges ? 'Hide' : 'Show'}
                   </span>
                 </button>
@@ -1604,7 +1604,7 @@ function ApprovalCard({
                       ))}
                     </div>
                   ) : (
-                    <p className="mt-1 text-xs text-blue-800">
+                    <p className="mt-1 text-xs text-up-forest-green/90">
                       No changed fields detected from the previous attempt.
                     </p>
                   )
@@ -1612,31 +1612,31 @@ function ApprovalCard({
               </div>
             )}
             {previousAttempts.length > 0 && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+              <div className="rounded-md border border-up-gold/30 bg-accent px-3 py-2">
                 <button
                   type="button"
                   onClick={() => setShowPreviousAttempts((prev) => !prev)}
                   className="flex w-full items-center justify-between gap-2 text-left"
                 >
-                  <span className="text-sm font-medium text-amber-900">
+                  <span className="text-sm font-medium text-accent-foreground">
                     Previous attempts ({previousAttempts.length})
                   </span>
-                  <span className="text-xs text-amber-700">
+                  <span className="text-xs text-accent-foreground/75">
                     {showPreviousAttempts ? 'Hide' : 'Show'}
                   </span>
                 </button>
                 {showPreviousAttempts && (
                   <div className="mt-2 space-y-2">
                     {previousAttempts.map((attempt) => (
-                      <div key={attempt.id} className="text-sm text-amber-900">
+                      <div key={attempt.id} className="text-sm text-accent-foreground">
                         <p className="font-medium">
                           Booking {getBookingReference(attempt)} ({attempt.status?.replace('_', ' ')})
                         </p>
-                        <p className="text-xs text-amber-700">
+                        <p className="text-xs text-accent-foreground/75">
                           {formatBookingDateRange(attempt.startTime, attempt.endTime)}
                         </p>
                         {!!attempt.staffRemark && (
-                          <p className="mt-1 text-sm text-amber-800">{attempt.staffRemark}</p>
+                          <p className="mt-1 text-sm text-accent-foreground">{attempt.staffRemark}</p>
                         )}
                       </div>
                     ))}
@@ -1645,9 +1645,9 @@ function ApprovalCard({
               </div>
             )}
             {firmApprovePastDeadline && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              <div className="rounded-md border border-up-gold/30 bg-accent px-3 py-2 text-sm text-accent-foreground">
                 <p className="font-medium">Approval deadline passed</p>
-                <p className="text-xs text-amber-900 mt-1">
+                <p className="text-xs text-accent-foreground/90 mt-1">
                   This start time is within 24 hours. Firm requests must be approved at least 24 hours before start;
                   Approve is disabled. The request will show as expired after the next system check, or you can still
                   Deny to close it out.
@@ -1670,7 +1670,7 @@ function ApprovalCard({
             <div className="flex gap-2">
               <Button
                 size="sm"
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-up-forest-green hover:bg-up-forest-green/90 text-white"
                 onClick={onApprove}
                 disabled={firmApprovePastDeadline || isLoading('approve') || isLoading('deny')}
               >

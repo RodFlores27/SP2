@@ -15,6 +15,22 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
+function getSessionNotice(reason) {
+  if (reason === 'idle_timeout') {
+    return 'You were logged out due to 15 minutes of inactivity. Please log in again.';
+  }
+  if (reason === 'session_expired') {
+    return 'Your session expired. Please log in again.';
+  }
+  return '';
+}
+
+function getVerifiedNotice(params) {
+  return params.get('verified') === '1'
+    ? 'Your email has been verified. Please log in.'
+    : '';
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,9 +44,9 @@ export default function Login() {
   } = useAuth();
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [sessionNotice, setSessionNotice] = useState('');
+  const [sessionNotice] = useState(() => getSessionNotice(logoutReason));
   const [verificationMessage, setVerificationMessage] = useState('');
-  const [verifiedNotice, setVerifiedNotice] = useState('');
+  const [verifiedNotice, setVerifiedNotice] = useState(() => getVerifiedNotice(searchParams));
 
   const form = useForm({
     resolver: zodResolver(loginSchema),
@@ -47,18 +63,13 @@ export default function Login() {
   }, [isAuthenticated, navigate]);
 
   useEffect(() => {
-    if (logoutReason === 'idle_timeout') {
-      setSessionNotice('You were logged out due to 15 minutes of inactivity. Please log in again.');
-      clearLogoutReason();
-    } else if (logoutReason === 'session_expired') {
-      setSessionNotice('Your session expired. Please log in again.');
+    if (getSessionNotice(logoutReason)) {
       clearLogoutReason();
     }
   }, [logoutReason, clearLogoutReason]);
 
   useEffect(() => {
     if (searchParams.get('verified') === '1') {
-      setVerifiedNotice('Your email has been verified. Please log in.');
       const next = new URLSearchParams(searchParams);
       next.delete('verified');
       setSearchParams(next, { replace: true });
@@ -119,8 +130,11 @@ export default function Login() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50">
-      <Card className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+      <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-accent to-transparent" aria-hidden="true" />
+      <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
+      <div className="absolute -right-20 bottom-10 h-64 w-64 rounded-full bg-up-forest-green/10 blur-3xl" aria-hidden="true" />
+      <Card className="relative w-full max-w-md border-primary/10 shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Login</CardTitle>
           <CardDescription>
@@ -166,17 +180,17 @@ export default function Login() {
                 <div className="text-sm text-destructive">{error}</div>
               )}
               {sessionNotice && (
-                <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                <div className="text-sm text-accent-foreground bg-accent border border-up-gold/30 rounded-md px-3 py-2">
                   {sessionNotice}
                 </div>
               )}
               {verifiedNotice && (
-                <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                <div className="text-sm text-up-forest-green bg-secondary border border-up-forest-green/20 rounded-md px-3 py-2">
                   {verifiedNotice}
                 </div>
               )}
               {verificationMessage && (
-                <div className="text-sm text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+                <div className="text-sm text-up-forest-green bg-secondary border border-up-forest-green/20 rounded-md px-3 py-2">
                   {verificationMessage}
                 </div>
               )}

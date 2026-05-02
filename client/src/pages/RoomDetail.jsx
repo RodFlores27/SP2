@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import axiosInstance from '@/lib/axios';
@@ -23,11 +23,7 @@ export default function RoomDetail() {
 
   const isStaff = user?.accountType === 'ptcf_staff' || user?.accountType === 'system_admin';
 
-  useEffect(() => {
-    fetchRoom();
-  }, [id]);
-
-  const fetchRoom = async () => {
+  const fetchRoom = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -43,7 +39,11 @@ export default function RoomDetail() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id]);
+
+  useEffect(() => {
+    fetchRoom();
+  }, [fetchRoom]);
 
   const handleEdit = () => {
     setFormModalOpen(true);
@@ -81,7 +81,7 @@ export default function RoomDetail() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Card>
           <CardContent className="py-12 text-center">
-            <p className="text-red-600 mb-4">{error}</p>
+            <p className="text-destructive mb-4">{error}</p>
             <Link to="/rooms">
               <Button variant="outline">
                 <ArrowLeft className="h-4 w-4 mr-2" />
@@ -105,13 +105,13 @@ export default function RoomDetail() {
         </Link>
       </div>
 
-      <Card>
+      <Card className="border-primary/10">
         <CardHeader>
           <div className="flex justify-between items-start">
             <div className="flex-1">
-              <CardTitle className="text-3xl mb-2">{room.name}</CardTitle>
+              <CardTitle className="text-3xl mb-2 text-primary">{room.name}</CardTitle>
               <div className="flex items-center gap-2 text-lg text-muted-foreground">
-                <MapPin className="h-5 w-5" />
+                <MapPin className="h-5 w-5 text-up-forest-green" />
                 <span>{room.location}</span>
               </div>
             </div>
@@ -134,7 +134,7 @@ export default function RoomDetail() {
           )}
 
           <div>
-            <h3 className="text-lg font-semibold mb-2">Description</h3>
+            <h3 className="text-lg font-semibold mb-2 text-foreground">Description</h3>
             <p className="text-muted-foreground whitespace-pre-wrap">{room.description}</p>
           </div>
 
@@ -184,11 +184,11 @@ export default function RoomDetail() {
         </CardContent>
       </Card>
 
-      <Card className="mt-6">
+      <Card className="mt-6 border-primary/10">
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle className="flex items-center gap-2">
-              <CalendarIcon className="h-5 w-5" />
+              <CalendarIcon className="h-5 w-5 text-primary" />
               Availability Calendar
             </CardTitle>
             <Link to="/calendar">

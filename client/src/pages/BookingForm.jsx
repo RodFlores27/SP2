@@ -566,14 +566,14 @@ export default function BookingForm() {
 
       {/* Success message */}
       {submitSuccess && (
-        <Card className="mb-6 border-green-200 bg-green-50">
+        <Card className="mb-6 border-up-forest-green/25 bg-secondary">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 flex-shrink-0" />
+              <CheckCircle className="h-5 w-5 text-up-forest-green mt-0.5 flex-shrink-0" />
               <div className="space-y-2">
-                <p className="font-medium text-green-800">{submitSuccess.message}</p>
+                <p className="font-medium text-up-forest-green">{submitSuccess.message}</p>
                 {submitSuccess.booking && (
-                  <div className="text-sm text-green-700 space-y-1">
+                  <div className="text-sm text-up-forest-green space-y-1">
                     <p>
                       {bf.success.bookingIdLabel()} {getBookingReference(submitSuccess.booking)}
                     </p>
@@ -590,13 +590,13 @@ export default function BookingForm() {
                   </div>
                 )}
                 {submitSuccess.isContested && !submitSuccess.confirmedContention && (
-                  <div className="flex items-start gap-2 mt-2 p-2 bg-orange-50 border border-orange-200 rounded">
-                    <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-orange-700 space-y-2 min-w-0">
+                  <div className="flex items-start gap-2 mt-2 p-2 bg-primary/10 border border-primary/25 rounded">
+                    <AlertTriangle className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                    <div className="text-sm text-primary space-y-2 min-w-0">
                       <p>{bf.success.contentionBody()}</p>
                       {conflicts && conflicts.length > 0 && (
                         <div>
-                          <p className="text-xs font-medium text-orange-900">
+                          <p className="text-xs font-medium text-primary">
                             {bf.success.contentionConflictsHeading()}
                           </p>
                           <ul className="list-disc pl-4 text-xs space-y-0.5 mt-1">
@@ -615,9 +615,9 @@ export default function BookingForm() {
                 {submitSuccess.booking?.bookingType === 'firm' &&
                   !submitSuccess.confirmedForeignOverlap &&
                   submitSuccess.overlappingPencils?.length > 0 && (
-                    <div className="flex items-start gap-2 mt-2 p-2 bg-amber-50 border border-amber-200 rounded">
-                      <Info className="h-4 w-4 text-amber-700 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm text-amber-900 space-y-2">
+                    <div className="flex items-start gap-2 mt-2 p-2 bg-accent border border-up-gold/30 rounded">
+                      <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="text-sm text-accent-foreground space-y-2">
                         <p>{bf.success.firmBlockingIntro()}</p>
                         <ul className="list-disc pl-4 space-y-1 text-xs">
                           <li>{bf.success.firmBlockingIfApprovedLine()}</li>
@@ -711,24 +711,24 @@ export default function BookingForm() {
 
       {/* Pencil overlap confirmation dialog */}
       {pendingConfirmation && (
-        <Card className="mb-6 border-orange-200 bg-orange-50">
+        <Card className="mb-6 border-primary/25 bg-primary/10">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
               <div className="space-y-3">
-                <p className="font-medium text-orange-800">{bf.confirmOwnPencilOverlap.title()}</p>
-                <p className="text-sm text-orange-700">{bf.confirmOwnPencilOverlap.subtitle()}</p>
+                <p className="font-medium text-primary">{bf.confirmOwnPencilOverlap.title()}</p>
+                <p className="text-sm text-primary/90">{bf.confirmOwnPencilOverlap.subtitle()}</p>
                 <div className="space-y-1">
                   {pendingConfirmation.ownPencilConflicts.map((c) => (
-                    <div key={c.id} className="text-sm bg-white/60 border border-orange-200 rounded px-3 py-2">
+                    <div key={c.id} className="text-sm bg-card/70 border border-primary/20 rounded px-3 py-2">
                       <p className="font-medium">
                         {bf.confirmOwnPencilOverlap.pencilCardTitle({ id: getBookingReference(c) })}
                       </p>
-                      <p className="text-xs text-orange-700">
+                      <p className="text-xs text-primary/90">
                         Status: {formatStatusLabel(c.status)}
                         {c.status === 'on_hold' ? ' (currently on hold)' : ''}
                       </p>
-                      <p className="text-xs text-orange-600">
+                      <p className="text-xs text-primary/80">
                         {formatBookingDateRange(c.startTime, c.endTime)}
                       </p>
                     </div>
@@ -758,25 +758,25 @@ export default function BookingForm() {
       )}
 
       {pendingForeignOverlapConfirmation && (
-        <Card className="mb-6 border-amber-200 bg-amber-50">
+        <Card className="mb-6 border-up-gold/30 bg-accent">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
               <div className="space-y-3">
-                <p className="font-medium text-amber-900">{bf.confirmForeignPencilOverlap.title()}</p>
-                <p className="text-sm text-amber-800">{bf.confirmForeignPencilOverlap.subtitle()}</p>
+                <p className="font-medium text-accent-foreground">{bf.confirmForeignPencilOverlap.title()}</p>
+                <p className="text-sm text-accent-foreground/90">{bf.confirmForeignPencilOverlap.subtitle()}</p>
                 <div className="space-y-1">
                   {pendingForeignOverlapConfirmation.foreignPencilConflicts.map((c) => (
                     <div
                       key={c.id}
-                      className="text-sm bg-white/60 border border-amber-200 rounded px-3 py-2"
+                      className="text-sm bg-card/70 border border-up-gold/30 rounded px-3 py-2"
                     >
                       <p className="font-medium">
                         {bf.confirmForeignPencilOverlap.pencilCardTitle({ id: getBookingReference(c) })}
                       </p>
-                      <p className="text-xs text-amber-700">Status: {formatStatusLabel(c.status)}</p>
-                      <p className="text-xs text-amber-700">{c.user?.email || 'Unknown user'}</p>
-                      <p className="text-xs text-amber-600">
+                      <p className="text-xs text-accent-foreground/80">Status: {formatStatusLabel(c.status)}</p>
+                      <p className="text-xs text-accent-foreground/80">{c.user?.email || 'Unknown user'}</p>
+                      <p className="text-xs text-accent-foreground/70">
                         {formatBookingDateRange(c.startTime, c.endTime)}
                       </p>
                     </div>
@@ -804,20 +804,20 @@ export default function BookingForm() {
       )}
 
       {pendingContentionConfirmation && (
-        <Card className="mb-6 border-amber-200 bg-amber-50">
+        <Card className="mb-6 border-up-gold/30 bg-accent">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-700 mt-0.5 flex-shrink-0" />
+              <AlertTriangle className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
               <div className="space-y-3">
                 {submitError && (
-                  <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                  <div className="rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                     {submitError}
                   </div>
                 )}
-                <p className="font-medium text-amber-900">{bf.confirmContention.title()}</p>
-                <p className="text-sm text-amber-800">{bf.confirmContention.subtitle()}</p>
+                <p className="font-medium text-accent-foreground">{bf.confirmContention.title()}</p>
+                <p className="text-sm text-accent-foreground/90">{bf.confirmContention.subtitle()}</p>
                 {pendingContentionConfirmation.deadlineAt && (
-                  <p className="text-sm text-amber-900">
+                  <p className="text-sm text-accent-foreground">
                     {bf.confirmContention.deadlineLine({
                       formattedDeadline: formatDeadlineForNotice(pendingContentionConfirmation.deadlineAt),
                     })}
@@ -827,12 +827,12 @@ export default function BookingForm() {
                   {pendingContentionConfirmation.conflicts.map((c) => (
                     <div
                       key={c.id}
-                      className="text-sm bg-white/60 rounded px-3 py-2 border border-amber-200"
+                      className="text-sm bg-card/70 rounded px-3 py-2 border border-up-gold/30"
                     >
                     <p className="font-medium">
                       {bf.confirmContention.conflictCardTitle({ id: getBookingReference(c) })}
                     </p>
-                      <p className="text-xs text-amber-800">
+                      <p className="text-xs text-accent-foreground/90">
                         {formatBookingDateRange(c.startTime, c.endTime)}
                       </p>
                     </div>
@@ -866,9 +866,9 @@ export default function BookingForm() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 {/* Error display */}
                 {activeContentionNotice && (
-                  <div className="bg-amber-50 border border-amber-200 text-amber-900 px-4 py-3 rounded-md text-sm">
+                  <div className="bg-accent border border-up-gold/30 text-accent-foreground px-4 py-3 rounded-md text-sm">
                     <div className="flex items-start gap-2">
-                      <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-700" />
+                      <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary" />
                       <div className="space-y-1.5">
                         <p className="font-semibold">{bf.activeContentionUnavailable.title()}</p>
                         <p>{bf.activeContentionUnavailable.body()}</p>
@@ -883,7 +883,7 @@ export default function BookingForm() {
                 )}
 
                 {submitError && (
-                  <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm">
+                  <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                       <div>
@@ -1012,16 +1012,16 @@ export default function BookingForm() {
                         </button>
                       </div>
                       {field.value === 'firm' && (
-                        <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-3">
+                        <div className="mt-2 rounded-md border border-up-forest-green/20 bg-secondary p-3">
                           <div className="flex items-start gap-2.5">
-                            <Info className="mt-0.5 h-4 w-4 shrink-0 text-blue-600" aria-hidden />
-                            <div className="min-w-0 flex-1 space-y-2 text-sm text-blue-900">
+                            <Info className="mt-0.5 h-4 w-4 shrink-0 text-up-forest-green" aria-hidden />
+                            <div className="min-w-0 flex-1 space-y-2 text-sm text-up-forest-green">
                               <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
-                                <p className="min-w-0 flex-1 text-blue-800">{bf.fields.firmOverlapCallout()}</p>
+                                <p className="min-w-0 flex-1 text-up-forest-green">{bf.fields.firmOverlapCallout()}</p>
                                 <button
                                   type="button"
                                   id="firm-pencil-overlap-details-trigger"
-                                  className="shrink-0 text-xs font-medium text-blue-700/90 underline decoration-blue-400/50 underline-offset-2 transition-colors hover:text-blue-900 hover:decoration-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 rounded-sm"
+                                  className="shrink-0 text-xs font-medium text-up-forest-green/90 underline decoration-up-forest-green/40 underline-offset-2 transition-colors hover:text-up-forest-green hover:decoration-up-forest-green focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
                                   aria-expanded={firmPencilOverlapDetailsOpen}
                                   aria-controls="firm-pencil-overlap-details"
                                   onClick={() =>
@@ -1036,27 +1036,27 @@ export default function BookingForm() {
                               {firmPencilOverlapDetailsOpen && (
                                 <div
                                   id="firm-pencil-overlap-details"
-                                  className="rounded-md border border-blue-100/80 bg-white/60 px-3 py-2.5"
+                                  className="rounded-md border border-up-forest-green/15 bg-card/70 px-3 py-2.5"
                                   role="region"
                                   aria-labelledby="firm-pencil-overlap-details-trigger"
                                 >
-                                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-950">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-up-forest-green">
                                     {bf.fields.firmOverlapSectionTitle()}
                                   </p>
                                   <dl className="mt-2 space-y-2.5">
                                     <div>
-                                      <dt className="font-medium text-blue-950">
+                                      <dt className="font-medium text-up-forest-green">
                                         {bf.fields.firmOverlapOwnPencilsDt()}
                                       </dt>
-                                      <dd className="mt-0.5 text-blue-800">
+                                      <dd className="mt-0.5 text-up-forest-green/90">
                                         {bf.fields.firmOverlapOwnPencilsDd()}
                                       </dd>
                                     </div>
                                     <div>
-                                      <dt className="font-medium text-blue-950">
+                                      <dt className="font-medium text-up-forest-green">
                                         {bf.fields.firmOverlapOtherPencilsDt()}
                                       </dt>
-                                      <dd className="mt-0.5 text-blue-800">
+                                      <dd className="mt-0.5 text-up-forest-green/90">
                                         {bf.fields.firmOverlapOtherPencilsDd()}
                                       </dd>
                                     </div>
@@ -1189,7 +1189,7 @@ export default function BookingForm() {
                   )}
 
                   {docError && (
-                    <p className="text-sm text-red-600">{docError}</p>
+                    <p className="text-sm text-destructive">{docError}</p>
                   )}
                 </div>
 

@@ -15,39 +15,50 @@ export function Navigation() {
     setMobileMenuOpen(false);
   };
 
+  const navLinkClass =
+    'inline-flex items-center rounded-md px-2 py-1 text-sm font-medium text-foreground/85 transition-colors hover:bg-accent hover:text-primary';
+  const mobileNavLinkClass =
+    'block px-4 py-2 text-base font-medium text-foreground transition-colors hover:bg-accent hover:text-primary';
+
   return (
-    <nav className="bg-background border-b border-border">
+    <nav className="border-b border-border/80 bg-card/95 shadow-sm">
+      <div className="h-1 bg-gradient-to-r from-primary via-up-gold to-up-forest-green" aria-hidden="true" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link to="/dashboard" className="text-xl font-bold text-foreground">
-                PTCF Reservation
+              <Link to="/dashboard" className="group leading-tight">
+                <span className="block font-heading text-xl font-bold text-primary">
+                  PTCF Reservation
+                </span>
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-up-forest-green">
+                  Plant Tissue Culture Facility
+                </span>
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               <Link
                 to="/equipment"
-                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+                className={navLinkClass}
               >
                 Equipment
               </Link>
               <Link
                 to="/rooms"
-                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+                className={navLinkClass}
               >
                 Rooms
               </Link>
               <Link
                 to="/calendar"
-                className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+                className={navLinkClass}
               >
                 Calendar
               </Link>
               {isAuthenticated && (
                 <Link
                   to="/bookings/new"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+                  className={navLinkClass}
                 >
                   Book Now
                 </Link>
@@ -55,7 +66,7 @@ export function Navigation() {
               {isAuthenticated && (
                 <Link
                   to="/dashboard"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+                  className={navLinkClass}
                 >
                   My Bookings
                 </Link>
@@ -65,7 +76,7 @@ export function Navigation() {
                   user?.accountType === 'system_admin') && (
                   <Link
                     to="/staff"
-                    className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+                    className={navLinkClass}
                   >
                     Staff Dashboard
                   </Link>
@@ -73,7 +84,7 @@ export function Navigation() {
               {isAuthenticated && user?.accountType === 'system_admin' && (
                 <Link
                   to="/admin"
-                  className="inline-flex items-center px-1 pt-1 text-sm font-medium text-foreground hover:text-primary"
+                  className={navLinkClass}
                 >
                   Admin Panel
                 </Link>
@@ -106,7 +117,7 @@ export function Navigation() {
           <div className="flex items-center sm:hidden">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-foreground hover:bg-accent"
+              className="inline-flex items-center justify-center p-2 rounded-md text-foreground hover:bg-accent hover:text-primary"
             >
               {mobileMenuOpen ? (
                 <X className="h-6 w-6" />
@@ -119,25 +130,25 @@ export function Navigation() {
       </div>
 
       {mobileMenuOpen && (
-        <div className="sm:hidden">
+        <div className="sm:hidden bg-card">
           <div className="pt-2 pb-3 space-y-1">
             <Link
               to="/equipment"
-              className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+              className={mobileNavLinkClass}
               onClick={() => setMobileMenuOpen(false)}
             >
               Equipment
             </Link>
             <Link
               to="/rooms"
-              className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+              className={mobileNavLinkClass}
               onClick={() => setMobileMenuOpen(false)}
             >
               Rooms
             </Link>
             <Link
               to="/calendar"
-              className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+              className={mobileNavLinkClass}
               onClick={() => setMobileMenuOpen(false)}
             >
               Calendar
@@ -145,7 +156,7 @@ export function Navigation() {
             {isAuthenticated && (
               <Link
                 to="/bookings/new"
-                className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+                className={mobileNavLinkClass}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Book Now
@@ -154,7 +165,7 @@ export function Navigation() {
             {isAuthenticated && (
               <Link
                 to="/dashboard"
-                className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+                className={mobileNavLinkClass}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 My Bookings
@@ -165,7 +176,7 @@ export function Navigation() {
                 user?.accountType === 'system_admin') && (
                 <Link
                   to="/staff"
-                  className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+                  className={mobileNavLinkClass}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Staff Dashboard
@@ -174,7 +185,7 @@ export function Navigation() {
             {isAuthenticated && user?.accountType === 'system_admin' && (
               <Link
                 to="/admin"
-                className="block pl-3 pr-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+                className={mobileNavLinkClass}
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Admin Panel
@@ -189,7 +200,7 @@ export function Navigation() {
                 </div>
                 <button
                   onClick={handleLogout}
-                  className="block w-full text-left px-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+                  className="block w-full text-left px-4 py-2 text-base font-medium text-foreground hover:bg-accent hover:text-primary"
                 >
                   Logout
                 </button>
@@ -198,14 +209,14 @@ export function Navigation() {
               <div className="space-y-1">
                 <Link
                   to="/login"
-                  className="block px-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+                  className={mobileNavLinkClass}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Login
                 </Link>
                 <Link
                   to="/register"
-                  className="block px-4 py-2 text-base font-medium text-foreground hover:bg-accent"
+                  className={mobileNavLinkClass}
                   onClick={() => setMobileMenuOpen(false)}
                 >
                   Register

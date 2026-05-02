@@ -9,46 +9,46 @@ export function suppressNativeEventTooltip() {
 
 export const CALENDAR_STATUS_STYLES = {
   approved: {
-    backgroundColor: '#22c55e',
-    borderColor: '#16a34a',
+    backgroundColor: '#00573F',
+    borderColor: '#004632',
     color: '#fff',
   },
   pending_approval: {
-    backgroundColor: '#eab308',
-    borderColor: '#ca8a04',
-    color: '#000',
+    backgroundColor: '#FFB81C',
+    borderColor: '#B87900',
+    color: '#231F20',
     borderStyle: 'dashed',
   },
   penciled: {
-    backgroundColor: '#d1d5db',
-    borderColor: '#9ca3af',
-    color: '#374151',
+    backgroundColor: '#E8E2D6',
+    borderColor: '#B8AB98',
+    color: '#231F20',
   },
   on_hold: {
-    backgroundColor: '#fef3c7',
-    borderColor: '#f59e0b',
-    color: '#78350f',
+    backgroundColor: '#FFF1C2',
+    borderColor: '#FFB81C',
+    color: '#4B3511',
     borderStyle: 'dashed',
   },
   contesting: {
-    backgroundColor: '#0ea5e9',
-    borderColor: '#0284c7',
+    backgroundColor: '#2D6A57',
+    borderColor: '#00573F',
     color: '#fff',
   },
   contested: {
-    backgroundColor: '#fb923c',
-    borderColor: '#ea580c',
+    backgroundColor: '#8A1538',
+    borderColor: '#6F102D',
     color: '#fff',
   },
   completed: {
-    backgroundColor: '#a7f3d0',
-    borderColor: '#34d399',
-    color: '#064e3b',
+    backgroundColor: '#DCEFE8',
+    borderColor: '#00573F',
+    color: '#00573F',
   },
   displaced: {
-    backgroundColor: '#94a3b8',
-    borderColor: '#64748b',
-    color: '#fff',
+    backgroundColor: '#CFC8BC',
+    borderColor: '#8C8173',
+    color: '#231F20',
   },
 };
 

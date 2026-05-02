@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "PTCF Room & Equipment Reservation System API",
-    "description": "API documentation for the UPLB ICropS Plant Tissue Culture Facility reservation management system.",
+    "description": "API documentation for the Plant Tissue Culture Facility reservation management system.",
     "version": "1.0.0",
     "contact": {
       "name": "PTCF Development Team"

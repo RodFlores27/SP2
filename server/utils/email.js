@@ -2,7 +2,7 @@ const { Resend } = require('resend');
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'noreply@ptcf.uplb.edu.ph';
-const FROM_NAME = 'PTCF Reservation System';
+const FROM_NAME = 'PTCF Reservation';
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 

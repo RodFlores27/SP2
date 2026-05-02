@@ -163,10 +163,10 @@ export default function RoomList() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-12">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Rooms</h1>
+          <h1 className="text-3xl font-bold text-primary">Rooms</h1>
           <p className="text-muted-foreground mt-2">
             Browse available rooms for the PTCF facility
           </p>
@@ -180,13 +180,13 @@ export default function RoomList() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md mb-6">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md mb-6">
           {error}
         </div>
       )}
 
       {rooms.length > 0 && (
-        <Card className="border-muted mb-6">
+        <Card className="border-primary/10 bg-card/90 mb-6">
           <CardContent className="py-4 space-y-3">
             <div className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
@@ -204,7 +204,7 @@ export default function RoomList() {
                 onClick={() => setShowFilters((prev) => !prev)}
                 className={`inline-flex h-9 items-center justify-center gap-1 rounded-md border px-3 text-sm transition-colors ${
                   hasActiveFilters
-                    ? 'border-blue-300 bg-blue-50/40 text-blue-700 hover:bg-blue-50'
+                    ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10'
                     : 'hover:bg-accent'
                 }`}
                 aria-expanded={showFilters}
@@ -213,7 +213,7 @@ export default function RoomList() {
                 <SlidersHorizontal className="h-4 w-4" />
                 Filters
                 {!showFilters && hasActiveFilters && (
-                  <span className="inline-block h-2 w-2 rounded-full bg-blue-600" aria-hidden="true" />
+                  <span className="inline-block h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
                 )}
                 {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
@@ -301,7 +301,7 @@ export default function RoomList() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredRooms.map((room) => (
-            <Card key={room.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+            <Card key={room.id} className="overflow-hidden transition-all hover:border-primary/20 hover:shadow-lg">
               <div className="aspect-video bg-muted relative">
                 {room.imageUrl ? (
                   <img

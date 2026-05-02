@@ -40,8 +40,11 @@ export default function OAuthCallback() {
   }, [completeOAuth, navigate]);
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+      <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-accent to-transparent" aria-hidden="true" />
+      <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
+      <div className="absolute -right-20 bottom-10 h-64 w-64 rounded-full bg-up-forest-green/10 blur-3xl" aria-hidden="true" />
+      <Card className="relative w-full max-w-md border-primary/10 shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Completing sign-in</CardTitle>
           <CardDescription>

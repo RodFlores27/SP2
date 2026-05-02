@@ -146,10 +146,10 @@ export function ActiveBookingCard({
             {booking.bookingType === 'firm' &&
               booking.status === 'pending_approval' &&
               booking.overlappingOnHoldPencils?.length > 0 && (
-                <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 text-amber-950 px-3 py-2 rounded-md text-sm">
+                <div className="flex items-start gap-2 bg-accent border border-up-gold/30 text-accent-foreground px-3 py-2 rounded-md text-sm">
                   <AlertIcon
                     icon={alerts.firmPendingOnHold.icon}
-                    className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-700"
+                    className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary"
                   />
                   <div className="min-w-0 space-y-2">
                     <p>
@@ -157,7 +157,7 @@ export function ActiveBookingCard({
                         count: booking.overlappingOnHoldPencils.length,
                       })}
                     </p>
-                    <div className="border-t border-amber-200/80 pt-2">
+                    <div className="border-t border-up-gold/30 pt-2">
                       <button
                         type="button"
                         onClick={() => setShowFirmPendingDetail((prev) => !prev)}
@@ -167,21 +167,21 @@ export function ActiveBookingCard({
                             ? alerts.firmPendingOnHold.toggleAriaHide
                             : alerts.firmPendingOnHold.toggleAriaView
                         }
-                        className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-amber-900"
+                        className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-accent-foreground"
                       >
                         {showFirmPendingDetail
                           ? alerts.firmPendingOnHold.toggleHideDetails
                           : alerts.firmPendingOnHold.toggleViewDetails}
                         {showFirmPendingDetail ? (
-                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                         ) : (
-                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                         )}
                       </button>
                       {showFirmPendingDetail && (
-                        <div className="mt-2 space-y-2 text-xs text-amber-900">
+                        <div className="mt-2 space-y-2 text-xs text-accent-foreground">
                           <p>{alerts.firmPendingOnHold.detailsBody()}</p>
-                          <p className="font-medium text-amber-900">
+                          <p className="font-medium text-accent-foreground">
                             {alerts.firmPendingOnHold.listHeading()}
                           </p>
                           <ul className="list-disc pl-4 space-y-1">
@@ -200,10 +200,10 @@ export function ActiveBookingCard({
               )}
 
             {booking.bookingType === 'pencil' && booking.status === 'on_hold' && (
-              <div className="flex items-start gap-2 bg-amber-50 border border-amber-300 text-amber-950 px-3 py-2 rounded-md text-sm">
+              <div className="flex items-start gap-2 bg-accent border border-up-gold/40 text-accent-foreground px-3 py-2 rounded-md text-sm">
                 <AlertIcon
                   icon={alerts.pencilOnHold.icon}
-                  className="h-4 w-4 mt-0.5 flex-shrink-0 text-amber-800"
+                  className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary"
                 />
                 <div className="min-w-0 space-y-2">
                   <p>
@@ -211,7 +211,7 @@ export function ActiveBookingCard({
                       count: booking.overlappingFirmBookings?.length ?? 0,
                     })}
                   </p>
-                  <div className="border-t border-amber-200/80 pt-2">
+                  <div className="border-t border-up-gold/30 pt-2">
                     <button
                       type="button"
                       onClick={() => setShowOnHoldDetail((prev) => !prev)}
@@ -221,23 +221,23 @@ export function ActiveBookingCard({
                           ? alerts.pencilOnHold.toggleAriaHide
                           : alerts.pencilOnHold.toggleAriaView
                       }
-                      className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-amber-900"
+                      className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-accent-foreground"
                     >
                       {showOnHoldDetail
                         ? alerts.pencilOnHold.toggleHideDetails
                         : alerts.pencilOnHold.toggleViewDetails}
                       {showOnHoldDetail ? (
-                        <ChevronUp className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                        <ChevronUp className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                       ) : (
-                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-amber-700" aria-hidden />
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                       )}
                     </button>
                     {showOnHoldDetail && (
-                      <div className="mt-2 space-y-2 text-xs text-amber-900">
+                      <div className="mt-2 space-y-2 text-xs text-accent-foreground">
                         <p>{alerts.pencilOnHold.detailsBody()}</p>
                         {booking.overlappingFirmBookings?.length > 0 && (
                           <>
-                            <p className="font-medium text-amber-900">
+                            <p className="font-medium text-accent-foreground">
                               {alerts.pencilOnHold.overlappingFirmsListHeading()}
                             </p>
                             <ul className="list-disc pl-4 space-y-1">
@@ -260,10 +260,10 @@ export function ActiveBookingCard({
             )}
 
             {booking.contentionChallenger === true && (
-              <div className="flex items-start gap-2 bg-sky-50 border border-sky-200 text-sky-950 px-3 py-2 rounded-md text-sm">
+              <div className="flex items-start gap-2 bg-secondary border border-up-forest-green/20 text-up-forest-green px-3 py-2 rounded-md text-sm">
                 <AlertIcon
                   icon={alerts.challenger.icon}
-                  className="h-4 w-4 mt-0.5 flex-shrink-0 text-sky-700"
+                  className="h-4 w-4 mt-0.5 flex-shrink-0 text-up-forest-green"
                 />
                 <div className="min-w-0 space-y-2">
                   {detail?.defender && detail?.deadlineAt ? (
@@ -277,7 +277,7 @@ export function ActiveBookingCard({
                     <ActiveCardAlertIntro alert={alerts.challenger} />
                   )}
                   {detail?.defender && (
-                    <div className="border-t border-sky-200/80 pt-2">
+                    <div className="border-t border-up-forest-green/20 pt-2">
                       <button
                         type="button"
                         onClick={() => setShowChallengerDetail((prev) => !prev)}
@@ -287,26 +287,26 @@ export function ActiveBookingCard({
                             ? alerts.challenger.toggleAriaHide
                             : alerts.challenger.toggleAriaView
                         }
-                        className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-sky-950"
+                        className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-up-forest-green"
                       >
                         {showChallengerDetail
                           ? alerts.challenger.toggleHideDetails
                           : alerts.challenger.toggleViewDetails}
                         {showChallengerDetail ? (
-                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
+                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-up-forest-green" aria-hidden />
                         ) : (
-                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-sky-700" aria-hidden />
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-up-forest-green" aria-hidden />
                         )}
                       </button>
                       {showChallengerDetail && (
-                        <div className="mt-2 space-y-2 text-xs text-sky-900">
+                        <div className="mt-2 space-y-2 text-xs text-up-forest-green">
                           <p>{alerts.challenger.detailsBody()}</p>
                           {detail.deadlineAt && contentionDeadlineQualifierSentence(challengerDeadlineQualifier) && (
-                            <p className="text-sky-900/90">
+                            <p className="text-up-forest-green/90">
                               {contentionDeadlineQualifierSentence(challengerDeadlineQualifier)}
                             </p>
                           )}
-                          <p className="font-semibold text-sky-950">
+                          <p className="font-semibold text-up-forest-green">
                             {alerts.challenger.whoDefenderHeading()}
                           </p>
                           <ul className="list-disc pl-4 space-y-1">
@@ -330,10 +330,10 @@ export function ActiveBookingCard({
             )}
 
             {isDefenderInContention && (
-              <div className="flex items-start gap-2 bg-orange-50 border border-orange-200 text-orange-800 px-3 py-2 rounded-md text-sm">
+              <div className="flex items-start gap-2 bg-primary/10 border border-primary/25 text-primary px-3 py-2 rounded-md text-sm">
                 <AlertIcon
                   icon={alerts.defender.icon}
-                  className="h-4 w-4 mt-0.5 flex-shrink-0 text-orange-600"
+                  className="h-4 w-4 mt-0.5 flex-shrink-0 text-primary"
                 />
                 <div className="min-w-0 space-y-2">
                   {(detail?.deadlineAt || booking.contentionDeadlineAt) ? (
@@ -349,7 +349,7 @@ export function ActiveBookingCard({
                     <ActiveCardAlertIntro alert={alerts.defender} />
                   )}
                   {detail?.challenger && (
-                    <div className="border-t border-orange-200/80 pt-2">
+                    <div className="border-t border-primary/20 pt-2">
                       <button
                         type="button"
                         onClick={() => setShowDefenderChallengerDetail((prev) => !prev)}
@@ -359,17 +359,17 @@ export function ActiveBookingCard({
                             ? alerts.defender.toggleAriaHide
                             : alerts.defender.toggleAriaView
                         }
-                        className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-orange-900"
+                        className="inline-flex w-full items-center gap-1 text-left text-xs font-medium text-primary"
                       >
                         {alerts.defender.toggleViewDetails}
                         {showDefenderChallengerDetail ? (
-                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-orange-700" aria-hidden />
+                          <ChevronUp className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                         ) : (
-                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-orange-700" aria-hidden />
+                          <ChevronDown className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden />
                         )}
                       </button>
                       {showDefenderChallengerDetail && (
-                        <div className="mt-2 text-xs text-orange-900 space-y-2">
+                        <div className="mt-2 text-xs text-primary space-y-2">
                           <p>{alerts.defender.detailsBody()}</p>
                           {(detail?.deadlineAt || booking.contentionDeadlineAt) && (
                             <p>
@@ -380,13 +380,13 @@ export function ActiveBookingCard({
                                 ),
                               })}
                               {contentionDeadlineQualifierSentence(defenderDeadlineQualifier) && (
-                                <span className="block mt-1 text-orange-900/90">
+                                <span className="block mt-1 text-primary/90">
                                   {contentionDeadlineQualifierSentence(defenderDeadlineQualifier)}
                                 </span>
                               )}
                             </p>
                           )}
-                          <p className="font-semibold text-orange-950">
+                          <p className="font-semibold text-primary">
                             {alerts.defender.whoChallengesHeading()}
                           </p>
                           <ul className="list-disc pl-4 space-y-1">
@@ -429,16 +429,16 @@ export function ActiveBookingCard({
             )}
 
             {previousAttempts.length > 0 && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
+              <div className="rounded-md border border-up-gold/30 bg-accent px-3 py-2 text-sm">
                 <button
                   type="button"
                   onClick={() => setShowPreviousAttempts((prev) => !prev)}
                   className="flex w-full items-center justify-between gap-2 text-left"
                 >
-                  <span className="font-medium text-amber-900">
+                  <span className="font-medium text-accent-foreground">
                     {ac.meta.previousAttempts.label({ count: previousAttempts.length })}
                   </span>
-                  <span className="text-xs text-amber-700">
+                  <span className="text-xs text-accent-foreground/75">
                     {showPreviousAttempts
                       ? ac.meta.previousAttempts.hide()
                       : ac.meta.previousAttempts.show()}
@@ -448,17 +448,17 @@ export function ActiveBookingCard({
                   <div className="mt-2 space-y-2">
                     {previousAttempts.map((attempt) => (
                       <div key={attempt.id}>
-                        <p className="font-medium text-amber-900">
+                        <p className="font-medium text-accent-foreground">
                           {ac.meta.previousAttempts.bookingLine({
                             id: getBookingReference(attempt),
                             statusLabel: formatStatusLabel(attempt.status),
                           })}
                         </p>
-                        <p className="text-xs text-amber-700">
+                        <p className="text-xs text-accent-foreground/75">
                           {formatBookingDateRange(attempt.startTime, attempt.endTime)}
                         </p>
                       {!!attempt.staffRemark && (
-                        <p className="mt-1 text-sm text-amber-800">{attempt.staffRemark}</p>
+                        <p className="mt-1 text-sm text-accent-foreground">{attempt.staffRemark}</p>
                       )}
                       </div>
                     ))}
@@ -547,7 +547,7 @@ export function ActiveBookingCard({
             </div>
 
             {convertError && (
-              <div className="bg-red-50 border border-red-200 text-red-800 px-3 py-2 rounded-md text-sm">
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive px-3 py-2 rounded-md text-sm">
                 <div className="flex items-start gap-2">
                   <AlertIcon
                     icon={ac.convertPanel.icons.convertError}
@@ -638,7 +638,7 @@ export function ActiveBookingCard({
               )}
 
               {convertFileError && (
-                <p className="text-sm text-red-600">{convertFileError}</p>
+                <p className="text-sm text-destructive">{convertFileError}</p>
               )}
             </div>
 

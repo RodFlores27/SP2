@@ -654,7 +654,7 @@ export function BookingCalendar({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center p-8 text-red-500">
+      <div className="flex items-center justify-center p-8 text-destructive">
         <p>{cal.errorLoading({ message: error })}</p>
       </div>
     );
@@ -671,38 +671,47 @@ export function BookingCalendar({
     <BookingCalendarUiContext.Provider value={uiContextValue}>
       <div className="relative">
         {loading && (
-          <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-10">
+          <div className="absolute inset-0 bg-background/70 flex items-center justify-center z-10">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         )}
 
         <div className="mb-4 flex flex-wrap gap-4 text-sm">
           <div className="flex items-center gap-2">
-            <span className="w-4 h-4 rounded" style={{ backgroundColor: '#22c55e' }}></span>
+            <span className="w-4 h-4 rounded" style={{ backgroundColor: CALENDAR_STATUS_STYLES.approved.backgroundColor }}></span>
             <span>{cal.legend.approved()}</span>
           </div>
           <div className="flex items-center gap-2">
             <span
               className="w-4 h-4 rounded border-2 border-dashed"
-              style={{ backgroundColor: '#eab308', borderColor: '#ca8a04' }}
+              style={{
+                backgroundColor: CALENDAR_STATUS_STYLES.pending_approval.backgroundColor,
+                borderColor: CALENDAR_STATUS_STYLES.pending_approval.borderColor,
+              }}
             ></span>
             <span>{cal.legend.pendingApproval()}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-4 h-4 rounded opacity-70" style={{ backgroundColor: '#d1d5db' }}></span>
+            <span className="w-4 h-4 rounded opacity-80" style={{ backgroundColor: CALENDAR_STATUS_STYLES.penciled.backgroundColor }}></span>
             <span>{cal.legend.penciled()}</span>
           </div>
           <div className="flex items-center gap-2">
             <span
               className="w-4 h-4 rounded border-2 border-dashed"
-              style={{ backgroundColor: '#fef3c7', borderColor: '#f59e0b' }}
+              style={{
+                backgroundColor: CALENDAR_STATUS_STYLES.on_hold.backgroundColor,
+                borderColor: CALENDAR_STATUS_STYLES.on_hold.borderColor,
+              }}
             />
             <span>{cal.legend.onHold()}</span>
           </div>
           <div className="flex items-center gap-2">
             <span
               className="w-4 h-4 rounded border-2 opacity-80"
-              style={{ backgroundColor: '#fb923c', borderColor: '#ea580c' }}
+              style={{
+                backgroundColor: CALENDAR_STATUS_STYLES.contested.backgroundColor,
+                borderColor: CALENDAR_STATUS_STYLES.contested.borderColor,
+              }}
             />
             <span>{cal.legend.contentionGroup()}</span>
           </div>

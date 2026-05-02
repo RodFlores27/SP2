@@ -23,8 +23,9 @@
     "test:milestone-17": "node milestone_tests/milestone-17-audit-log-consumer.js",
     "test:milestone-18": "node milestone_tests/milestone-18-analytics-consumer.js",
     "test:milestone-19": "node milestone_tests/milestone-19-end-to-end-kafka.js",
+    "test:milestone-20": "node milestone_tests/milestone-20-up-visual-identity-reskin.js",
     "test:supabase-auth": "node milestone_tests/supabase-auth-verification.js",
-    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3 && npm run test:milestone-4 && npm run test:milestone-5 && npm run test:milestone-6 && npm run test:milestone-7 && npm run test:milestone-8 && npm run test:milestone-9 && npm run test:milestone-10 && npm run test:milestone-11 && npm run test:milestone-12 && npm run test:milestone-13 && npm run test:milestone-14 && npm run test:milestone-15 && npm run test:milestone-16 && npm run test:milestone-17 && npm run test:milestone-18 && npm run test:milestone-19"
+    "test:all": "npm run test:milestone-1 && npm run test:milestone-2 && npm run test:milestone-3 && npm run test:milestone-4 && npm run test:milestone-5 && npm run test:milestone-6 && npm run test:milestone-7 && npm run test:milestone-8 && npm run test:milestone-9 && npm run test:milestone-10 && npm run test:milestone-11 && npm run test:milestone-12 && npm run test:milestone-13 && npm run test:milestone-14 && npm run test:milestone-15 && npm run test:milestone-16 && npm run test:milestone-17 && npm run test:milestone-18 && npm run test:milestone-19 && npm run test:milestone-20"
   },
   "repository": {
     "type": "git",

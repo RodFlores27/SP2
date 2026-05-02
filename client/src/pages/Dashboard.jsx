@@ -180,7 +180,6 @@ export default function Dashboard() {
   const [pastFilters, setPastFilters] = useState(() => loadFilters('past'));
 
   const [cancelDialog, setCancelDialog] = useState({ open: false, bookingId: null });
-  const [cancelLoading, setCancelLoading] = useState(false);
   const [cancelError, setCancelError] = useState(null);
   const [devUndoLoading, setDevUndoLoading] = useState(false);
   const [devUndoMessage, setDevUndoMessage] = useState(null);
@@ -251,7 +250,6 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -283,7 +281,6 @@ export default function Dashboard() {
       window.clearInterval(intervalId);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -302,7 +299,6 @@ export default function Dashboard() {
 
   const handleCancelConfirm = async () => {
     if (!cancelDialog.bookingId) return;
-    setCancelLoading(true);
     setCancelError(null);
     try {
       await axiosInstance.patch(`/bookings/${cancelDialog.bookingId}/cancel`);
@@ -312,8 +308,6 @@ export default function Dashboard() {
       const msg = err.response?.data?.error || 'Failed to cancel booking.';
       setCancelError(msg);
       setCancelDialog({ open: false, bookingId: null });
-    } finally {
-      setCancelLoading(false);
     }
   };
 
@@ -566,19 +560,19 @@ export default function Dashboard() {
 
       {/* Global error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {DEV_BOOKING_UNDO_ENABLED && devUndoMessage && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-secondary border border-up-forest-green/20 text-up-forest-green px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <span className="flex-1">{devUndoMessage}</span>
           <button
             type="button"
             onClick={() => setDevUndoMessage(null)}
-            className="ml-auto text-emerald-700 hover:text-emerald-900"
+            className="ml-auto text-up-forest-green/80 hover:text-up-forest-green"
             aria-label="Dismiss undo success message"
           >
             <X className="h-4 w-4" />
@@ -587,13 +581,13 @@ export default function Dashboard() {
       )}
 
       {DEV_BOOKING_UNDO_ENABLED && devUndoError && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span className="flex-1">{devUndoError}</span>
           <button
             type="button"
             onClick={() => setDevUndoError(null)}
-            className="ml-auto text-red-600 hover:text-red-800"
+            className="ml-auto text-destructive/80 hover:text-destructive"
             aria-label="Dismiss undo error message"
           >
             <X className="h-4 w-4" />
@@ -602,12 +596,12 @@ export default function Dashboard() {
       )}
 
       {DEV_BOOKING_UNDO_ENABLED && devRedoMessage && (
-        <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-secondary border border-up-forest-green/20 text-up-forest-green px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <span className="flex-1">{devRedoMessage}</span>
           <button
             type="button"
             onClick={() => setDevRedoMessage(null)}
-            className="ml-auto text-emerald-700 hover:text-emerald-900"
+            className="ml-auto text-up-forest-green/80 hover:text-up-forest-green"
             aria-label="Dismiss redo success message"
           >
             <X className="h-4 w-4" />
@@ -616,13 +610,13 @@ export default function Dashboard() {
       )}
 
       {DEV_BOOKING_UNDO_ENABLED && devRedoError && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span className="flex-1">{devRedoError}</span>
           <button
             type="button"
             onClick={() => setDevRedoError(null)}
-            className="ml-auto text-red-600 hover:text-red-800"
+            className="ml-auto text-destructive/80 hover:text-destructive"
             aria-label="Dismiss redo error message"
           >
             <X className="h-4 w-4" />
@@ -632,12 +626,12 @@ export default function Dashboard() {
 
       {/* Cancel error */}
       {cancelError && (
-        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-md text-sm flex items-start gap-2">
+        <div className="bg-destructive/10 border border-destructive/20 text-destructive px-4 py-3 rounded-md text-sm flex items-start gap-2">
           <AlertTriangle className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <div className="flex-1">
             <span>{cancelError}</span>
           </div>
-          <button onClick={() => setCancelError(null)} className="ml-auto text-red-600 hover:text-red-800">
+          <button onClick={() => setCancelError(null)} className="ml-auto text-destructive/80 hover:text-destructive">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -899,17 +893,17 @@ function StatusGroup({ status, count, children, open, onToggle }) {
   };
 
   const accentMap = {
-    contested: 'text-orange-700 border-orange-200 bg-orange-50',
-    on_hold: 'text-amber-800 border-amber-200 bg-amber-50',
-    pending_approval: 'text-yellow-700 border-yellow-200 bg-yellow-50',
-    penciled: 'text-blue-700 border-blue-200 bg-blue-50',
-    approved: 'text-green-700 border-green-200 bg-green-50',
-    cancelled: 'text-gray-500 border-gray-200 bg-gray-50',
-    denied: 'text-red-700 border-red-200 bg-red-50',
-    displaced: 'text-slate-700 border-slate-200 bg-slate-50',
-    expired: 'text-gray-400 border-gray-200 bg-gray-50',
-    completed: 'text-emerald-800 border-emerald-200 bg-emerald-50',
-    other: 'text-gray-600 border-gray-200 bg-gray-50',
+    contested: 'text-primary border-primary/25 bg-primary/10',
+    on_hold: 'text-accent-foreground border-up-gold/30 bg-accent',
+    pending_approval: 'text-up-spot-black border-up-gold/50 bg-up-gold/25',
+    penciled: 'text-up-spot-black border-border bg-up-parchment',
+    approved: 'text-up-forest-green border-up-forest-green/25 bg-up-forest-green/10',
+    cancelled: 'text-muted-foreground border-border bg-muted',
+    denied: 'text-destructive border-destructive/25 bg-destructive/10',
+    displaced: 'text-muted-foreground border-border bg-muted',
+    expired: 'text-muted-foreground/80 border-border bg-muted',
+    completed: 'text-up-forest-green border-up-forest-green/25 bg-up-forest-green/10',
+    other: 'text-muted-foreground border-border bg-muted',
   };
 
   return (

@@ -45,8 +45,11 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-50 px-4">
-      <Card className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
+      <div className="absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-accent to-transparent" aria-hidden="true" />
+      <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-primary/10 blur-3xl" aria-hidden="true" />
+      <div className="absolute -right-20 bottom-10 h-64 w-64 rounded-full bg-up-forest-green/10 blur-3xl" aria-hidden="true" />
+      <Card className="relative w-full max-w-md border-primary/10 shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Reset your password</CardTitle>
           <CardDescription>
@@ -72,7 +75,7 @@ export default function ForgotPassword() {
 
               {error && <div className="text-sm text-destructive">{error}</div>}
               {success && (
-                <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-md px-3 py-2">
+                <div className="text-sm text-up-forest-green bg-secondary border border-up-forest-green/20 rounded-md px-3 py-2">
                   {success}
                 </div>
               )}
