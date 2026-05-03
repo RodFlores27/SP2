@@ -17,6 +17,7 @@ import RoomList from '@/pages/RoomList';
 import RoomDetail from '@/pages/RoomDetail';
 import Calendar from '@/pages/Calendar';
 import BookingForm from '@/pages/BookingForm';
+import Guidelines from '@/pages/Guidelines';
 
 function AdminProtectedRoute({ children }) {
   const { user, isAuthenticated, loading } = useAuth();
@@ -109,6 +110,7 @@ function App() {
               }
             />
             <Route path="/calendar" element={<Calendar />} />
+            <Route path="/guidelines" element={<Guidelines />} />
             <Route
               path="/bookings/new"
               element={

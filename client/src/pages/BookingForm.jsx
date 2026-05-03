@@ -858,8 +858,18 @@ export default function BookingForm() {
         !pendingContentionConfirmation && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-2xl">{bf.formCard.title()}</CardTitle>
-            <p className="text-muted-foreground">{bf.formCard.subtitle()}</p>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <CardTitle className="text-2xl">{bf.formCard.title()}</CardTitle>
+                <p className="text-muted-foreground">{bf.formCard.subtitle()}</p>
+              </div>
+              <Link
+                to="/guidelines"
+                className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+              >
+                Review guidelines
+              </Link>
+            </div>
           </CardHeader>
           <CardContent>
             <Form {...form}>

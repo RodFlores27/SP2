@@ -109,6 +109,12 @@ export default function Register() {
           <CardDescription>
             Create a new account to access the PTCF system
           </CardDescription>
+          <Link
+            to="/guidelines"
+            className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
+          >
+            Read the reservation guidelines
+          </Link>
         </CardHeader>
         <CardContent>
           <Form {...form}>

@@ -149,8 +149,25 @@ function CountList({ title, items }) {
   );
 }
 
+function AdminTabButton({ active, label, onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-shrink-0 whitespace-nowrap px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+        active
+          ? 'border-primary text-primary'
+          : 'border-transparent text-muted-foreground hover:text-foreground'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 export default function AdminPanel() {
   const { user } = useAuth();
+  const [activeTab, setActiveTab] = useState('analytics');
 
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -248,14 +265,6 @@ export default function AdminPanel() {
     u.email.toLowerCase().includes(search.toLowerCase())
   );
 
-  if (loading) {
-    return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       {/* Header */}
@@ -315,187 +324,224 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Stats summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        {['regular_user', 'ptcf_staff', 'system_admin'].map((role) => (
-          <Card key={role}>
-            <CardContent className="pt-4 pb-4">
-              <p className="text-xs text-muted-foreground">{ROLE_LABELS[role]}</p>
-              <p className="text-2xl font-bold mt-1">
-                {users.filter((u) => u.accountType === role).length}
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="flex gap-1 border-b border-border overflow-x-auto pb-px">
+        <AdminTabButton
+          active={activeTab === 'analytics'}
+          label="Analytics"
+          onClick={() => setActiveTab('analytics')}
+        />
+        <AdminTabButton
+          active={activeTab === 'recentEvents'}
+          label="Recent Events"
+          onClick={() => setActiveTab('recentEvents')}
+        />
+        <AdminTabButton
+          active={activeTab === 'users'}
+          label="Users"
+          onClick={() => setActiveTab('users')}
+        />
       </div>
 
-      {/* Analytics */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Activity className="h-4 w-4" />
-                Booking Event Analytics
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Counts are populated by the Kafka analytics consumer from booking lifecycle events.
-              </p>
-            </div>
-            <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-              <p className="text-xs text-muted-foreground">Total events</p>
-              <p className="text-2xl font-bold">{analytics.totalEvents}</p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {analyticsLoading ? (
-            <LoadingSpinner />
-          ) : (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <CountList title="By Event Type" items={analytics.countsByEventType} />
-                <CountList title="By Status" items={analytics.countsByStatus} />
-                <CountList title="By Resource Type" items={analytics.countsByResourceType} />
-                <CountList title="By Booking Type" items={analytics.countsByBookingType} />
-              </div>
-
-              <div className="rounded-lg border border-border overflow-hidden">
-                <div className="px-4 py-3 bg-muted/40 flex items-center gap-2">
-                  <Clock3 className="h-4 w-4" />
-                  <h3 className="text-sm font-semibold">Recent Event Summaries</h3>
+      {activeTab === 'analytics' && (
+        <section className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Activity className="h-4 w-4" />
+                    Booking Event Analytics
+                  </CardTitle>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Counts are populated by the Kafka analytics consumer from booking lifecycle events.
+                  </p>
                 </div>
-                {analytics.recentEvents.length === 0 ? (
-                  <div className="py-8 text-center text-muted-foreground text-sm">
-                    No analytics events recorded yet.
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {analytics.recentEvents.map((event) => (
-                      <div key={event.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">
-                            {formatAnalyticsLabel(event.eventType)}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Booking {event.booking?.referenceCode || (event.bookingId != null ? `#${event.bookingId}` : 'n/a')} - {formatAnalyticsLabel(event.resourceType)} - {formatAnalyticsLabel(event.bookingType)} - {formatAnalyticsLabel(event.status)}
-                          </p>
-                        </div>
-                        <div className="text-xs text-muted-foreground sm:text-right">
-                          {event.occurredAt
-                            ? format(new Date(event.occurredAt), 'MMM d, yyyy h:mm a')
-                            : 'Unknown time'}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                  <p className="text-xs text-muted-foreground">Total events</p>
+                  <p className="text-2xl font-bold">{analytics.totalEvents}</p>
+                </div>
               </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
+            </CardHeader>
+            <CardContent>
+              {analyticsLoading ? (
+                <LoadingSpinner />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <CountList title="By Event Type" items={analytics.countsByEventType} />
+                  <CountList title="By Status" items={analytics.countsByStatus} />
+                  <CountList title="By Resource Type" items={analytics.countsByResourceType} />
+                  <CountList title="By Booking Type" items={analytics.countsByBookingType} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
-      {/* User list */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Users className="h-4 w-4" />
-              Users ({filtered.length})
-            </CardTitle>
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                type="text"
-                placeholder="Search by email..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-full sm:w-64"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {filtered.length === 0 ? (
-            <div className="py-10 text-center text-muted-foreground text-sm">
-              {search ? 'No users match your search.' : 'No users found.'}
-            </div>
-          ) : (
-            <div className="divide-y divide-border">
-              {filtered.map((u) => {
-                const isSelf = u.id === user?.id;
-                return (
-                  <div
-                    key={u.id}
-                    className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3"
-                  >
-                    {/* User info */}
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium truncate">{u.email}</span>
-                        {isSelf && (
-                          <span className="text-xs text-muted-foreground">(you)</span>
-                        )}
-                        <RoleBadge accountType={u.accountType} />
+      {activeTab === 'recentEvents' && (
+        <section className="space-y-4">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Clock3 className="h-4 w-4" />
+                Recent Event Summaries
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Latest booking lifecycle events captured by the analytics consumer.
+              </p>
+            </CardHeader>
+            <CardContent className="p-0">
+              {analyticsLoading ? (
+                <div className="py-10">
+                  <LoadingSpinner />
+                </div>
+              ) : analytics.recentEvents.length === 0 ? (
+                <div className="py-10 text-center text-muted-foreground text-sm">
+                  No analytics events recorded yet.
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {analytics.recentEvents.map((event) => (
+                    <div key={event.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {formatAnalyticsLabel(event.eventType)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Booking {event.booking?.referenceCode || (event.bookingId != null ? `#${event.bookingId}` : 'n/a')} - {formatAnalyticsLabel(event.resourceType)} - {formatAnalyticsLabel(event.bookingType)} - {formatAnalyticsLabel(event.status)}
+                        </p>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {formatUserCategory(u.userCategory)}
-                        {u.createdAt && (
-                          <span className="ml-2">
-                            &mdash; Joined {format(new Date(u.createdAt), 'MMM d, yyyy')}
-                          </span>
-                        )}
-                      </p>
+                      <div className="text-xs text-muted-foreground sm:text-right">
+                        {event.occurredAt
+                          ? format(new Date(event.occurredAt), 'MMM d, yyyy h:mm a')
+                          : 'Unknown time'}
+                      </div>
                     </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
-                    {/* Role selector */}
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <select
-                        value={u.accountType}
-                        disabled={isSelf || roleLoading === u.id}
-                        onChange={(e) => {
-                          const newRole = e.target.value;
-                          if (newRole === u.accountType) return;
-                          e.target.value = u.accountType;
-                          setRoleDialog({
-                            open: true,
-                            userId: u.id,
-                            email: u.email,
-                            fromRole: u.accountType,
-                            toRole: newRole,
-                          });
-                        }}
-                        className="text-xs rounded-md border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {ROLE_OPTIONS.map((opt) => (
-                          <option key={opt.value} value={opt.value}>
-                            {opt.label}
-                          </option>
-                        ))}
-                      </select>
+      {activeTab === 'users' && (
+        <section className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {['regular_user', 'ptcf_staff', 'system_admin'].map((role) => (
+              <Card key={role}>
+                <CardContent className="pt-4 pb-4">
+                  <p className="text-xs text-muted-foreground">{ROLE_LABELS[role]}</p>
+                  <p className="text-2xl font-bold mt-1">
+                    {users.filter((u) => u.accountType === role).length}
+                  </p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-                      {/* Delete button */}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        disabled={isSelf || deleteLoading}
-                        onClick={() =>
-                          setDeleteDialog({ open: true, userId: u.id, email: u.email })
-                        }
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
-                        title={isSelf ? 'Cannot delete your own account' : `Delete ${u.email}`}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Users className="h-4 w-4" />
+                  Users ({filtered.length})
+                </CardTitle>
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="text"
+                    placeholder="Search by email..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-8 pr-3 py-1.5 text-sm rounded-md border border-input bg-background focus:outline-none focus:ring-2 focus:ring-ring w-full sm:w-64"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="py-10">
+                  <LoadingSpinner />
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="py-10 text-center text-muted-foreground text-sm">
+                  {search ? 'No users match your search.' : 'No users found.'}
+                </div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {filtered.map((u) => {
+                    const isSelf = u.id === user?.id;
+                    return (
+                      <div
+                        key={u.id}
+                        className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium truncate">{u.email}</span>
+                            {isSelf && (
+                              <span className="text-xs text-muted-foreground">(you)</span>
+                            )}
+                            <RoleBadge accountType={u.accountType} />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            {formatUserCategory(u.userCategory)}
+                            {u.createdAt && (
+                              <span className="ml-2">
+                                &mdash; Joined {format(new Date(u.createdAt), 'MMM d, yyyy')}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <select
+                            value={u.accountType}
+                            disabled={isSelf || roleLoading === u.id}
+                            onChange={(e) => {
+                              const newRole = e.target.value;
+                              if (newRole === u.accountType) return;
+                              e.target.value = u.accountType;
+                              setRoleDialog({
+                                open: true,
+                                userId: u.id,
+                                email: u.email,
+                                fromRole: u.accountType,
+                                toRole: newRole,
+                              });
+                            }}
+                            className="text-xs rounded-md border border-input bg-background px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {ROLE_OPTIONS.map((opt) => (
+                              <option key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </option>
+                            ))}
+                          </select>
+
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={isSelf || deleteLoading}
+                            onClick={() =>
+                              setDeleteDialog({ open: true, userId: u.id, email: u.email })
+                            }
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
+                            title={isSelf ? 'Cannot delete your own account' : `Delete ${u.email}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      )}
 
       <ConfirmDialog
         open={roleDialog.open}

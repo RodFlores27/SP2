@@ -451,7 +451,7 @@ export const bookingMessages = {
       approved: () => <>Approved</>,
       pendingApproval: () => <>Pending Approval</>,
       penciled: () => <>Penciled</>,
-      onHold: () => <>On Hold (firm overlap)</>,
+      onHold: () => <>On Hold</>,
       contentionGroup: () => <>Contention group</>,
     },
     agendaScope: {

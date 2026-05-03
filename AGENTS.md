@@ -12,6 +12,7 @@ Read these in order:
 3. `PROJECT-ORGANIZATION.md`
 4. `milestone_reports/README.md`
 5. `docs/workflows/milestone-sync-seal.md`
+6. For frontend UI, app-owned email template, or visible product naming changes, also read `docs/design/up-visual-identity-reskin.md`
 
 For small follow-up tweaks after a milestone is already wrapped, avoid reloading historical milestone reports/tests unless needed for debugging.
 
@@ -96,7 +97,23 @@ When editing frontend styles/components:
 - Use `@source` in CSS only when classes are in paths excluded by default heuristics.
 - Preserve behavior during migration-like edits; avoid broad rewrites when intent is unclear.
 
-## 7) Database Reseed/Reset Commands (Local Dev)
+## 7) Visual Identity and UI Reskin Guardrails
+
+For any frontend UI, app-owned email template, or visible product naming change:
+
+- Read `docs/design/up-visual-identity-reskin.md` before editing.
+- Preserve the UP-inspired visual system from Milestone 20.
+- Use `PTCF Reservation` as the product title and `Plant Tissue Culture Facility` where the facility name is needed.
+- Do not reintroduce `UPLB ICropS` as an app title, email title, or product brand label. Existing room/location seed data may remain unchanged unless the user explicitly asks.
+- Never add the UP Seal, Oblation, Padayon mark, official UP logotype assets, or visual approximations/silhouettes of those symbols unless the user explicitly confirms authorization and provides the asset.
+- Treat the Pantone Connect Solid Coated-V5 screen values in the reskin brief as the web color source: maroon `#8A1538`, forest green `#00573F`, gold `#FFB81C`, and spot black approximation `#231F20`.
+- Keep brand colors centralized through `client/src/index.css` HSL tokens and Tailwind v4 `@theme`; prefer tokenized classes such as `bg-primary`, `text-primary`, `bg-card`, `border-border`, `text-muted-foreground`, and the `up-*` utilities.
+- Do not scatter raw brand hex values through React components. App-owned email templates may use inline hex values where email-client compatibility requires it.
+- Keep booking/status colors distinguishable; do not collapse all statuses into maroon/green/gold if that hurts scanning or accessibility.
+- After frontend visual changes, run `npm run lint` and `npm run build` from `client`.
+- After app-owned email template changes, run `node --check` on changed server files.
+
+## 8) Database Reseed/Reset Commands (Local Dev)
 
 When suggesting DB reseed/reset/booking cleanup, use `npm run` scripts from:
 
@@ -115,7 +132,7 @@ Preferred scripts:
 
 Do not invent ad-hoc Sequelize/Node reseed commands when a package script exists.
 
-## 8) Milestone Numbering and Wrap-up Protocol
+## 9) Milestone Numbering and Wrap-up Protocol
 
 Milestones:
 
@@ -146,7 +163,7 @@ After artifacts are generated, run verification test and ensure it passes.
 
 For small post-wrap-up tweaks, only update what changed (typically current milestone test/report), unless explicitly asked for full historical refresh.
 
-## 9) Git/Commit Intent Guardrail
+## 10) Git/Commit Intent Guardrail
 
 If user asks to "create/make/prepare a commit message", treat it as draft-only:
 
@@ -155,18 +172,18 @@ If user asks to "create/make/prepare a commit message", treat it as draft-only:
 - Only execute commit commands if explicitly requested (e.g. "commit this now")
 - If intent is ambiguous, ask one-line clarification first
 
-## 10) Deployment Documentation Authority
+## 11) Deployment Documentation Authority
 
 - Canonical deployment guide: `RENDER-SUPABASE-DEPLOYMENT.md`
 - `DEPLOYMENT-GUIDE.md` is a redirect/stub; do not duplicate full deployment instructions there
 
-## 11) Safety Do-Nots
+## 12) Safety Do-Nots
 
 - Do not push secrets (`.env` files stay ignored).
 - Do not rename/delete existing milestone tests or completion reports.
 - Do not forget Swagger updates when API contracts change.
 
-## 12) How To Prompt Codex In This Repo
+## 13) How To Prompt Codex In This Repo
 
 Use this quick template when assigning tasks so implementation is fast and accurate.
 

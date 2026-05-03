@@ -275,8 +275,8 @@
 /* -------------------------------------------------------------------------- */
 
 .rbc-agenda-view {
-  --ptcf-agenda-date-border-color: hsl(var(--border));
-  --ptcf-agenda-column-divider-color: hsl(var(--primary) / 0.35);
+  --ptcf-agenda-date-border-color: #ddd;
+  --ptcf-agenda-column-divider-color: rgb(0 0 0 / 20%);
 }
 
 .rbc-agenda-view .rbc-agenda-table {
@@ -373,7 +373,7 @@
   box-shadow: none !important;
 }
 
-/* Time | Event separator: always put a left border on event cell. */
+/* Time | Event separator: low-opacity black, independent from status colors. */
 .rbc-agenda-view .rbc-agenda-table tbody tr > .rbc-agenda-event-cell,
 .rbc-agenda-view .rbc-agenda-table tbody tr > td:last-child {
   position: relative;
