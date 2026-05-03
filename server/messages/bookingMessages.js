@@ -221,6 +221,74 @@ const email = {
     subject: ({ bookingLabel, hours }) => `[PTCF] Booking ${bookingLabel} Expires in ${hours}h — Action Required`,
   },
 
+  onHold: {
+    title: 'Pencil Booking On Hold',
+    body:
+      'Your pencil booking is now <strong>on hold</strong> because an overlapping firm booking currently blocks the same time slot.',
+    callout:
+      'While this booking is on hold, it does not secure the slot. If the blocking firm booking is denied or cancelled, your pencil booking may become active again automatically.',
+    viewDashboard: 'View your bookings →',
+    subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Is On Hold`,
+  },
+
+  displaced: {
+    title: 'Pencil Booking Displaced',
+    body:
+      'Your pencil booking has been <strong style="color:#8A1538;">displaced</strong> and no longer holds the requested slot.',
+    callout:
+      'You may create a new booking for another available slot, or wait to see if this time window reopens later.',
+    viewDashboard: 'View your bookings →',
+    createNew: 'Create a new booking →',
+    subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Displaced`,
+  },
+
+  contentionResolved: {
+    reasonLabel: 'Resolution reason:',
+    activeTitle: 'Contention Ended — Your Booking Remains Active',
+    activeBody:
+      'The contention for your booking has ended in your favor. Your booking remains active.',
+    activeCallout:
+      'Your booking is still a pencil booking. Convert it to a firm booking in time to keep the reservation.',
+    firmPendingTitle: 'Contention Ended — Firm Request Submitted',
+    firmPendingBody:
+      'The contention for your booking has ended in your favor. Your booking is now a <strong>firm</strong> request pending staff approval.',
+    firmPendingCallout:
+      'Staff still needs to approve this booking at least 24 hours before the scheduled start.',
+    onHoldTitle: 'Contention Ended — Your Booking Is On Hold',
+    onHoldBody:
+      'The contention for your booking has ended, and your booking is now <strong>on hold</strong>.',
+    onHoldCallout:
+      'While your booking is on hold, it does not secure the slot. If the blocking booking is removed later, it may become active again automatically.',
+    displacedTitle: 'Contention Ended — Your Booking Lost the Slot',
+    displacedBody:
+      'The contention for your booking has ended, and your booking no longer holds the slot.',
+    displacedCallout:
+      'If you still need this resource, you can create a new booking for another available time.',
+    cancelledTitle: 'Contention Ended — Your Booking Was Cancelled',
+    cancelledBody:
+      'The contention for your booking has ended because your booking was <strong>cancelled</strong>.',
+    cancelledCallout:
+      'You can create a new booking if you still need this resource.',
+    expiredTitle: 'Contention Ended — Your Booking Expired',
+    expiredBody:
+      'The contention for your booking has ended because your booking <strong>expired</strong> during the episode.',
+    expiredCallout:
+      'You can create a new booking if you still need this resource.',
+    viewDashboard: 'View your bookings →',
+    convertCta: 'Convert to Firm Booking →',
+    createNew: 'Create a new booking →',
+    subject: ({ bookingLabel, outcome }) => {
+      const labelMap = {
+        active: 'Remains Active',
+        on_hold: 'Is On Hold',
+        displaced: 'Lost the Slot',
+        cancelled: 'Was Cancelled',
+        expired: 'Expired',
+      };
+      return `[PTCF] Booking ${bookingLabel} ${labelMap[outcome] || 'Contention Updated'}`;
+    },
+  },
+
   contentionStarted: {
     defenderTitle: 'Your pencil booking is being challenged',
     defenderBody:

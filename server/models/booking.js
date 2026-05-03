@@ -298,6 +298,14 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       allowNull: true
     },
+    warning48SentAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    warning24SentAt: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
     displacedByBookingId: {
       type: DataTypes.INTEGER,
       allowNull: true

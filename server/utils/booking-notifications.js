@@ -110,6 +110,39 @@ function bookingDetailsBlock(booking, resourceName) {
 </table>`;
 }
 
+function contentionResolutionReasonText(resolutionReason, recipientRole) {
+  const isRecipientActor = recipientRole === 'defender';
+
+  switch (resolutionReason) {
+    case 'defender_cancelled':
+      return isRecipientActor
+        ? 'You cancelled your booking, so the contention ended.'
+        : 'The other booking holder cancelled their booking.';
+    case 'challenger_cancelled':
+      return recipientRole === 'challenger'
+        ? 'You cancelled your booking, so the contention ended.'
+        : 'The other booking holder cancelled their booking.';
+    case 'defender_missed_deadline':
+      return recipientRole === 'defender'
+        ? 'You did not convert your booking to a firm request before the contention deadline.'
+        : 'The other booking holder did not convert to a firm request before the contention deadline.';
+    case 'challenger_expired':
+      return recipientRole === 'challenger'
+        ? 'Your booking expired during the contention episode.'
+        : 'The other booking holder’s booking expired during the contention episode.';
+    case 'defender_expired_boundary':
+      return recipientRole === 'defender'
+        ? 'Your booking reached its expiry boundary before it was converted to a firm request.'
+        : 'The other booking holder’s booking reached its expiry boundary before it was converted to a firm request.';
+    case 'defender_converted_to_firm':
+      return recipientRole === 'defender'
+        ? 'You converted your booking to a firm request before the contention deadline.'
+        : 'The other booking holder converted their booking to a firm request before the contention deadline.';
+    default:
+      return 'The contention episode reached its resolution.';
+  }
+}
+
 /**
  * booking.created — sent to the booking owner after a successful create.
  */
@@ -295,6 +328,133 @@ async function notifyBookingExpiringSoon(booking, resourceName, hoursLeft) {
 }
 
 /**
+ * booking.on_hold — sent when a pencil is newly parked behind a firm blocker.
+ */
+async function notifyBookingOnHold(booking, resourceName) {
+  const recipientEmail = booking.user?.email;
+  if (!recipientEmail) return;
+
+  const H = E.onHold;
+  const html = baseEmailWrapper(
+    H.title,
+    `<p>${H.body}</p>
+    ${bookingDetailsBlock(booking, resourceName)}
+    <p style="${calloutStyle('gold')}">
+      ${H.callout}
+    </p>
+    <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${H.viewDashboard}</a></p>`
+  );
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: H.subject({ bookingLabel: getBookingReference(booking) }),
+    html,
+  });
+}
+
+/**
+ * booking.displaced — sent when a pencil loses the slot.
+ */
+async function notifyBookingDisplaced(booking, resourceName) {
+  const recipientEmail = booking.user?.email;
+  if (!recipientEmail) return;
+
+  const D = E.displaced;
+  const html = baseEmailWrapper(
+    D.title,
+    `<p>${D.body}</p>
+    ${bookingDetailsBlock(booking, resourceName)}
+    <p style="${calloutStyle('maroon')}">
+      ${D.callout}
+    </p>
+    <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${D.viewDashboard}</a></p>
+    <p><a href="${FRONTEND_URL}/bookings/new" style="${LINK_STYLE}">${D.createNew}</a></p>`
+  );
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: D.subject({ bookingLabel: getBookingReference(booking) }),
+    html,
+  });
+}
+
+/**
+ * booking.contention_resolved — sent to each participant when a 1v1 episode ends.
+ */
+async function notifyContentionResolved(booking, counterpartyBooking, resourceName, payload = {}) {
+  const recipientEmail = booking.user?.email;
+  if (!recipientEmail) return;
+
+  const outcome = payload.recipientOutcome || 'active';
+  const recipientRole = payload.recipientContentionRole || null;
+  const R = E.contentionResolved;
+
+  let title = R.activeTitle;
+  let body = R.activeBody;
+  let callout = R.activeCallout;
+  let ctaHref = `${FRONTEND_URL}/dashboard`;
+  let ctaLabel = R.viewDashboard;
+  let calloutTone = 'gold';
+
+  if (outcome === 'on_hold') {
+    title = R.onHoldTitle;
+    body = R.onHoldBody;
+    callout = R.onHoldCallout;
+  } else if (outcome === 'displaced') {
+    title = R.displacedTitle;
+    body = R.displacedBody;
+    callout = R.displacedCallout;
+    ctaHref = `${FRONTEND_URL}/bookings/new`;
+    ctaLabel = R.createNew;
+    calloutTone = 'maroon';
+  } else if (outcome === 'cancelled') {
+    title = R.cancelledTitle;
+    body = R.cancelledBody;
+    callout = R.cancelledCallout;
+    ctaHref = `${FRONTEND_URL}/bookings/new`;
+    ctaLabel = R.createNew;
+    calloutTone = 'maroon';
+  } else if (outcome === 'expired') {
+    title = R.expiredTitle;
+    body = R.expiredBody;
+    callout = R.expiredCallout;
+    ctaHref = `${FRONTEND_URL}/bookings/new`;
+    ctaLabel = R.createNew;
+    calloutTone = 'maroon';
+  } else if (booking.bookingType === 'firm' && booking.status === 'pending_approval') {
+    title = R.firmPendingTitle;
+    body = R.firmPendingBody;
+    callout = R.firmPendingCallout;
+  } else if (outcome === 'active' && booking.bookingType === 'pencil') {
+    ctaHref = `${FRONTEND_URL}/dashboard`;
+    ctaLabel = R.convertCta;
+  }
+
+  const reasonText = contentionResolutionReasonText(payload.resolutionReason, recipientRole);
+  const counterpartyBlock = counterpartyBooking
+    ? `<p><strong>Other booking in this contention:</strong> ${getBookingReference(counterpartyBooking)}</p>`
+    : '';
+
+  const html = baseEmailWrapper(
+    title,
+    `<p>${body}</p>
+    ${bookingDetailsBlock(booking, resourceName)}
+    ${counterpartyBlock}
+    <p><strong>${R.reasonLabel}</strong> ${reasonText}</p>
+    <p style="${calloutStyle(calloutTone)}">
+      ${callout}
+    </p>
+    <p><a href="${ctaHref}" style="${LINK_STYLE}">${ctaLabel}</a></p>`
+  );
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: R.subject({ bookingLabel: getBookingReference(booking), outcome }),
+    html,
+  });
+}
+
+/**
  * Pencil contention started — notify defender and challenger.
  * @param {Object} params - { defender: Booking, challenger: Booking }
  */
@@ -365,6 +525,9 @@ module.exports = {
   notifyBookingCancelled,
   notifyBookingExpired,
   notifyBookingExpiringSoon,
+  notifyBookingOnHold,
+  notifyBookingDisplaced,
+  notifyContentionResolved,
   notifyContentionStarted,
   notifyDisplacedUsersSlotReopened,
 };

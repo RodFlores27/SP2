@@ -87,8 +87,12 @@ async function clearContentionState(booking, { transaction }) {
 }
 
 async function applyFirmHoldState(booking, { transaction, Booking }) {
-  if (!booking || booking.bookingType !== 'pencil') return false;
-  if (!['penciled', 'on_hold'].includes(booking.status)) return false;
+  if (!booking || booking.bookingType !== 'pencil') {
+    return { blocked: false, becameOnHold: false, releasedFromHold: false };
+  }
+  if (!['penciled', 'on_hold'].includes(booking.status)) {
+    return { blocked: false, becameOnHold: false, releasedFromHold: false };
+  }
 
   const blockers = await Booking.findFirmBlockers(
     booking.resourceType,
@@ -103,15 +107,17 @@ async function applyFirmHoldState(booking, { transaction, Booking }) {
     if (booking.status !== 'on_hold') {
       booking.status = 'on_hold';
       await booking.save({ transaction });
+      return { blocked: true, becameOnHold: true, releasedFromHold: false };
     }
-    return true;
+    return { blocked: true, becameOnHold: false, releasedFromHold: false };
   }
 
   if (booking.status === 'on_hold') {
     booking.status = 'penciled';
     await booking.save({ transaction });
+    return { blocked: false, becameOnHold: false, releasedFromHold: true };
   }
-  return false;
+  return { blocked: false, becameOnHold: false, releasedFromHold: false };
 }
 
 /**
@@ -124,8 +130,14 @@ async function rebuildPencilAfterEpisode(bookingId, { transaction, Booking }) {
   if (!['penciled', 'on_hold'].includes(booking.status)) return { action: 'skip' };
 
   // First priority: if firm-blocked, park it as non-blocking on_hold.
-  const putOnHold = await applyFirmHoldState(booking, { transaction, Booking });
-  if (putOnHold) return { action: 'on_hold', bookingId: booking.id };
+  const holdState = await applyFirmHoldState(booking, { transaction, Booking });
+  if (holdState.blocked) {
+    return {
+      action: 'on_hold',
+      bookingId: booking.id,
+      newlyOnHold: holdState.becameOnHold,
+    };
+  }
 
   // Only free penciled bookings can start/enter a new 1v1.
   if (booking.status !== 'penciled' || booking.contentionRole != null) {
@@ -225,14 +237,48 @@ async function tryAttachPencilToContention(pencilBooking, { transaction, Booking
   return { action: 'challenger', defenderId: defender.id };
 }
 
+function mapTerminalOutcome(status) {
+  if (status === 'cancelled' || status === 'expired') return status;
+  return 'displaced';
+}
+
+function mapRebuildOutcome(rebuildResult) {
+  return rebuildResult?.action === 'on_hold' ? 'on_hold' : 'active';
+}
+
+function createContentionResolvedNotification({
+  recipientBookingId,
+  counterpartyBookingId,
+  recipientOutcome,
+  resolutionReason,
+  resolvedByBookingId = null,
+  recipientContentionRole,
+}) {
+  return {
+    recipientBookingId,
+    counterpartyBookingId,
+    recipientOutcome,
+    resolutionReason,
+    resolvedByBookingId,
+    recipientContentionRole,
+  };
+}
+
 /**
  * Defender resolves terminally, challenger is rebuilt (on_hold / free / re-contention).
  */
-async function resolveDefenderLoses1v1(defenderId, { terminalStatus, remark }, { transaction, Booking }) {
+async function resolveDefenderLoses1v1(
+  defenderId,
+  { terminalStatus, remark, resolutionReason, resolvedByBookingId = null },
+  { transaction, Booking }
+) {
   const defender = await getLockedBookingById(Booking, defenderId, transaction);
-  if (!defender) return { winnerId: null };
+  if (!defender) return { winnerId: null, notifications: [] };
 
   const challenger = await findActiveChallengerForDefender(defender.id, { transaction, Booking });
+  const defenderRole = defender.contentionRole || 'defender';
+  const challengerRole = challenger?.contentionRole || 'challenger';
+  const notifications = [];
 
   if (defender.status === 'penciled') {
     defender.status = terminalStatus;
@@ -240,24 +286,55 @@ async function resolveDefenderLoses1v1(defenderId, { terminalStatus, remark }, {
   }
   await clearContentionState(defender, { transaction });
 
+  notifications.push(
+    createContentionResolvedNotification({
+      recipientBookingId: defender.id,
+      counterpartyBookingId: challenger?.id || null,
+      recipientOutcome: mapTerminalOutcome(defender.status),
+      resolutionReason,
+      resolvedByBookingId,
+      recipientContentionRole: defenderRole,
+    })
+  );
+
   if (challenger) {
     await clearContentionState(challenger, { transaction });
-    await rebuildPencilAfterEpisode(challenger.id, { transaction, Booking });
-    return { winnerId: challenger.id };
+    const rebuildResult = await rebuildPencilAfterEpisode(challenger.id, { transaction, Booking });
+    notifications.push(
+      createContentionResolvedNotification({
+        recipientBookingId: challenger.id,
+        counterpartyBookingId: defender.id,
+        recipientOutcome: mapRebuildOutcome(rebuildResult),
+        resolutionReason,
+        resolvedByBookingId,
+        recipientContentionRole: challengerRole,
+      })
+    );
+    return {
+      winnerId: challenger.id,
+      notifications,
+    };
   }
-  return { winnerId: null };
+  return { winnerId: null, notifications };
 }
 
 /**
  * Challenger resolves terminally, defender is rebuilt (on_hold / free / re-contention).
  */
-async function resolveChallengerLoses1v1(challengerId, { terminalStatus, remark }, { transaction, Booking }) {
+async function resolveChallengerLoses1v1(
+  challengerId,
+  { terminalStatus, remark, resolutionReason, resolvedByBookingId = null },
+  { transaction, Booking }
+) {
   const challenger = await getLockedBookingById(Booking, challengerId, transaction);
-  if (!challenger) return { winnerId: null };
+  if (!challenger) return { winnerId: null, notifications: [] };
 
   const defender = challenger.challengingBookingId
     ? await getLockedBookingById(Booking, challenger.challengingBookingId, transaction)
     : null;
+  const challengerRole = challenger.contentionRole || 'challenger';
+  const defenderRole = defender?.contentionRole || 'defender';
+  const notifications = [];
 
   if (terminalStatus && challenger.status === 'penciled') {
     challenger.status = terminalStatus;
@@ -265,12 +342,36 @@ async function resolveChallengerLoses1v1(challengerId, { terminalStatus, remark 
   }
   await clearContentionState(challenger, { transaction });
 
+  notifications.push(
+    createContentionResolvedNotification({
+      recipientBookingId: challenger.id,
+      counterpartyBookingId: defender?.id || null,
+      recipientOutcome: mapTerminalOutcome(challenger.status),
+      resolutionReason,
+      resolvedByBookingId,
+      recipientContentionRole: challengerRole,
+    })
+  );
+
   if (defender && defender.status === 'penciled' && defender.contentionRole === 'defender') {
     await clearContentionState(defender, { transaction });
-    await rebuildPencilAfterEpisode(defender.id, { transaction, Booking });
-    return { winnerId: defender.id };
+    const rebuildResult = await rebuildPencilAfterEpisode(defender.id, { transaction, Booking });
+    notifications.push(
+      createContentionResolvedNotification({
+        recipientBookingId: defender.id,
+        counterpartyBookingId: challenger.id,
+        recipientOutcome: mapRebuildOutcome(rebuildResult),
+        resolutionReason,
+        resolvedByBookingId,
+        recipientContentionRole: defenderRole,
+      })
+    );
+    return {
+      winnerId: defender.id,
+      notifications,
+    };
   }
-  return { winnerId: null };
+  return { winnerId: null, notifications };
 }
 
 // ---------------------------------------------------------------------------
@@ -279,53 +380,83 @@ async function resolveChallengerLoses1v1(challengerId, { terminalStatus, remark 
 
 async function onBookingCancelledMidContention(cancelledBooking, { transaction, Booking }) {
   if (cancelledBooking.contentionRole === 'defender') {
-    await resolveDefenderLoses1v1(
+    return resolveDefenderLoses1v1(
       cancelledBooking.id,
-      { terminalStatus: 'cancelled', remark: cancelledBooking.staffRemark || null },
+      {
+        terminalStatus: 'cancelled',
+        remark: cancelledBooking.staffRemark || null,
+        resolutionReason: 'defender_cancelled',
+        resolvedByBookingId: cancelledBooking.id,
+      },
       { transaction, Booking }
     );
-    return;
   }
 
   if (cancelledBooking.contentionRole === 'challenger') {
-    await resolveChallengerLoses1v1(
+    return resolveChallengerLoses1v1(
       cancelledBooking.id,
-      { terminalStatus: 'cancelled', remark: cancelledBooking.staffRemark || null },
+      {
+        terminalStatus: 'cancelled',
+        remark: cancelledBooking.staffRemark || null,
+        resolutionReason: 'challenger_cancelled',
+        resolvedByBookingId: cancelledBooking.id,
+      },
       { transaction, Booking }
     );
-    return;
   }
 
   await clearContentionState(cancelledBooking, { transaction });
+  return { winnerId: null, notifications: [] };
 }
 
 /**
  * Defender converts to firm pending; release challenger from contention and reclassify.
  */
 async function onDefenderConvertedToFirm(firmBooking, { transaction, Booking }) {
-  if (firmBooking.contentionRole !== 'defender') return;
+  if (firmBooking.contentionRole !== 'defender') return { notifications: [] };
   const challenger = await findActiveChallengerForDefender(firmBooking.id, { transaction, Booking });
+  const notifications = [];
   if (challenger) {
     await clearContentionState(challenger, { transaction });
-    await applyFirmHoldState(challenger, { transaction, Booking });
+    const holdState = await applyFirmHoldState(challenger, { transaction, Booking });
+    notifications.push(
+      createContentionResolvedNotification({
+        recipientBookingId: challenger.id,
+        counterpartyBookingId: firmBooking.id,
+        recipientOutcome: holdState.blocked ? 'on_hold' : 'active',
+        resolutionReason: 'defender_converted_to_firm',
+        resolvedByBookingId: firmBooking.id,
+        recipientContentionRole: 'challenger',
+      })
+    );
   }
   firmBooking.contentionRole = null;
   firmBooking.contentionDeadlineAt = null;
   firmBooking.challengingBookingId = null;
   await firmBooking.save({ transaction });
+  notifications.unshift(
+    createContentionResolvedNotification({
+      recipientBookingId: firmBooking.id,
+      counterpartyBookingId: challenger?.id || null,
+      recipientOutcome: 'active',
+      resolutionReason: 'defender_converted_to_firm',
+      resolvedByBookingId: firmBooking.id,
+      recipientContentionRole: 'defender',
+    })
+  );
+  return { notifications };
 }
 
 /**
- * Firm approval displaces all overlapping active pencils.
+ * Firm approval displaces all overlapping pencils that still occupy the slot,
+ * including those currently parked as on_hold by another firm blocker.
  */
 async function onFirmBookingApproved(firmBooking, { transaction, Booking }) {
-  const pencils = await Booking.findActivePencilOverlaps(
-    firmBooking.resourceType,
-    firmBooking.resourceId,
-    firmBooking.startTime,
-    firmBooking.endTime,
-    firmBooking.id,
-    { transaction }
+  const displacedBookingIds = [];
+  const pencils = await findOverlappingPencilsForFirm(
+    firmBooking,
+    { statuses: ['penciled', 'on_hold'] },
+    { transaction, Booking }
   );
 
   for (const p of pencils) {
@@ -335,9 +466,11 @@ async function onFirmBookingApproved(firmBooking, { transaction, Booking }) {
     row.status = 'displaced';
     row.displacedByBookingId = firmBooking.id;
     await row.save({ transaction });
+    displacedBookingIds.push(row.id);
   }
 
   await clearContentionState(firmBooking, { transaction });
+  return { displacedBookingIds };
 }
 
 /**
@@ -364,6 +497,7 @@ async function onFirmDeniedOrCancelled(firmBooking, { transaction, Booking }) {
  * New firm can make active defenders unwinnable; dissolve those 1v1 episodes immediately.
  */
 async function autoResolveFirmBlockedDefenders(firmBooking, { transaction, Booking }) {
+  const onHoldBookingIds = new Set();
   const overlappingDefenders = await findOverlappingPencilsForFirm(
     firmBooking,
     { statuses: 'penciled', contentionRole: 'defender' },
@@ -377,11 +511,17 @@ async function autoResolveFirmBlockedDefenders(firmBooking, { transaction, Booki
     const challenger = await findActiveChallengerForDefender(defender.id, { transaction, Booking });
 
     await clearContentionState(defender, { transaction });
-    await rebuildPencilAfterEpisode(defender.id, { transaction, Booking });
+    const defenderResult = await rebuildPencilAfterEpisode(defender.id, { transaction, Booking });
+    if (defenderResult?.action === 'on_hold' && defenderResult.newlyOnHold) {
+      onHoldBookingIds.add(defender.id);
+    }
 
     if (challenger) {
       await clearContentionState(challenger, { transaction });
-      await rebuildPencilAfterEpisode(challenger.id, { transaction, Booking });
+      const challengerResult = await rebuildPencilAfterEpisode(challenger.id, { transaction, Booking });
+      if (challengerResult?.action === 'on_hold' && challengerResult.newlyOnHold) {
+        onHoldBookingIds.add(challenger.id);
+      }
     }
   }
 
@@ -397,14 +537,20 @@ async function autoResolveFirmBlockedDefenders(firmBooking, { transaction, Booki
   for (const p of overlappingFreePencils) {
     const freePencil = await Booking.findByPk(p.id, { transaction, lock: transaction.LOCK.UPDATE });
     if (!freePencil || freePencil.status !== 'penciled' || freePencil.contentionRole != null) continue;
-    await rebuildPencilAfterEpisode(freePencil.id, { transaction, Booking });
+    const result = await rebuildPencilAfterEpisode(freePencil.id, { transaction, Booking });
+    if (result?.action === 'on_hold' && result.newlyOnHold) {
+      onHoldBookingIds.add(freePencil.id);
+    }
   }
+
+  return { onHoldBookingIds: Array.from(onHoldBookingIds) };
 }
 
 /**
  * Post-create firm safety pass to re-check all overlapping pencils now that the firm row exists.
  */
 async function reevaluateOverlappingPencilsForFirm(firmBooking, { transaction, Booking }) {
+  const onHoldBookingIds = new Set();
   const overlappingPencils = await findOverlappingPencilsForFirm(
     firmBooking,
     { statuses: ['penciled', 'on_hold'] },
@@ -412,8 +558,13 @@ async function reevaluateOverlappingPencilsForFirm(firmBooking, { transaction, B
   );
 
   for (const row of overlappingPencils) {
-    await rebuildPencilAfterEpisode(row.id, { transaction, Booking });
+    const result = await rebuildPencilAfterEpisode(row.id, { transaction, Booking });
+    if (result?.action === 'on_hold' && result.newlyOnHold) {
+      onHoldBookingIds.add(row.id);
+    }
   }
+
+  return { onHoldBookingIds: Array.from(onHoldBookingIds) };
 }
 
 // ---------------------------------------------------------------------------
@@ -462,7 +613,8 @@ async function resolveDueContentionDeadlines(now = new Date(), { sequelize, Book
         fresh.id,
         {
           terminalStatus: 'displaced',
-          remark: 'Displaced: lost contention — did not convert to firm in time'
+          remark: 'Displaced: lost contention — did not convert to firm in time',
+          resolutionReason: 'defender_missed_deadline',
         },
         { transaction: t, Booking }
       );
@@ -489,15 +641,16 @@ async function resolveExpiredChallengers(now = new Date(), { sequelize, Booking 
       if (!fresh || fresh.contentionRole !== 'challenger' || fresh.status !== 'penciled') {
         return null;
       }
-      await resolveChallengerLoses1v1(
+      const result = await resolveChallengerLoses1v1(
         fresh.id,
         {
           terminalStatus: 'expired',
-          remark: 'Expired: pencil lifetime ended during contention'
+          remark: 'Expired: pencil lifetime ended during contention',
+          resolutionReason: 'challenger_expired',
         },
         { transaction: t, Booking }
       );
-      return { bookingId: challenger.id, outcome: 'challenger_expired' };
+      return { bookingId: challenger.id, outcome: 'challenger_expired', ...result };
     }
   });
 }
@@ -525,7 +678,8 @@ async function resolveExpiredDefenders(now = new Date(), { sequelize, Booking })
         {
           terminalStatus: 'displaced',
           remark:
-            'Displaced: lost contention — expiry boundary was reached before defender converted to firm'
+            'Displaced: lost contention — expiry boundary was reached before defender converted to firm',
+          resolutionReason: 'defender_expired_boundary',
         },
         { transaction: t, Booking }
       );

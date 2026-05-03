@@ -7,7 +7,10 @@ const BOOKING_EVENT_TYPES = Object.freeze({
   CANCELLED: 'booking.cancelled',
   EXPIRED: 'booking.expired',
   EXPIRING_SOON: 'booking.expiring_soon',
+  ON_HOLD: 'booking.on_hold',
+  DISPLACED: 'booking.displaced',
   CONTENTION_STARTED: 'booking.contention_started',
+  CONTENTION_RESOLVED: 'booking.contention_resolved',
   CONVERTED_TO_FIRM: 'booking.converted_to_firm',
   DISPLACED_SLOT_REOPENED: 'booking.displaced_slot_reopened',
 });

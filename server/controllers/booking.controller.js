@@ -14,6 +14,9 @@ const {
   notifyBookingApproved,
   notifyBookingDenied,
   notifyBookingCancelled,
+  notifyBookingOnHold,
+  notifyBookingDisplaced,
+  notifyContentionResolved,
   notifyContentionStarted,
   notifyDisplacedUsersSlotReopened,
 } = require('../utils/booking-notifications');
@@ -290,6 +293,86 @@ async function resolveResourceName(resourceType, resourceId) {
     // non-fatal
   }
   return `Resource #${resourceId}`;
+}
+
+async function loadBookingsForNotification(bookingIds) {
+  const uniqueIds = [...new Set((bookingIds || []).filter((id) => Number.isInteger(id) && id > 0))];
+  if (uniqueIds.length === 0) return [];
+
+  const rows = await Booking.findAll({
+    where: { id: { [Op.in]: uniqueIds } },
+    include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+  });
+
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return uniqueIds.map((id) => byId.get(id)).filter(Boolean);
+}
+
+async function loadBookingsForContentionNotifications(notifications) {
+  const bookingIds = [];
+  for (const notification of notifications || []) {
+    if (Number.isInteger(notification?.recipientBookingId)) bookingIds.push(notification.recipientBookingId);
+    if (Number.isInteger(notification?.counterpartyBookingId)) bookingIds.push(notification.counterpartyBookingId);
+  }
+
+  const rows = await loadBookingsForNotification(bookingIds);
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+async function emitBookingTransitionNotifications({
+  bookingIds,
+  eventType,
+  resourceName,
+  actorUserId = null,
+  payload = {},
+  directNotifier,
+}) {
+  const bookings = await loadBookingsForNotification(bookingIds);
+  for (const booking of bookings) {
+    publishBookingLifecycleEvent(eventType, booking, {
+      actorUserId,
+      resourceName,
+      payload,
+    });
+    if (!isKafkaEnabled() && typeof directNotifier === 'function') {
+      directNotifier(booking, resourceName).catch(() => {});
+    }
+  }
+}
+
+async function emitContentionResolvedNotifications({
+  notifications,
+  resourceName,
+  actorUserId = null,
+}) {
+  const entries = (notifications || []).filter((notification) => notification?.recipientBookingId);
+  if (entries.length === 0) return;
+
+  const bookingMap = await loadBookingsForContentionNotifications(entries);
+  for (const notification of entries) {
+    const recipientBooking = bookingMap.get(notification.recipientBookingId);
+    if (!recipientBooking) continue;
+
+    const payload = {
+      counterpartyBookingId: notification.counterpartyBookingId || null,
+      recipientOutcome: notification.recipientOutcome,
+      resolutionReason: notification.resolutionReason,
+      resolvedByBookingId: notification.resolvedByBookingId || null,
+      recipientContentionRole: notification.recipientContentionRole || null,
+    };
+
+    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CONTENTION_RESOLVED, recipientBooking, {
+      actorUserId,
+      resourceName,
+      payload,
+    });
+    if (!isKafkaEnabled()) {
+      const counterpartyBooking = notification.counterpartyBookingId
+        ? bookingMap.get(notification.counterpartyBookingId) || null
+        : null;
+      notifyContentionResolved(recipientBooking, counterpartyBooking, resourceName, payload).catch(() => {});
+    }
+  }
 }
 
 function normalizeOptionalText(value) {
@@ -690,6 +773,7 @@ const createBooking = async (req, res) => {
 
     let createdBooking;
     let contentionResult = null;
+    const onHoldBookingIds = new Set();
     try {
       createdBooking = await sequelize.transaction(async (t) => {
         if (bookingType === 'pencil' && otherPencilOverlaps.length > 0) {
@@ -747,8 +831,17 @@ const createBooking = async (req, res) => {
 
         if (bookingType === 'firm') {
           const b = await Booking.findByPk(created.id, { transaction: t, lock: t.LOCK.UPDATE });
-          await contention.autoResolveFirmBlockedDefenders(b, { transaction: t, Booking });
-          await contention.reevaluateOverlappingPencilsForFirm(b, { transaction: t, Booking });
+          const autoResolveResult = await contention.autoResolveFirmBlockedDefenders(b, {
+            transaction: t,
+            Booking
+          });
+          autoResolveResult?.onHoldBookingIds?.forEach((id) => onHoldBookingIds.add(id));
+
+          const reevaluateResult = await contention.reevaluateOverlappingPencilsForFirm(b, {
+            transaction: t,
+            Booking
+          });
+          reevaluateResult?.onHoldBookingIds?.forEach((id) => onHoldBookingIds.add(id));
         }
 
         return Booking.findByPk(created.id, {
@@ -843,6 +936,18 @@ const createBooking = async (req, res) => {
     if (!isKafkaEnabled()) {
       notifyBookingCreated(createdBooking, resourceName).catch(() => {});
     }
+
+    await emitBookingTransitionNotifications({
+      bookingIds: Array.from(onHoldBookingIds),
+      eventType: BOOKING_EVENT_TYPES.ON_HOLD,
+      resourceName,
+      actorUserId: userId,
+      payload: {
+        source: 'booking.create',
+        triggerBookingId: createdBooking.id,
+      },
+      directNotifier: notifyBookingOnHold,
+    });
 
     if (contentionResult?.action === 'challenger') {
       const freshBooking = await Booking.findByPk(createdBooking.id, {
@@ -1109,6 +1214,7 @@ const cancelBooking = async (req, res) => {
       displacedNotifyList.push(...displaced);
     }
 
+    const contentionNotifications = [];
     await sequelize.transaction(async (t) => {
       const b = await Booking.findByPk(booking.id, { transaction: t, lock: t.LOCK.UPDATE });
       if (!b) return;
@@ -1120,10 +1226,11 @@ const cancelBooking = async (req, res) => {
 
       if (b.contentionRole) {
         // Active contention participant in strict 1v1 mode.
-        await contention.onBookingCancelledMidContention(b, {
+        const contentionResult = await contention.onBookingCancelledMidContention(b, {
           transaction: t,
           Booking
         });
+        contentionNotifications.push(...(contentionResult?.notifications || []));
       } else if (b.bookingType === 'firm') {
         // Firm booking cancellation: clear any residual contention metadata.
         await contention.onFirmDeniedOrCancelled(b, { transaction: t, Booking });
@@ -1152,6 +1259,12 @@ const cancelBooking = async (req, res) => {
     if (!isKafkaEnabled()) {
       notifyBookingCancelled(updated, resourceName, cancelledById).catch(() => {});
     }
+
+    await emitContentionResolvedNotifications({
+      notifications: contentionNotifications,
+      resourceName,
+      actorUserId: cancelledById,
+    });
 
     for (const d of displacedNotifyList) {
       publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.DISPLACED_SLOT_REOPENED, d, {
@@ -1251,6 +1364,7 @@ const convertToFirm = async (req, res) => {
       }
     });
 
+    const contentionNotifications = [];
     try {
       await sequelize.transaction(async (t) => {
         const b = await Booking.findByPk(id, {
@@ -1293,7 +1407,8 @@ const convertToFirm = async (req, res) => {
         await b.save({ transaction: t });
 
         if (wasDefender) {
-          await contention.onDefenderConvertedToFirm(b, { transaction: t, Booking });
+          const convertResult = await contention.onDefenderConvertedToFirm(b, { transaction: t, Booking });
+          contentionNotifications.push(...(convertResult?.notifications || []));
         }
       });
     } catch (txnErr) {
@@ -1326,6 +1441,11 @@ const convertToFirm = async (req, res) => {
         previousBookingType: 'pencil',
         previousStatus: booking.status,
       },
+    });
+    await emitContentionResolvedNotifications({
+      notifications: contentionNotifications,
+      resourceName,
+      actorUserId: userId,
     });
   } catch (error) {
     console.error('Error converting booking to firm:', error);
@@ -1363,6 +1483,7 @@ const approveBooking = async (req, res) => {
       });
     }
 
+    const displacedBookingIds = new Set();
     try {
       await sequelize.transaction(async (t) => {
         const updatePayload = {
@@ -1394,10 +1515,11 @@ const approveBooking = async (req, res) => {
           include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
         });
 
-        await contention.onFirmBookingApproved(full, {
+        const approvalResult = await contention.onFirmBookingApproved(full, {
           transaction: t,
           Booking
         });
+        approvalResult?.displacedBookingIds?.forEach((bookingId) => displacedBookingIds.add(bookingId));
       });
     } catch (txnErr) {
       if (txnErr.statusCode === 409) {
@@ -1415,18 +1537,29 @@ const approveBooking = async (req, res) => {
       booking: updatedBooking
     });
 
-    resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId).then((resourceName) => {
-      publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.APPROVED, updatedBooking, {
-        actorUserId: approverUserId,
-        resourceName,
-        payload: {
-          approvedByUserId: approverUserId,
-          approvedAt: updatedBooking.approvedAt || null,
-        },
-      });
-      if (!isKafkaEnabled()) {
-        notifyBookingApproved(updatedBooking, resourceName).catch(() => {});
-      }
+    const resourceName = await resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId);
+    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.APPROVED, updatedBooking, {
+      actorUserId: approverUserId,
+      resourceName,
+      payload: {
+        approvedByUserId: approverUserId,
+        approvedAt: updatedBooking.approvedAt || null,
+      },
+    });
+    if (!isKafkaEnabled()) {
+      notifyBookingApproved(updatedBooking, resourceName).catch(() => {});
+    }
+    await emitBookingTransitionNotifications({
+      bookingIds: Array.from(displacedBookingIds),
+      eventType: BOOKING_EVENT_TYPES.DISPLACED,
+      resourceName,
+      actorUserId: approverUserId,
+      payload: {
+        source: 'booking.approve',
+        triggerBookingId: updatedBooking.id,
+        displacedByBookingId: updatedBooking.id,
+      },
+      directNotifier: notifyBookingDisplaced,
     });
   } catch (error) {
     console.error('Error approving booking:', error);

@@ -9,7 +9,10 @@ const {
 } = require('../models');
 const {
   notifyBookingExpired,
-  notifyBookingExpiringSoon
+  notifyBookingExpiringSoon,
+  notifyBookingOnHold,
+  notifyBookingDisplaced,
+  notifyContentionResolved
 } = require('../utils/booking-notifications');
 const {
   BOOKING_EVENT_TYPES,
@@ -20,6 +23,28 @@ const { LOCK_HOURS, isWithinLockHours } = require('../utils/booking-rules');
 const contention = require('../services/contention.service');
 
 const MS_HOUR = 60 * 60 * 1000;
+const DEFAULT_EXPIRY_CRON_MINUTES = 5;
+const DEFAULT_WARNING_CRON_MINUTES = 15;
+
+function getCronMinutes(envName, fallback) {
+  const raw = process.env[envName];
+  if (!raw) return fallback;
+
+  const minutes = Number.parseInt(raw, 10);
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 59) {
+    console.warn(
+      `[cron] Invalid ${envName}="${raw}". Falling back to ${fallback} minute(s).`
+    );
+    return fallback;
+  }
+
+  return minutes;
+}
+
+const expiryCronMinutes = getCronMinutes('BOOKING_EXPIRY_CRON_MINUTES', DEFAULT_EXPIRY_CRON_MINUTES);
+const expiryCronExpression = `*/${expiryCronMinutes} * * * *`;
+const warningCronMinutes = getCronMinutes('BOOKING_WARNING_CRON_MINUTES', DEFAULT_WARNING_CRON_MINUTES);
+const warningCronExpression = `*/${warningCronMinutes} * * * *`;
 
 async function resolveResourceName(resourceType, resourceId) {
   try {
@@ -37,10 +62,153 @@ async function resolveResourceName(resourceType, resourceId) {
   return `Resource #${resourceId}`;
 }
 
+async function loadBookingsForNotification(bookingIds) {
+  const uniqueIds = [...new Set((bookingIds || []).filter((id) => Number.isInteger(id) && id > 0))];
+  if (uniqueIds.length === 0) return [];
+
+  const rows = await Booking.findAll({
+    where: { id: { [Op.in]: uniqueIds } },
+    include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+  });
+
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return uniqueIds.map((id) => byId.get(id)).filter(Boolean);
+}
+
+async function loadBookingsForContentionNotifications(notifications) {
+  const bookingIds = [];
+  for (const notification of notifications || []) {
+    if (Number.isInteger(notification?.recipientBookingId)) bookingIds.push(notification.recipientBookingId);
+    if (Number.isInteger(notification?.counterpartyBookingId)) bookingIds.push(notification.counterpartyBookingId);
+  }
+
+  const rows = await loadBookingsForNotification(bookingIds);
+  return new Map(rows.map((row) => [row.id, row]));
+}
+
+async function emitTransitionNotifications({ bookingIds, eventType, payload = {}, directNotifier }) {
+  const bookings = await loadBookingsForNotification(bookingIds);
+  for (const booking of bookings) {
+    const resourceName = await resolveResourceName(booking.resourceType, booking.resourceId);
+    publishBookingLifecycleEvent(eventType, booking, { resourceName, payload });
+    if (!isKafkaEnabled() && typeof directNotifier === 'function') {
+      directNotifier(booking, resourceName).catch(() => {});
+    }
+  }
+}
+
+async function emitContentionResolvedNotifications(notifications) {
+  const entries = (notifications || []).filter((notification) => notification?.recipientBookingId);
+  if (entries.length === 0) return;
+
+  const bookingMap = await loadBookingsForContentionNotifications(entries);
+  for (const notification of entries) {
+    const recipientBooking = bookingMap.get(notification.recipientBookingId);
+    if (!recipientBooking) continue;
+
+    const resourceName = await resolveResourceName(recipientBooking.resourceType, recipientBooking.resourceId);
+    const payload = {
+      counterpartyBookingId: notification.counterpartyBookingId || null,
+      recipientOutcome: notification.recipientOutcome,
+      resolutionReason: notification.resolutionReason,
+      resolvedByBookingId: notification.resolvedByBookingId || null,
+      recipientContentionRole: notification.recipientContentionRole || null,
+    };
+
+    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CONTENTION_RESOLVED, recipientBooking, {
+      resourceName,
+      payload,
+    });
+    if (!isKafkaEnabled()) {
+      const counterpartyBooking = notification.counterpartyBookingId
+        ? bookingMap.get(notification.counterpartyBookingId) || null
+        : null;
+      notifyContentionResolved(recipientBooking, counterpartyBooking, resourceName, payload).catch(() => {});
+    }
+  }
+}
+
+async function claimWarning(bookingId, { hoursLeft, now, transaction }) {
+  const booking = await Booking.findByPk(bookingId, {
+    transaction,
+    lock: transaction.LOCK.UPDATE
+  });
+  if (!booking || booking.bookingType !== 'pencil' || booking.status !== 'penciled') return null;
+
+  const expiryAtMs = new Date(booking.expiryAt).getTime();
+  const nowMs = now.getTime();
+  if (!Number.isFinite(expiryAtMs) || expiryAtMs <= nowMs) return null;
+
+  if (hoursLeft === 48) {
+    const threshold48Ms = nowMs + 48 * MS_HOUR;
+    const threshold24Ms = nowMs + 24 * MS_HOUR;
+    if (expiryAtMs > threshold48Ms || expiryAtMs <= threshold24Ms) return null;
+    if (booking.warning48SentAt) return null;
+    booking.warning48SentAt = now;
+  } else {
+    const threshold24Ms = nowMs + 24 * MS_HOUR;
+    if (expiryAtMs > threshold24Ms) return null;
+    if (booking.warning24SentAt) return null;
+    booking.warning24SentAt = now;
+  }
+
+  await booking.save({ transaction });
+  return booking.id;
+}
+
+async function processDueWarnings(hoursLeft, now = new Date()) {
+  const warningField = hoursLeft === 24 ? 'warning24SentAt' : 'warning48SentAt';
+  const upperBound = new Date(now.getTime() + hoursLeft * MS_HOUR);
+  const lowerBound = hoursLeft === 48 ? new Date(now.getTime() + 24 * MS_HOUR) : now;
+
+  const due = await Booking.findAll({
+    where: {
+      bookingType: 'pencil',
+      status: 'penciled',
+      [warningField]: null,
+      expiryAt: {
+        [Op.gt]: lowerBound,
+        [Op.lte]: upperBound
+      }
+    },
+    attributes: ['id']
+  });
+
+  const processed = [];
+  for (const row of due) {
+    const claimedId = await sequelize.transaction(async (t) => {
+      return claimWarning(row.id, { hoursLeft, now, transaction: t });
+    });
+    if (!claimedId) continue;
+
+    const booking = await Booking.findByPk(claimedId, {
+      include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
+    });
+    if (!booking) continue;
+
+    const resourceName = await resolveResourceName(booking.resourceType, booking.resourceId);
+    if (isKafkaEnabled()) {
+      await publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.EXPIRING_SOON, booking, {
+        resourceName,
+        payload: {
+          source: 'cron:warn',
+          hoursLeft,
+        },
+      });
+    } else {
+      await notifyBookingExpiringSoon(booking, resourceName, hoursLeft).catch(() => {});
+    }
+
+    processed.push(claimedId);
+  }
+
+  return processed;
+}
+
 /**
- * Expire + contention resolution — runs every 15 minutes.
+ * Expire + contention resolution — default every 5 minutes, env-configurable.
  */
-cron.schedule('*/15 * * * *', async () => {
+cron.schedule(expiryCronExpression, async () => {
   try {
     const now = new Date();
 
@@ -51,6 +219,9 @@ cron.schedule('*/15 * * * *', async () => {
     if (defenderDeadlineResults.length > 0) {
       console.log(`[cron:expire] Processed ${defenderDeadlineResults.length} defender deadline(s)`);
     }
+    await emitContentionResolvedNotifications(
+      defenderDeadlineResults.flatMap((result) => result?.notifications || [])
+    );
 
     const challengerExpiryResults = await contention.resolveExpiredChallengers(now, {
       sequelize,
@@ -59,6 +230,9 @@ cron.schedule('*/15 * * * *', async () => {
     if (challengerExpiryResults.length > 0) {
       console.log(`[cron:expire] Processed ${challengerExpiryResults.length} expired challenger(s)`);
     }
+    await emitContentionResolvedNotifications(
+      challengerExpiryResults.flatMap((result) => result?.notifications || [])
+    );
 
     const defenderExpiryResults = await contention.resolveExpiredDefenders(now, {
       sequelize,
@@ -67,6 +241,9 @@ cron.schedule('*/15 * * * *', async () => {
     if (defenderExpiryResults.length > 0) {
       console.log(`[cron:expire] Processed ${defenderExpiryResults.length} expired defender(s)`);
     }
+    await emitContentionResolvedNotifications(
+      defenderExpiryResults.flatMap((result) => result?.notifications || [])
+    );
 
     const [completedFirms] = await Booking.update(
       { status: 'completed' },
@@ -181,71 +358,26 @@ cron.schedule('*/15 * * * *', async () => {
 });
 
 /**
- * Warning job — runs daily at 08:00 Asia/Manila (UTC+8 = 00:00 UTC).
+ * Warning job — default every 15 minutes, env-configurable.
  */
-cron.schedule('0 0 * * *', async () => {
+cron.schedule(warningCronExpression, async () => {
   try {
     const now = new Date();
-
-    const window48Start = new Date(now.getTime() + 47 * 60 * 60 * 1000);
-    const window48End = new Date(now.getTime() + 49 * 60 * 60 * 1000);
-
-    const window24Start = new Date(now.getTime() + 23 * 60 * 60 * 1000);
-    const window24End = new Date(now.getTime() + 25 * 60 * 60 * 1000);
-
-    const [bookings48, bookings24] = await Promise.all([
-      Booking.findAll({
-        where: {
-          bookingType: 'pencil',
-          status: 'penciled',
-          expiryAt: { [Op.between]: [window48Start, window48End] }
-        },
-        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
-      }),
-      Booking.findAll({
-        where: {
-          bookingType: 'pencil',
-          status: 'penciled',
-          expiryAt: { [Op.between]: [window24Start, window24End] }
-        },
-        include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
-      })
+    const [processed48, processed24] = await Promise.all([
+      processDueWarnings(48, now),
+      processDueWarnings(24, now)
     ]);
 
-    console.log(
-      `[cron:warn] 48hr warnings: ${bookings48.length}, 24hr warnings: ${bookings24.length}`
-    );
-
-    for (const booking of bookings48) {
-      const resourceName = await resolveResourceName(booking.resourceType, booking.resourceId);
-      publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.EXPIRING_SOON, booking, {
-        resourceName,
-        payload: {
-          source: 'cron:warn',
-          hoursLeft: 48,
-        },
-      });
-      if (!isKafkaEnabled()) {
-        notifyBookingExpiringSoon(booking, resourceName, 48).catch(() => {});
-      }
-    }
-
-    for (const booking of bookings24) {
-      const resourceName = await resolveResourceName(booking.resourceType, booking.resourceId);
-      publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.EXPIRING_SOON, booking, {
-        resourceName,
-        payload: {
-          source: 'cron:warn',
-          hoursLeft: 24,
-        },
-      });
-      if (!isKafkaEnabled()) {
-        notifyBookingExpiringSoon(booking, resourceName, 24).catch(() => {});
-      }
+    if (processed48.length > 0 || processed24.length > 0) {
+      console.log(
+        `[cron:warn] 48hr warnings: ${processed48.length}, 24hr warnings: ${processed24.length}`
+      );
     }
   } catch (err) {
     console.error('[cron:warn] Error during warning job:', err.message);
   }
 });
 
-console.log('[cron] Booking expiry + contention jobs scheduled');
+console.log(
+  `[cron] Booking expiry + contention jobs scheduled (expire every ${expiryCronMinutes} minute(s), warn every ${warningCronMinutes} minute(s))`
+);

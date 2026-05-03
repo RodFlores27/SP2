@@ -7,6 +7,9 @@ const {
   notifyBookingDenied,
   notifyBookingExpired,
   notifyBookingExpiringSoon,
+  notifyBookingOnHold,
+  notifyBookingDisplaced,
+  notifyContentionResolved,
   notifyContentionStarted,
   notifyDisplacedUsersSlotReopened,
 } = require('../booking-notifications');
@@ -89,6 +92,22 @@ async function processBookingNotificationEvent(event) {
       const hoursLeft = Number(payload.hoursLeft) === 24 ? 24 : 48;
       await notifyBookingExpiringSoon(booking, resourceName, hoursLeft);
       return { handled: true, action: 'notifyBookingExpiringSoon' };
+    }
+    case BOOKING_EVENT_TYPES.ON_HOLD: {
+      if (!booking) return { handled: false, reason: 'Booking not found' };
+      await notifyBookingOnHold(booking, resourceName);
+      return { handled: true, action: 'notifyBookingOnHold' };
+    }
+    case BOOKING_EVENT_TYPES.DISPLACED: {
+      if (!booking) return { handled: false, reason: 'Booking not found' };
+      await notifyBookingDisplaced(booking, resourceName);
+      return { handled: true, action: 'notifyBookingDisplaced' };
+    }
+    case BOOKING_EVENT_TYPES.CONTENTION_RESOLVED: {
+      if (!booking) return { handled: false, reason: 'Booking not found' };
+      const counterpartyBooking = await loadBookingForNotification(payload.counterpartyBookingId || null);
+      await notifyContentionResolved(booking, counterpartyBooking, resourceName, payload);
+      return { handled: true, action: 'notifyContentionResolved' };
     }
     case BOOKING_EVENT_TYPES.CONTENTION_STARTED: {
       const defenderId = payload.defenderBookingId || null;
