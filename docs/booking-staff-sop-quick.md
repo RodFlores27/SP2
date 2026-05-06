@@ -16,6 +16,7 @@ Use this as a fast daily guide when deciding on booking requests.
 ## 2) Rules to remember
 
 - No new booking can be created if the start time is already within 24 hours.
+- No new booking can be created more than 7 days before the start time.
 - Staff can only approve a firm booking while it is still more than 24 hours before the start time.
 - If a firm booking is still waiting when the cutoff is reached, it expires automatically.
 - Staff do not manually choose winners in pencil-to-pencil contention.

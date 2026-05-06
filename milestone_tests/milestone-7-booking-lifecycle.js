@@ -9,7 +9,7 @@ const { checkServerHealth } = require('./utils/test-helpers');
 const BASE_URL = 'http://localhost:4000/api';
 const SERVER_DIR = path.join(__dirname, '..', 'server');
 const RUN_ID = Date.now();
-const RUN_DAY_BASE = 120 + (Math.floor(RUN_ID / 1000) % 5000);
+const RUN_MINUTE_OFFSET = Math.floor(RUN_ID / 1000) % 45;
 
 let studentToken, staffToken, adminToken;
 let testBookingId, testPencilBookingId, testContestedBookingId;
@@ -18,8 +18,8 @@ let roomIds = [];
 
 function isoAt(dayOffset, startHour, durationHours = 2) {
   const start = new Date();
-  start.setDate(start.getDate() + RUN_DAY_BASE + dayOffset);
-  start.setHours(startHour, 0, 0, 0);
+  start.setDate(start.getDate() + 2 + (Math.floor(dayOffset / 5) % 5));
+  start.setHours(startHour, (RUN_MINUTE_OFFSET + dayOffset) % 55, 0, 0);
 
   const end = new Date(start);
   end.setHours(end.getHours() + durationHours);

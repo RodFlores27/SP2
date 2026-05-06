@@ -2,6 +2,7 @@ const axios = require('axios');
 const { checkServerHealth } = require('./utils/test-helpers');
 
 const BASE_URL = 'http://localhost:4000/api';
+const RUN_MINUTE_OFFSET = Math.floor(Date.now() / 1000) % 45;
 
 async function testMilestone8() {
   console.log('=== MILESTONE 8 VERIFICATION TEST ===');
@@ -185,11 +186,11 @@ async function testMilestone8() {
   console.log('\n--- Test 11: Create Firm Booking Gets pending_approval Status ---');
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 100);
+    futureDate.setDate(futureDate.getDate() + 3);
     const startTime = new Date(futureDate);
-    startTime.setHours(9, 0, 0, 0);
+    startTime.setHours(9, RUN_MINUTE_OFFSET, 0, 0);
     const endTime = new Date(futureDate);
-    endTime.setHours(11, 0, 0, 0);
+    endTime.setHours(11, RUN_MINUTE_OFFSET, 0, 0);
 
     const response = await axios.post(
       `${BASE_URL}/bookings`,

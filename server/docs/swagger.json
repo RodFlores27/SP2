@@ -1462,7 +1462,7 @@
           "Bookings"
         ],
         "summary": "Create a new booking",
-        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention plus expectedWillBeQueued matching the prior 409 when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings cannot start within 24 hours of now. Firm pending requests must be staff-approved before that same 24-hour cutoff or they expire automatically.",
+        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention plus expectedWillBeQueued matching the prior 409 when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings can only start up to 7 days in advance and cannot start within 24 hours of now. Firm pending requests must be staff-approved before that same 24-hour cutoff or they expire automatically.",
         "operationId": "createBooking",
         "security": [
           {
@@ -1536,7 +1536,7 @@
                   "startTime": {
                     "type": "string",
                     "format": "date-time",
-                    "description": "Booking start time (ISO 8601 format)"
+                    "description": "Booking start time (ISO 8601 format). Must be within the next 7 days and outside the 24-hour lock window."
                   },
                   "endTime": {
                     "type": "string",
@@ -1613,6 +1613,12 @@
                   "pastBooking": {
                     "value": {
                       "error": "Cannot create booking in the past"
+                    }
+                  },
+                  "advanceWindow": {
+                    "value": {
+                      "error": "Bookings can only be created up to 7 days in advance. Please choose a schedule within the next 7 days.",
+                      "code": "BOOKING_ADVANCE_WINDOW"
                     }
                   },
                   "resourceUnavailable": {
@@ -2543,7 +2549,7 @@
           "Admin"
         ],
         "summary": "List recent audit logs (Admin only)",
-        "description": "Returns recent append-only booking event audit entries. Supports filtering by eventType, bookingId, actorUserId, and limit.",
+        "description": "Returns recent append-only audit entries for booking lifecycle events, user administration changes, and resource updates. Supports filtering by eventType, bookingId, actorUserId, resourceType, resourceId, date range, and limit. Notification-only booking.displaced_slot_reopened events are excluded from the audit trail.",
         "operationId": "listAuditLogs",
         "security": [
           {
@@ -2591,6 +2597,50 @@
             "schema": {
               "type": "integer",
               "example": 1
+            }
+          },
+          {
+            "name": "resourceType",
+            "in": "query",
+            "required": false,
+            "description": "Filter by resource type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "equipment",
+                "room"
+              ],
+              "example": "room"
+            }
+          },
+          {
+            "name": "resourceId",
+            "in": "query",
+            "required": false,
+            "description": "Filter by resource ID",
+            "schema": {
+              "type": "integer",
+              "example": 12
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "description": "Filter to audit logs occurring on or after this ISO date/time",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "description": "Filter to audit logs occurring on or before this ISO date/time",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
             }
           }
         ],
@@ -4121,7 +4171,7 @@
           "startTime": {
             "type": "string",
             "format": "date-time",
-            "description": "Booking start time (ISO 8601 format)",
+            "description": "Booking start time (ISO 8601 format). Must be within the next 7 days and outside the 24-hour lock window.",
             "example": "2026-04-10T09:00:00.000Z"
           },
           "endTime": {

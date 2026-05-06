@@ -8,6 +8,11 @@ import axiosInstance from '@/lib/axios';
 import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
 import { getBookingReference } from '@/lib/bookingReference';
 import {
+  formatDatetimeLocalValue,
+  getAdvanceBookingMaxStart,
+  isBeyondAdvanceBookingWindow,
+} from '@/lib/bookingAdvanceWindow';
+import {
   peekConvertFirmSuccess,
   clearConvertFirmSuccessSession,
 } from '@/lib/convertFirmSuccessSession';
@@ -53,7 +58,10 @@ const bookingSchema = z.object({
   bookingType: z.enum(['pencil', 'firm'], {
     required_error: bf.schema.bookingTypeRequired,
   }),
-  startTime: z.string().min(1, bf.schema.startTimeRequired),
+  startTime: z
+    .string()
+    .min(1, bf.schema.startTimeRequired)
+    .refine((value) => !isBeyondAdvanceBookingWindow(value), bf.schema.startBeyondAdvanceWindow),
   endTime: z.string().min(1, bf.schema.endTimeRequired),
   purpose: z.string().optional(),
 });
@@ -98,6 +106,10 @@ export default function BookingForm() {
   const [pendingContentionConfirmation, setPendingContentionConfirmation] = useState(null);
   const [activeContentionNotice, setActiveContentionNotice] = useState(null);
   const [firmPencilOverlapDetailsOpen, setFirmPencilOverlapDetailsOpen] = useState(false);
+  const maxStartTimeLocal = useMemo(
+    () => formatDatetimeLocalValue(getAdvanceBookingMaxStart()),
+    []
+  );
 
   // Format ISO string to datetime-local value
   const toDatetimeLocal = (isoString) => {
@@ -1091,8 +1103,11 @@ export default function BookingForm() {
                       <FormItem>
                         <FormLabel>{bf.fields.startTime()}</FormLabel>
                         <FormControl>
-                          <Input type="datetime-local" {...field} />
+                          <Input type="datetime-local" max={maxStartTimeLocal} {...field} />
                         </FormControl>
+                        <p className="text-xs text-muted-foreground">
+                          {bf.fields.startTimeWindowHelp()}
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}

@@ -29,6 +29,7 @@ import {
   saveDashboardTab,
 } from '@/components/my-bookings/myBookingsDashboardSession';
 import { stashConvertFirmSuccess } from '@/lib/convertFirmSuccessSession';
+import { isBeyondAdvanceBookingWindow } from '@/lib/bookingAdvanceWindow';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const DASHBOARD_POLL_INTERVAL_MS = 30 * 1000;
@@ -130,7 +131,13 @@ function buildRebookLink(booking) {
   const start = new Date(booking.startTime);
   const end = new Date(booking.endTime);
   const now = new Date();
-  if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start > now && end > now) {
+  if (
+    !isNaN(start.getTime()) &&
+    !isNaN(end.getTime()) &&
+    start > now &&
+    end > now &&
+    !isBeyondAdvanceBookingWindow(start, now)
+  ) {
     params.set('startTime', start.toISOString());
     params.set('endTime', end.toISOString());
   }

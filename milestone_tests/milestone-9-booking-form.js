@@ -5,6 +5,7 @@ const path = require('path');
 const { checkServerHealth } = require('./utils/test-helpers');
 
 const BASE_URL = 'http://localhost:4000/api';
+const RUN_MINUTE_OFFSET = Math.floor(Date.now() / 1000) % 45;
 
 async function testMilestone9() {
   console.log('=== MILESTONE 9 VERIFICATION TEST ===');
@@ -84,15 +85,14 @@ async function testMilestone9() {
 
   console.log('\n--- Test 5: Create Pencil Booking (JSON) ---');
   let pencilBookingId;
-  // Use a unique offset to avoid collisions with previous test runs
-  const testRunOffset = Math.floor(Math.random() * 30) + 50;
+  const testRunDay = 3;
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + testRunOffset);
+    futureDate.setDate(futureDate.getDate() + testRunDay);
     const startTime = new Date(futureDate);
-    startTime.setHours(9, 0, 0, 0);
+    startTime.setHours(9, RUN_MINUTE_OFFSET, 0, 0);
     const endTime = new Date(futureDate);
-    endTime.setHours(11, 0, 0, 0);
+    endTime.setHours(11, RUN_MINUTE_OFFSET, 0, 0);
 
     const response = await axios.post(
       `${BASE_URL}/bookings`,
@@ -124,11 +124,11 @@ async function testMilestone9() {
   let firmBookingId;
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + testRunOffset + 5);
+    futureDate.setDate(futureDate.getDate() + testRunDay + 1);
     const startTime = new Date(futureDate);
-    startTime.setHours(14, 0, 0, 0);
+    startTime.setHours(14, RUN_MINUTE_OFFSET, 0, 0);
     const endTime = new Date(futureDate);
-    endTime.setHours(16, 0, 0, 0);
+    endTime.setHours(16, RUN_MINUTE_OFFSET, 0, 0);
 
     const response = await axios.post(
       `${BASE_URL}/bookings`,
@@ -159,11 +159,11 @@ async function testMilestone9() {
   console.log('\n--- Test 7: Create Booking via multipart/form-data (no file) ---');
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + testRunOffset + 10);
+    futureDate.setDate(futureDate.getDate() + testRunDay + 2);
     const startTime = new Date(futureDate);
-    startTime.setHours(10, 0, 0, 0);
+    startTime.setHours(10, RUN_MINUTE_OFFSET, 0, 0);
     const endTime = new Date(futureDate);
-    endTime.setHours(12, 0, 0, 0);
+    endTime.setHours(12, RUN_MINUTE_OFFSET, 0, 0);
 
     const form = new FormData();
     form.append('resourceType', 'equipment');
@@ -193,11 +193,11 @@ async function testMilestone9() {
   console.log('\n--- Test 8: Create Booking with Authorization Document Upload ---');
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + testRunOffset + 15);
+    futureDate.setDate(futureDate.getDate() + testRunDay + 3);
     const startTime = new Date(futureDate);
-    startTime.setHours(9, 0, 0, 0);
+    startTime.setHours(9, RUN_MINUTE_OFFSET, 0, 0);
     const endTime = new Date(futureDate);
-    endTime.setHours(11, 0, 0, 0);
+    endTime.setHours(11, RUN_MINUTE_OFFSET, 0, 0);
 
     // Create a temporary test file
     const testFilePath = path.join(__dirname, 'test-auth-doc.jpg');
@@ -294,7 +294,7 @@ async function testMilestone9() {
   console.log('\n--- Test 11: Validation - Non-existent Resource (404) ---');
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 40);
+    futureDate.setDate(futureDate.getDate() + testRunDay + 1);
 
     await axios.post(
       `${BASE_URL}/bookings`,
@@ -321,7 +321,7 @@ async function testMilestone9() {
   console.log('\n--- Test 12: Unauthenticated Booking Attempt (401) ---');
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 45);
+    futureDate.setDate(futureDate.getDate() + testRunDay + 2);
 
     await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
@@ -345,11 +345,11 @@ async function testMilestone9() {
   try {
     // Use the same time slot as the pencil booking from Test 5
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + testRunOffset);
+    futureDate.setDate(futureDate.getDate() + testRunDay);
     const startTime = new Date(futureDate);
-    startTime.setHours(9, 0, 0, 0);
+    startTime.setHours(9, RUN_MINUTE_OFFSET, 0, 0);
     const endTime = new Date(futureDate);
-    endTime.setHours(11, 0, 0, 0);
+    endTime.setHours(11, RUN_MINUTE_OFFSET, 0, 0);
 
     await axios.post(
       `${BASE_URL}/bookings`,
@@ -378,11 +378,11 @@ async function testMilestone9() {
   console.log('\n--- Test 14: Firm Over Own Pencil - Requires Confirmation ---');
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + testRunOffset);
+    futureDate.setDate(futureDate.getDate() + testRunDay);
     const startTime = new Date(futureDate);
-    startTime.setHours(9, 0, 0, 0);
+    startTime.setHours(9, RUN_MINUTE_OFFSET, 0, 0);
     const endTime = new Date(futureDate);
-    endTime.setHours(11, 0, 0, 0);
+    endTime.setHours(11, RUN_MINUTE_OFFSET, 0, 0);
 
     await axios.post(
       `${BASE_URL}/bookings`,
@@ -411,11 +411,11 @@ async function testMilestone9() {
   console.log('\n--- Test 15: Firm Over Own Pencil - Confirmed (auto-cancel) ---');
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + testRunOffset);
+    futureDate.setDate(futureDate.getDate() + testRunDay);
     const startTime = new Date(futureDate);
-    startTime.setHours(9, 0, 0, 0);
+    startTime.setHours(9, RUN_MINUTE_OFFSET, 0, 0);
     const endTime = new Date(futureDate);
-    endTime.setHours(11, 0, 0, 0);
+    endTime.setHours(11, RUN_MINUTE_OFFSET, 0, 0);
 
     const response = await axios.post(
       `${BASE_URL}/bookings`,

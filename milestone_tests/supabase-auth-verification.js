@@ -72,8 +72,8 @@ async function resolveEquipmentId() {
 
 function buildFutureWindow() {
   const start = new Date();
-  start.setDate(start.getDate() + 210 + (Date.now() % 30));
-  start.setHours(10, 0, 0, 0);
+  start.setDate(start.getDate() + 4);
+  start.setHours(10, Math.floor(Date.now() / 1000) % 45, 0, 0);
 
   const end = new Date(start);
   end.setHours(end.getHours() + 1);

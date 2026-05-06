@@ -43,6 +43,7 @@ All values exist on the model; **not every value is reachable for every `booking
 
 | Code / concept          | Meaning                                                                                                             |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `BOOKING_ADVANCE_WINDOW` | New bookings are blocked when `startTime` is more than 7 days from creation time                                   |
 | `BOOKING_LOCK_WINDOW`   | Create, **convert-to-firm**, and **firm approve** blocked when `hoursUntilStart(start) <= 24`                       |
 | Firm approval cutoff    | Same boundary: staff cannot approve `pending_approval` inside the lock window; cron expires those rows to `expired` |
 | Pencil `expiryAt`       | `min(issuedAt + 3d, startTime − 24h)`                                                                               |
@@ -128,6 +129,7 @@ All values exist on the model; **not every value is reachable for every `booking
 
 | ID    | Endpoint                  | Condition                                                         | Response                             |
 | ----- | ------------------------- | ----------------------------------------------------------------- | ------------------------------------ |
+| G-00  | `POST /bookings`          | Start more than 7 days in advance                                 | 400 `BOOKING_ADVANCE_WINDOW`         |
 | G-01  | `POST /bookings`          | Start inside lock window                                          | 400 `BOOKING_LOCK_WINDOW`            |
 | G-02  | `POST /bookings` pencil   | Firm overlap                                                      | 409 + conflicts                      |
 | G-03  | `POST /bookings` pencil   | Own pencil overlap (`penciled` **or** `on_hold`)                 | 409                                  |

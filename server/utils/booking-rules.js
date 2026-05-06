@@ -4,12 +4,30 @@ const { domain } = require('../messages/bookingMessages');
 
 const LOCK_HOURS = 24;
 const PENCIL_MAX_DAYS = 3;
+const ADVANCE_BOOKING_MAX_DAYS = 7;
 
 const MS_HOUR = 60 * 60 * 1000;
 const MS_DAY = 24 * MS_HOUR;
 
 function hoursUntilStart(startTime, now = new Date()) {
   return (new Date(startTime).getTime() - now.getTime()) / MS_HOUR;
+}
+
+function getAdvanceBookingMaxStart(now = new Date()) {
+  return new Date(new Date(now).getTime() + ADVANCE_BOOKING_MAX_DAYS * MS_DAY);
+}
+
+function isBeyondAdvanceBookingWindow(startTime, now = new Date()) {
+  return new Date(startTime).getTime() > getAdvanceBookingMaxStart(now).getTime();
+}
+
+function assertStartWithinAdvanceBookingWindow(startTime, now = new Date()) {
+  if (isBeyondAdvanceBookingWindow(startTime, now)) {
+    const err = new Error(domain.bookingAdvanceWindow);
+    err.code = 'BOOKING_ADVANCE_WINDOW';
+    err.statusCode = 400;
+    throw err;
+  }
 }
 
 /**
@@ -63,7 +81,11 @@ function assertPositiveContentionDeadline(deadlineAt, now = new Date()) {
 module.exports = {
   LOCK_HOURS,
   PENCIL_MAX_DAYS,
+  ADVANCE_BOOKING_MAX_DAYS,
   hoursUntilStart,
+  getAdvanceBookingMaxStart,
+  isBeyondAdvanceBookingWindow,
+  assertStartWithinAdvanceBookingWindow,
   isWithinLockHours,
   assertStartNotWithinLockHours,
   computePencilExpiryAt,

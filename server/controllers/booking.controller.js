@@ -26,6 +26,7 @@ const {
   publishBookingLifecycleEvent,
 } = require('../utils/kafka');
 const {
+  assertStartWithinAdvanceBookingWindow,
   computeContentionDeadline,
   computePencilExpiryAt,
   assertStartNotWithinLockHours,
@@ -494,12 +495,13 @@ const createBooking = async (req, res) => {
     }
 
     try {
+      assertStartWithinAdvanceBookingWindow(start);
       assertStartNotWithinLockHours(start);
-    } catch (lockErr) {
-      if (lockErr.statusCode) {
-        return res.status(lockErr.statusCode).json({ error: lockErr.message, code: lockErr.code });
+    } catch (ruleErr) {
+      if (ruleErr.statusCode) {
+        return res.status(ruleErr.statusCode).json({ error: ruleErr.message, code: ruleErr.code });
       }
-      throw lockErr;
+      throw ruleErr;
     }
 
     let rebookedFromBookingId = null;

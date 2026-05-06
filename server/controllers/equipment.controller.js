@@ -1,5 +1,6 @@
 const { Equipment } = require('../models');
 const { uploadToCloudinary } = require('../utils/cloudinary');
+const { AUDIT_EVENT_TYPES, recordAuditEvent } = require('../utils/audit-log');
 
 const normalizeCode = (value) => String(value || '').trim().toUpperCase();
 
@@ -82,6 +83,7 @@ const updateEquipment = async (req, res) => {
       return res.status(404).json({ error: 'Equipment not found' });
     }
 
+    const previousEquipment = equipment.toJSON();
     let imageUrl = equipment.imageUrl;
     
     if (removeImage === 'true') {
@@ -105,6 +107,19 @@ const updateEquipment = async (req, res) => {
       resourceCode: resourceCode || equipment.resourceCode,
       status: status || equipment.status,
       imageUrl,
+    });
+
+    await recordAuditEvent({
+      eventType: AUDIT_EVENT_TYPES.RESOURCE_EQUIPMENT_UPDATED,
+      actorUserId: req.user.id,
+      resourceType: 'equipment',
+      resourceId: equipment.id,
+      status: equipment.status,
+      payload: {
+        equipmentId: equipment.id,
+        previous: previousEquipment,
+        current: equipment.toJSON(),
+      },
     });
 
     res.json(equipment);

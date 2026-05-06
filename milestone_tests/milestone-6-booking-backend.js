@@ -3,7 +3,7 @@ const { checkServerHealth } = require('./utils/test-helpers');
 
 const BASE_URL = 'http://localhost:4000/api';
 const RUN_ID = Date.now();
-const RUN_DAY_BASE = 120 + (Math.floor(RUN_ID / 1000) % 5000);
+const RUN_MINUTE_OFFSET = Math.floor(RUN_ID / 1000) % 45;
 
 let studentToken = '';
 let staffToken = '';
@@ -45,8 +45,8 @@ async function resolveResources() {
 
 function windowAt(dayOffset, startHour, durationHours = 2) {
   const start = new Date();
-  start.setDate(start.getDate() + RUN_DAY_BASE + dayOffset);
-  start.setHours(startHour, 0, 0, 0);
+  start.setDate(start.getDate() + 2 + (dayOffset % 5));
+  start.setHours(startHour, RUN_MINUTE_OFFSET, 0, 0);
 
   const end = new Date(start);
   end.setHours(end.getHours() + durationHours);
@@ -322,7 +322,39 @@ async function testMilestone6() {
     }
   }
 
-  console.log('\n--- Test 9: Validation - Non-existent Resource ---');
+  console.log('\n--- Test 9: Validation - Booking Beyond 7-Day Advance Window ---');
+  try {
+    const start = new Date();
+    start.setDate(start.getDate() + 8);
+    start.setHours(10, RUN_MINUTE_OFFSET, 0, 0);
+
+    const end = new Date(start);
+    end.setHours(end.getHours() + 2);
+
+    await axios.post(
+      `${BASE_URL}/bookings`,
+      {
+        resourceType: 'equipment',
+        resourceId: equipmentId(0),
+        bookingType: 'pencil',
+        startTime: start.toISOString(),
+        endTime: end.toISOString(),
+        purpose: 'Advance booking window test'
+      },
+      {
+        headers: { Authorization: `Bearer ${studentToken}` }
+      }
+    );
+    console.log('❌ Should have rejected booking beyond 7 days in advance');
+  } catch (error) {
+    if (error.response?.status === 400 && error.response.data.code === 'BOOKING_ADVANCE_WINDOW') {
+      console.log('✅ Correctly rejected booking beyond 7 days in advance (400)');
+    } else {
+      console.log('❌ Unexpected error:', error.response?.data || error.message);
+    }
+  }
+
+  console.log('\n--- Test 10: Validation - Non-existent Resource ---');
   try {
     const { start, end } = windowAt(12, 10, 2);
 
@@ -349,7 +381,7 @@ async function testMilestone6() {
     }
   }
 
-  console.log('\n--- Test 10: Get All Bookings (Student - Own Bookings Only) ---');
+  console.log('\n--- Test 11: Get All Bookings (Student - Own Bookings Only) ---');
   try {
     const response = await axios.get(`${BASE_URL}/bookings`, {
       headers: { Authorization: `Bearer ${studentToken}` }

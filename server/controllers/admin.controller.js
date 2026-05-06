@@ -1,6 +1,7 @@
 'use strict';
 
 const { AuditLog, Booking, BookingAnalyticsEvent, Sequelize, User } = require('../models');
+const { AUDIT_EVENT_TYPES, recordAuditEvent } = require('../utils/audit-log');
 
 const ALLOWED_ROLES = ['regular_user', 'ptcf_staff', 'system_admin'];
 
@@ -39,8 +40,21 @@ const updateUserRole = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const previousAccountType = user.accountType;
     user.accountType = accountType;
     await user.save();
+
+    await recordAuditEvent({
+      eventType: AUDIT_EVENT_TYPES.USER_ROLE_CHANGED,
+      actorUserId: req.user.id,
+      status: accountType,
+      payload: {
+        targetUserId: user.id,
+        targetEmail: user.email,
+        previousAccountType,
+        newAccountType: accountType,
+      },
+    });
 
     res.json({
       message: 'User role updated successfully',
@@ -71,7 +85,25 @@ const deleteUser = async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    const deletedUser = {
+      id: user.id,
+      email: user.email,
+      accountType: user.accountType,
+      userCategory: user.userCategory,
+    };
+
     await user.destroy();
+
+    await recordAuditEvent({
+      eventType: AUDIT_EVENT_TYPES.USER_DELETED,
+      actorUserId: req.user.id,
+      payload: {
+        targetUserId: deletedUser.id,
+        targetEmail: deletedUser.email,
+        targetAccountType: deletedUser.accountType,
+        targetUserCategory: deletedUser.userCategory,
+      },
+    });
 
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
@@ -84,10 +116,16 @@ const listAuditLogs = async (req, res) => {
   try {
     const limitRaw = parseInt(req.query.limit, 10);
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 50;
-    const where = {};
+    const where = {
+      eventType: { [Sequelize.Op.ne]: 'booking.displaced_slot_reopened' },
+    };
 
     if (req.query.eventType) {
-      where.eventType = String(req.query.eventType).trim();
+      const eventType = String(req.query.eventType).trim();
+      if (eventType === 'booking.displaced_slot_reopened') {
+        return res.json({ count: 0, logs: [] });
+      }
+      where.eventType = eventType;
     }
     if (req.query.bookingId != null && req.query.bookingId !== '') {
       const bookingId = parseInt(req.query.bookingId, 10);
@@ -102,6 +140,37 @@ const listAuditLogs = async (req, res) => {
         return res.status(400).json({ error: 'actorUserId must be a valid integer' });
       }
       where.actorUserId = actorUserId;
+    }
+    if (req.query.resourceType) {
+      const resourceType = String(req.query.resourceType).trim();
+      if (!['equipment', 'room'].includes(resourceType)) {
+        return res.status(400).json({ error: 'resourceType must be either equipment or room' });
+      }
+      where.resourceType = resourceType;
+    }
+    if (req.query.resourceId != null && req.query.resourceId !== '') {
+      const resourceId = parseInt(req.query.resourceId, 10);
+      if (Number.isNaN(resourceId)) {
+        return res.status(400).json({ error: 'resourceId must be a valid integer' });
+      }
+      where.resourceId = resourceId;
+    }
+    if (req.query.from || req.query.to) {
+      where.occurredAt = {};
+      if (req.query.from) {
+        const from = new Date(String(req.query.from));
+        if (Number.isNaN(from.getTime())) {
+          return res.status(400).json({ error: 'from must be a valid date' });
+        }
+        where.occurredAt[Sequelize.Op.gte] = from;
+      }
+      if (req.query.to) {
+        const to = new Date(String(req.query.to));
+        if (Number.isNaN(to.getTime())) {
+          return res.status(400).json({ error: 'to must be a valid date' });
+        }
+        where.occurredAt[Sequelize.Op.lte] = to;
+      }
     }
 
     const logs = await AuditLog.findAll({
@@ -119,7 +188,7 @@ const listAuditLogs = async (req, res) => {
           model: Booking,
           as: 'booking',
           required: false,
-          attributes: ['id', 'resourceType', 'resourceId', 'bookingType', 'status'],
+          attributes: ['id', 'referenceCode', 'resourceType', 'resourceId', 'bookingType', 'status'],
         },
       ],
     });

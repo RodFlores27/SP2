@@ -494,7 +494,7 @@ async function onFirmDeniedOrCancelled(firmBooking, { transaction, Booking }) {
 }
 
 /**
- * New firm can make active defenders unwinnable; dissolve those 1v1 episodes immediately.
+ * New firm can make active defenders unwinnable (defender can't convert to firm due to new firm); dissolve those 1v1 episodes immediately.
  */
 async function autoResolveFirmBlockedDefenders(firmBooking, { transaction, Booking }) {
   const onHoldBookingIds = new Set();

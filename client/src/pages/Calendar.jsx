@@ -4,8 +4,11 @@ import { useAuth } from '@/contexts/useAuth';
 import { BookingCalendar } from '@/components/BookingCalendar';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
+import { isBeyondAdvanceBookingWindow } from '@/lib/bookingAdvanceWindow';
+import { bookingMessages } from '@/messages/bookingMessages';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const cal = bookingMessages.calendar;
 
 export default function Calendar() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,10 +17,18 @@ export default function Calendar() {
   const [equipment, setEquipment] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [slotError, setSlotError] = useState(null);
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
 
   const handleSelectSlot = (slotInfo) => {
+    if (isBeyondAdvanceBookingWindow(slotInfo.start)) {
+      setSlotError(cal.slotBeyondAdvanceWindow);
+      return;
+    }
+
+    setSlotError(null);
+
     if (!isAuthenticated) {
       navigate(`/login?redirect=${encodeURIComponent('/bookings/new')}`);
       return;
@@ -108,8 +119,15 @@ export default function Calendar() {
           <p id="calendar-book-hint" className="text-sm text-muted-foreground mt-2 max-w-4xl">
             Click any day (month view) or drag a time range (week/day) to open the booking form. Resource
             filters below apply when set.
+            {' '}
+            {cal.advanceWindowHint()}
             {!isAuthenticated && <> You will be asked to sign in first.</>}
           </p>
+          {slotError && (
+            <p className="mt-2 rounded-md border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive" role="alert">
+              {slotError}
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <div className="mb-6 flex flex-wrap gap-4">

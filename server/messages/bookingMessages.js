@@ -131,6 +131,8 @@ const api = {
 };
 
 const domain = {
+  bookingAdvanceWindow:
+    'Bookings can only be created up to 7 days in advance. Please choose a schedule within the next 7 days.',
   bookingLockWindow:
     'This schedule is within 24 hours of the start time. New bookings, firm convert-to-firm, and firm staff approval are not allowed in this window.',
   contentionDeadlineInvalid: 'Contention cannot start: resolution window has already lapsed.',

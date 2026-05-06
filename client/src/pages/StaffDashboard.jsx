@@ -1184,8 +1184,7 @@ export default function StaffDashboard() {
             <CardContent className="py-4 text-sm text-muted-foreground space-y-3">
               <p className="text-foreground font-medium mb-1">Automated pencil contention</p>
               <p>
-                Overlapping pencil bookings are resolved automatically by timers and conversion to firm. Staff
-                no longer approve or deny contested pencils. Each card below summarizes one active contention group.
+                Overlapping pencil bookings are resolved automatically by timers and conversion to firm. Each card below summarizes one active contention group.
               </p>
               <div className="text-foreground">
                 <StaffBookingToolbar

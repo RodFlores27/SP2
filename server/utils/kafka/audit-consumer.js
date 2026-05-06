@@ -5,6 +5,10 @@ const { ensureBookingEventsTopic, getKafkaClient, isKafkaEnabled } = require('./
 let auditConsumer;
 let auditConsumerStartPromise;
 
+const IGNORED_AUDIT_EVENT_TYPES = new Set([
+  'booking.displaced_slot_reopened',
+]);
+
 function parseEventPayload(message) {
   try {
     const value = message?.value?.toString?.() || '{}';
@@ -19,6 +23,14 @@ async function persistAuditLogFromEvent(event, metadata = {}) {
     return {
       handled: false,
       reason: 'Invalid event payload',
+    };
+  }
+
+  if (IGNORED_AUDIT_EVENT_TYPES.has(String(event.eventType))) {
+    return {
+      handled: false,
+      reason: 'Ignored audit event type',
+      ignored: true,
     };
   }
 
@@ -120,7 +132,7 @@ async function startAuditConsumer() {
             offset: message.offset,
           });
 
-          if (!result.handled && result.reason && !result.duplicate) {
+          if (!result.handled && result.reason && !result.duplicate && !result.ignored) {
             console.error(
               `[kafka:audit] Failed handling ${event.eventType}: ${result.reason}`
             );

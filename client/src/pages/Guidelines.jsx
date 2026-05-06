@@ -39,17 +39,17 @@ const rules = [
   'Firm bookings are pending until approved by PTCF staff.',
   'Firm requests still pending inside the 24-hour pre-start window expire automatically.',
   'Firm bookings cannot overlap other active firm bookings on the same resource and time.',
-  'Pencil bookings may overlap other users pencil bookings, but this can start contention.',
+  'Pencil bookings may overlap other users pencil bookings, but this will start contention.',
   'A firm request may place overlapping pencil bookings on hold until staff decision.',
 ];
 
 const statuses = [
   ['Penciled', 'A tentative booking is active. It may expire or be challenged.'],
-  ['On hold', 'A pencil booking is temporarily blocked by an overlapping firm request.'],
+  ['On hold', 'A pencil booking is temporarily blocked by an overlapping pending firm request.'],
   ['Pending approval', 'A firm booking has been submitted and is waiting for staff decision.'],
   ['Approved', 'A firm booking has been approved by PTCF staff.'],
   ['Denied', 'A firm request was not approved by staff.'],
-  ['Cancelled', 'The booking was cancelled by the user or an authorized staff member.'],
+  ['Cancelled', 'The booking was cancelled by the user.'],
   ['Expired', 'The booking lapsed because it was not completed or approved in time.'],
   ['Displaced', 'A pencil booking lost the slot because another booking took priority.'],
   ['Completed', 'An approved booking has passed its scheduled end time.'],
@@ -58,7 +58,7 @@ const statuses = [
 const faqs = [
   [
     'Do I need a UP Mail account?',
-    'Use the account method accepted by current facility policy. The system supports registered email login and may support Google sign-in when enabled.',
+    'No. The system supports registered email login and Google sign-in.',
   ],
   [
     'Why can I not book within 24 hours?',
@@ -66,7 +66,7 @@ const faqs = [
   ],
   [
     'What endorsement letter do I need?',
-    'Firm requests require one consolidated endorsement letter. Within ICrops, use an Adviser or Advisory Committee signature. Within CAFS but outside ICrops, use a Division or Institute Head signature with a "Noted by" section. Outside CAFS, use a College or Department Head signature with a "Noted by" section. External users need institution or agency authorization.',
+    'See the Documents section of the PTCF Reservation System Guidelines.',
   ],
   [
     'What should I do if my pencil booking is being challenged?',
@@ -201,7 +201,7 @@ export default function Guidelines() {
               <CardHeader>
                 <CardTitle className="text-lg">Find Resources</CardTitle>
                 <CardDescription>
-                  Browse live equipment and room lists instead of relying on printed copies.
+                  Browse live equipment and room lists.
                 </CardDescription>
               </CardHeader>
             </Card>
@@ -282,7 +282,7 @@ export default function Guidelines() {
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <RuleItem>Use when the schedule and documents are ready.</RuleItem>
                   <RuleItem>Wait for staff approval before treating it as approved.</RuleItem>
-                  <RuleItem>Submit early enough for review before the 24-hour cutoff.</RuleItem>
+                  <RuleItem>Submit early enough for review, at least 24 hours before the event.</RuleItem>
                 </ul>
               </CardContent>
             </Card>
@@ -332,8 +332,7 @@ export default function Guidelines() {
                 <CardTitle className="text-lg">On Hold</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                A pencil booking can become on hold when an overlapping firm request is waiting
-                for staff decision. It may reactivate if the firm request is denied or cancelled.
+                A pencil booking will become on hold when an overlapping firm request is introduced. It may reactivate if the firm request is denied or cancelled.
               </CardContent>
             </Card>
             <Card>
@@ -342,7 +341,7 @@ export default function Guidelines() {
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
                 A pencil booking is displaced when another booking takes priority, such as an
-                approved firm booking or a missed contention deadline.
+                approved firm booking or losing contention as defender.
               </CardContent>
             </Card>
           </div>

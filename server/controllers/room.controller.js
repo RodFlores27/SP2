@@ -1,5 +1,6 @@
 const { Room } = require('../models');
 const { uploadToCloudinary } = require('../utils/cloudinary');
+const { AUDIT_EVENT_TYPES, recordAuditEvent } = require('../utils/audit-log');
 
 const normalizeCode = (value) => String(value || '').trim().toUpperCase();
 
@@ -83,6 +84,7 @@ const updateRoom = async (req, res) => {
       return res.status(404).json({ error: 'Room not found' });
     }
 
+    const previousRoom = room.toJSON();
     let imageUrl = room.imageUrl;
     
     if (removeImage === 'true' || removeImage === true) {
@@ -107,6 +109,19 @@ const updateRoom = async (req, res) => {
       resourceCode: resourceCode || room.resourceCode,
       status: status || room.status,
       imageUrl,
+    });
+
+    await recordAuditEvent({
+      eventType: AUDIT_EVENT_TYPES.RESOURCE_ROOM_UPDATED,
+      actorUserId: req.user.id,
+      resourceType: 'room',
+      resourceId: room.id,
+      status: room.status,
+      payload: {
+        roomId: room.id,
+        previous: previousRoom,
+        current: room.toJSON(),
+      },
     });
 
     res.json(room);

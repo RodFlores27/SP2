@@ -221,6 +221,8 @@ export const bookingMessages = {
       bookingTypeRequired: 'Select a booking type',
       startTimeRequired: 'Start time is required',
       endTimeRequired: 'End time is required',
+      startBeyondAdvanceWindow:
+        'Bookings can only be created up to 7 days in advance. Please choose a start time within the next 7 days.',
     },
     docErrors: {
       invalidType: 'Invalid file type. Only PDF, DOC, DOCX, JPG, and PNG are allowed.',
@@ -398,11 +400,12 @@ export const bookingMessages = {
       firmOverlapOtherPencilsDt: () => <>Other users&apos; pencils</>,
       firmOverlapOtherPencilsDd: () => (
         <>
-          Their pencils remain but inactive. Once staff approves your request, those pencils will be displaced.
+          Their pencils remain but on hold. Once staff approves your request, those pencils will be displaced.
           If you cancel, displaced users are notified immediately, in which they can rebook.
         </>
       ),
       startTime: () => <>Start Time</>,
+      startTimeWindowHelp: () => <>Bookings can only start within the next 7 days.</>,
       endTime: () => <>End Time</>,
       purposeOptional: () => <>Purpose (optional)</>,
       purposePlaceholder: 'Describe the purpose of your booking...',
@@ -440,6 +443,9 @@ export const bookingMessages = {
   // ---------------------------------------------------------------------------
   calendar: {
     fetchAvailabilityFailed: 'Failed to fetch availability',
+    advanceWindowHint: () => <>Bookings can only be created up to 7 days in advance.</>,
+    slotBeyondAdvanceWindow:
+      'That slot is beyond the 7-day advance booking window. Please choose a schedule within the next 7 days.',
     errorLoading: ({ message }) => (
       <>
         Error loading calendar: {message}

@@ -156,21 +156,22 @@ A firm booking is not final immediately after submission. It remains Pending App
 
 ## H. General Booking Rules
 
-1. New bookings cannot be created if the start time is within 24 hours.
-2. Pencil bookings expire at the earlier of:
+1. New bookings can only be created up to 7 days in advance.
+2. New bookings cannot be created if the start time is within 24 hours.
+3. Pencil bookings expire at the earlier of:
    - 3 days after the pencil booking is created; or
    - 24 hours before the scheduled start time.
-3. Firm bookings require an authorization document.
-4. Firm bookings are submitted for staff approval and are not final until approved.
-5. Staff must approve a firm booking while the start time is still more than 24 hours away.
-6. A firm booking still pending inside the 24-hour pre-start window expires automatically.
-7. Firm bookings cannot overlap other active firm bookings on the same resource and time.
-8. Pencil bookings cannot be created over active firm blockers.
-9. Pencil bookings may overlap other users' pencil bookings, but this may start a contention process.
-10. A user cannot create overlapping pencil bookings for the same resource and time under the same account.
-11. A firm request may cause overlapping pencil bookings to be placed on hold while waiting for staff decision.
-12. If a firm request is approved, overlapping active or on-hold pencil bookings may be displaced.
-13. If a firm request is denied or cancelled, affected on-hold pencil bookings may be restored or re-evaluated by the system.
+4. Firm bookings require an authorization document.
+5. Firm bookings are submitted for staff approval and are not final until approved.
+6. Staff must approve a firm booking while the start time is still more than 24 hours away.
+7. A firm booking still pending inside the 24-hour pre-start window expires automatically.
+8. Firm bookings cannot overlap other active firm bookings on the same resource and time.
+9. Pencil bookings cannot be created over active firm blockers.
+10. Pencil bookings may overlap other users' pencil bookings, but this may start a contention process.
+11. A user cannot create overlapping pencil bookings for the same resource and time under the same account.
+12. A firm request may cause overlapping pencil bookings to be placed on hold while waiting for staff decision.
+13. If a firm request is approved, overlapping active or on-hold pencil bookings may be displaced.
+14. If a firm request is denied or cancelled, affected on-hold pencil bookings may be restored or re-evaluated by the system.
 
 ## I. Overlaps, Contention, and On-Hold Bookings
 
@@ -322,7 +323,7 @@ Users should monitor both the registered email inbox and the My Bookings dashboa
 
 ## N. Important Reminders
 
-1. Submit reservation requests early. The system blocks new bookings within 24 hours before the start time.
+1. Submit reservation requests early, but within the allowed 7-day advance window. The system blocks new bookings within 24 hours before the start time.
 2. A pencil booking is tentative and can expire.
 3. A firm booking requires an authorization document and staff approval.
 4. A pending firm booking is not yet approved.
@@ -361,59 +362,63 @@ The endorsement letter supports the formal review of firm booking requests and c
 
 The system enforces a 24-hour lock window. New bookings, firm conversion, and firm staff approval are not allowed once the schedule is within 24 hours of the start time.
 
-### 7. What does Pending Approval mean?
+### 7. Why can't I book a slot more than 7 days away?
+
+The system only accepts new bookings up to 7 days in advance. Choose a start time within the next 7 days.
+
+### 8. What does Pending Approval mean?
 
 Pending Approval means a firm booking has been submitted and is waiting for PTCF staff decision. It is not yet approved.
 
-### 8. What happens if my firm booking is not approved before the 24-hour cutoff?
+### 9. What happens if my firm booking is not approved before the 24-hour cutoff?
 
 The firm request expires automatically if it remains pending inside the 24-hour pre-start window.
 
-### 9. What does On Hold mean?
+### 10. What does On Hold mean?
 
 On Hold means a pencil booking is temporarily blocked by an overlapping firm booking request. If the firm request is denied or cancelled, the pencil may be restored or re-evaluated. If the firm request is approved, the pencil may be displaced.
 
-### 10. What does Displaced mean?
+### 11. What does Displaced mean?
 
 Displaced means a pencil booking lost the slot because another booking took priority, usually after a firm booking was approved or after a contention deadline was missed.
 
-### 11. What should I do if my pencil booking is being challenged?
+### 12. What should I do if my pencil booking is being challenged?
 
 If you are the defender and you want to keep the slot, convert your pencil booking to firm before the contention deadline. You will need an authorization document.
 
-### 12. What should I do if I am the challenger?
+### 13. What should I do if I am the challenger?
 
 Wait for the contention to resolve. The defender has the opportunity to convert to firm before the deadline. A challenger cannot convert to firm during an active contention round.
 
-### 13. Can I cancel a booking?
+### 14. Can I cancel a booking?
 
 Yes, if the booking is eligible for cancellation. Bookings already cancelled, denied, expired, displaced, or completed cannot be cancelled again. Firm bookings cannot be cancelled once the scheduled start time has begun or passed.
 
-### 14. Can I rebook a past booking?
+### 15. Can I rebook a past booking?
 
 The system may allow rebooking from cancelled, denied, expired, displaced, or completed bookings. Rebooking is still subject to the same booking rules, availability, and conflict checks.
 
-### 15. Why can't I convert my pencil booking to firm?
+### 16. Why can't I convert my pencil booking to firm?
 
 Conversion may be blocked because the booking is not eligible, the start time is within 24 hours, the booking overlaps a firm booking, an authorization document is missing, or the user is the challenger in an active contention.
 
-### 16. What file types are accepted for authorization documents?
+### 17. What file types are accepted for authorization documents?
 
 The system accepts PDF, DOC, DOCX, JPG, and PNG files up to 5 MB.
 
-### 17. What should I do if I did not receive a verification email?
+### 18. What should I do if I did not receive a verification email?
 
 Check the registered email inbox, spam or junk folder, and institutional filtering folders. Use the resend verification option if available. If the issue continues, contact technical support.
 
-### 18. What should I do if my session expires?
+### 19. What should I do if my session expires?
 
 Log in again. If the issue persists, contact technical support.
 
-### 19. How will I know if my booking is approved?
+### 20. How will I know if my booking is approved?
 
 The booking status will show as Approved in My Bookings, and the system may also send an email notification.
 
-### 20. Who should I contact for questions?
+### 21. Who should I contact for questions?
 
 Contact PTCF staff for reservation policy, document requirements, resource availability, or facility use concerns. Contact technical support for system access, login, email verification, or file upload issues.
 

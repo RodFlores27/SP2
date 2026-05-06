@@ -19,10 +19,11 @@ There is **no** separate `confirmed` status. Approved firm = `approved`.
 
 ---
 
-## 2) 24-hour lock window
+## 2) Booking time window
 
 Rules tied to the booking start time:
 
+- Users can create new pencil or firm bookings only up to **7 days in advance**.
 - Users cannot create **new** pencil or firm bookings when start time is within 24 hours.
 - Staff can approve a firm only while start time is still **more than 24 hours away**.
 - A firm still `pending_approval` at the cutoff is auto-marked `expired` by cron.
