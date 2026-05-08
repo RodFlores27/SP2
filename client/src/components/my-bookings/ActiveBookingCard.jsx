@@ -109,6 +109,12 @@ function getHistoryRemark(attempt) {
   return attempt?.staffRemark || attempt?.cancellationReason || '';
 }
 
+function computeFirmPendingExpiryAt(startTime) {
+  const startMs = new Date(startTime).getTime();
+  if (!Number.isFinite(startMs)) return null;
+  return new Date(startMs - 24 * 60 * 60 * 1000);
+}
+
 export function ActiveBookingCard({
   booking,
   resourceName,
@@ -150,7 +156,12 @@ export function ActiveBookingCard({
     Boolean(booking.staffRemark) ||
     Boolean(booking.cancellationReason) ||
     Boolean(booking.probableRebookDate) ||
+    (booking.bookingType === 'firm' && booking.status === 'pending_approval') ||
     (booking.expiryAt && ['penciled', 'contested', 'on_hold'].includes(booking.status));
+  const firmPendingExpiryAt =
+    booking.bookingType === 'firm' && booking.status === 'pending_approval'
+      ? computeFirmPendingExpiryAt(booking.startTime)
+      : null;
   const [showDefenderChallengerDetail, setShowDefenderChallengerDetail] = useState(false);
   const [showChallengerDetail, setShowChallengerDetail] = useState(false);
   const [showFirmPendingDetail, setShowFirmPendingDetail] = useState(false);
@@ -721,6 +732,11 @@ export function ActiveBookingCard({
                   {booking.expiryAt && ['penciled', 'contested', 'on_hold'].includes(booking.status) && (
                     <p className="text-xs text-muted-foreground">
                       {ac.meta.expiresPrefix()} {format(new Date(booking.expiryAt), 'MMM d, yyyy h:mm a')}
+                    </p>
+                  )}
+                  {firmPendingExpiryAt && (
+                    <p className="text-xs text-muted-foreground">
+                      {ac.meta.expiresPrefix()} {format(firmPendingExpiryAt, 'MMM d, yyyy h:mm a')}
                     </p>
                   )}
                 </div>

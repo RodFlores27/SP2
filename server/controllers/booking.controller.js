@@ -23,6 +23,7 @@ const {
 } = require('../utils/booking-notifications');
 const {
   BOOKING_EVENT_TYPES,
+  deriveRequestType,
   isKafkaEnabled,
   publishBookingLifecycleEvent,
 } = require('../utils/kafka');
@@ -475,30 +476,97 @@ async function emitContentionResolvedNotifications({
   if (entries.length === 0) return;
 
   const bookingMap = await loadBookingsForContentionNotifications(entries);
+  const byPair = new Map();
   for (const notification of entries) {
-    const recipientBooking = bookingMap.get(notification.recipientBookingId);
-    if (!recipientBooking) continue;
+    const a = Number(notification?.recipientBookingId || 0);
+    const b = Number(notification?.counterpartyBookingId || 0);
+    if (!a) continue;
+    const key = [Math.min(a, b || a), Math.max(a, b || a)].join(':');
+    if (!byPair.has(key)) byPair.set(key, []);
+    byPair.get(key).push(notification);
+  }
+
+  for (const pairEntries of byPair.values()) {
+    const defenderEntry = pairEntries.find((entry) => entry.recipientContentionRole === 'defender') || null;
+    const challengerEntry = pairEntries.find((entry) => entry.recipientContentionRole === 'challenger') || null;
+    const fallback = pairEntries[0];
+    const defenderBooking = defenderEntry
+      ? bookingMap.get(defenderEntry.recipientBookingId)
+      : fallback?.counterpartyBookingId
+        ? bookingMap.get(fallback.counterpartyBookingId)
+        : null;
+    const challengerBooking = challengerEntry
+      ? bookingMap.get(challengerEntry.recipientBookingId)
+      : fallback?.recipientBookingId
+        ? bookingMap.get(fallback.recipientBookingId)
+        : null;
+    const anchorBooking = defenderBooking || challengerBooking || bookingMap.get(fallback.recipientBookingId);
+    if (!anchorBooking) continue;
 
     const payload = {
-      counterpartyBookingId: notification.counterpartyBookingId || null,
-      recipientOutcome: notification.recipientOutcome,
-      resolutionReason: notification.resolutionReason,
-      resolvedByBookingId: notification.resolvedByBookingId || null,
-      recipientContentionRole: notification.recipientContentionRole || null,
+      requestType: deriveRequestType(anchorBooking),
+      resolutionReason: fallback.resolutionReason || null,
+      resolvedByBookingId: fallback.resolvedByBookingId || null,
+      defender: defenderBooking
+        ? {
+            bookingId: defenderBooking.id,
+            referenceCode: defenderBooking.referenceCode || null,
+            outcome: defenderEntry?.recipientOutcome || null,
+            finalStatus: defenderBooking.status || null,
+          }
+        : null,
+      challenger: challengerBooking
+        ? {
+            bookingId: challengerBooking.id,
+            referenceCode: challengerBooking.referenceCode || null,
+            outcome: challengerEntry?.recipientOutcome || null,
+            finalStatus: challengerBooking.status || null,
+          }
+        : null,
+      targets: [defenderBooking?.id, challengerBooking?.id].filter(Boolean),
     };
 
-    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CONTENTION_RESOLVED, recipientBooking, {
+    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CONTENTION_RESOLVED, anchorBooking, {
       actorUserId,
       resourceName,
       payload,
     });
-    if (!isKafkaEnabled()) {
+  }
+
+  if (!isKafkaEnabled()) {
+    for (const notification of entries) {
+      const recipientBooking = bookingMap.get(notification.recipientBookingId);
+      if (!recipientBooking) continue;
+      const payload = {
+        counterpartyBookingId: notification.counterpartyBookingId || null,
+        recipientOutcome: notification.recipientOutcome,
+        resolutionReason: notification.resolutionReason,
+        resolvedByBookingId: notification.resolvedByBookingId || null,
+        recipientContentionRole: notification.recipientContentionRole || null,
+      };
       const counterpartyBooking = notification.counterpartyBookingId
         ? bookingMap.get(notification.counterpartyBookingId) || null
         : null;
       notifyContentionResolved(recipientBooking, counterpartyBooking, resourceName, payload).catch(() => {});
     }
   }
+}
+
+function summarizeContentionParticipant(booking) {
+  if (!booking) return null;
+  return {
+    bookingId: booking.id,
+    referenceCode: booking.referenceCode || null,
+    userId: booking.user?.id ?? null,
+    email: booking.user?.email ?? null,
+  };
+}
+
+function deriveDisplacementReasonFromPayload(payload = {}) {
+  if (payload.source === 'booking.approve') return 'firm_approved_overlap';
+  if (payload.source === 'contention.resolve_due_deadline') return 'defender_missed_deadline';
+  if (payload.source === 'contention.resolve_expired_defender') return 'defender_expired_boundary';
+  return null;
 }
 
 function normalizeOptionalText(value) {
@@ -955,6 +1023,7 @@ const createBooking = async (req, res) => {
     let createdBooking;
     let contentionResult = null;
     const onHoldBookingIds = new Set();
+    const contentionResolvedNotifications = [];
     try {
       createdBooking = await sequelize.transaction(async (t) => {
         if (bookingType === 'pencil' && otherPencilOverlaps.length > 0) {
@@ -1031,6 +1100,7 @@ const createBooking = async (req, res) => {
             Booking
           });
           autoResolveResult?.onHoldBookingIds?.forEach((id) => onHoldBookingIds.add(id));
+          contentionResolvedNotifications.push(...(autoResolveResult?.contentionNotifications || []));
 
           const reevaluateResult = await contention.reevaluateOverlappingPencilsForFirm(b, {
             transaction: t,
@@ -1140,8 +1210,15 @@ const createBooking = async (req, res) => {
       payload: {
         source: 'booking.create',
         triggerBookingId: createdBooking.id,
+        causingBookingId: createdBooking.id,
+        causingReferenceCode: createdBooking.referenceCode || null,
       },
       directNotifier: notifyBookingOnHold,
+    });
+    await emitContentionResolvedNotifications({
+      notifications: contentionResolvedNotifications,
+      resourceName,
+      actorUserId: userId,
     });
 
     if (contentionResult?.action === 'challenger') {
@@ -1156,8 +1233,8 @@ const createBooking = async (req, res) => {
           actorUserId: userId,
           resourceName,
           payload: {
-            defenderBookingId: defender.id,
-            challengerBookingId: freshBooking.id,
+            defender: summarizeContentionParticipant(defender),
+            challenger: summarizeContentionParticipant(freshBooking),
             contentionDeadlineAt: defender.contentionDeadlineAt || null,
           },
         });
@@ -1681,6 +1758,23 @@ const convertToFirm = async (req, res) => {
         previousStatus: booking.status,
       },
     });
+    const onHoldBookingIds = contentionNotifications
+      .filter((notification) => notification?.recipientOutcome === 'on_hold')
+      .map((notification) => notification.recipientBookingId)
+      .filter((id) => Number.isInteger(id));
+    await emitBookingTransitionNotifications({
+      bookingIds: onHoldBookingIds,
+      eventType: BOOKING_EVENT_TYPES.ON_HOLD,
+      resourceName,
+      actorUserId: userId,
+      payload: {
+        source: 'booking.convert_to_firm',
+        triggerBookingId: updatedBooking.id,
+        causingBookingId: updatedBooking.id,
+        causingReferenceCode: updatedBooking.referenceCode || null,
+      },
+      directNotifier: notifyBookingOnHold,
+    });
     await emitContentionResolvedNotifications({
       notifications: contentionNotifications,
       resourceName,
@@ -1797,6 +1891,9 @@ const approveBooking = async (req, res) => {
         source: 'booking.approve',
         triggerBookingId: updatedBooking.id,
         displacedByBookingId: updatedBooking.id,
+        displacingBookingId: updatedBooking.id,
+        displacingReferenceCode: updatedBooking.referenceCode || null,
+        displacementReason: deriveDisplacementReasonFromPayload({ source: 'booking.approve' }),
       },
       directNotifier: notifyBookingDisplaced,
     });

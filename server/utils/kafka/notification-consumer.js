@@ -104,14 +104,52 @@ async function processBookingNotificationEvent(event) {
       return { handled: true, action: 'notifyBookingDisplaced' };
     }
     case BOOKING_EVENT_TYPES.CONTENTION_RESOLVED: {
-      if (!booking) return { handled: false, reason: 'Booking not found' };
-      const counterpartyBooking = await loadBookingForNotification(payload.counterpartyBookingId || null);
-      await notifyContentionResolved(booking, counterpartyBooking, resourceName, payload);
+      // Backward-compatible: old payload shape (recipient-oriented event)
+      if (payload.recipientOutcome != null) {
+        if (!booking) return { handled: false, reason: 'Booking not found' };
+        const counterpartyBooking = await loadBookingForNotification(payload.counterpartyBookingId || null);
+        await notifyContentionResolved(booking, counterpartyBooking, resourceName, payload);
+        return { handled: true, action: 'notifyContentionResolvedLegacy' };
+      }
+
+      // New payload shape: one event with both defender/challenger details.
+      const defenderId = payload?.defender?.bookingId || null;
+      const challengerId = payload?.challenger?.bookingId || null;
+      const [defenderBooking, challengerBooking] = await Promise.all([
+        loadBookingForNotification(defenderId),
+        loadBookingForNotification(challengerId),
+      ]);
+
+      const notifications = [];
+      if (defenderBooking) {
+        notifications.push(
+          notifyContentionResolved(defenderBooking, challengerBooking, resourceName, {
+            recipientOutcome: payload?.defender?.outcome || 'active',
+            resolutionReason: payload.resolutionReason || null,
+            resolvedByBookingId: payload.resolvedByBookingId || null,
+            recipientContentionRole: 'defender',
+          })
+        );
+      }
+      if (challengerBooking) {
+        notifications.push(
+          notifyContentionResolved(challengerBooking, defenderBooking, resourceName, {
+            recipientOutcome: payload?.challenger?.outcome || 'active',
+            resolutionReason: payload.resolutionReason || null,
+            resolvedByBookingId: payload.resolvedByBookingId || null,
+            recipientContentionRole: 'challenger',
+          })
+        );
+      }
+      if (notifications.length === 0) {
+        return { handled: false, reason: 'Defender and challenger not found' };
+      }
+      await Promise.all(notifications);
       return { handled: true, action: 'notifyContentionResolved' };
     }
     case BOOKING_EVENT_TYPES.CONTENTION_STARTED: {
-      const defenderId = payload.defenderBookingId || null;
-      const challengerId = payload.challengerBookingId || event.bookingId || null;
+      const defenderId = payload?.defender?.bookingId || payload.defenderBookingId || null;
+      const challengerId = payload?.challenger?.bookingId || payload.challengerBookingId || event.bookingId || null;
       const [defender, challenger] = await Promise.all([
         loadBookingForNotification(defenderId),
         loadBookingForNotification(challengerId),

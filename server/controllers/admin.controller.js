@@ -206,6 +206,14 @@ const listAuditLogs = async (req, res) => {
             'cancellationReason',
             'probableRebookDate',
           ],
+          include: [
+            {
+              model: User,
+              as: 'user',
+              required: false,
+              attributes: ['id', 'email'],
+            },
+          ],
         },
       ],
     });

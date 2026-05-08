@@ -121,6 +121,7 @@ function normalizeText(value) {
   return String(value ?? '').toLowerCase();
 }
 
+
 function getStartWindowBucket(startTime, nowMs = Date.now()) {
   const diffHours = (new Date(startTime).getTime() - nowMs) / (1000 * 60 * 60);
   if (diffHours <= 24) return 'within_24h';
@@ -1446,13 +1447,13 @@ function ApprovedBookingCard({ booking, resourceName }) {
                   <div>
                     <p className="font-medium text-foreground">Purpose:</p>
                     <p className="text-muted-foreground whitespace-pre-wrap break-words">{booking.purpose}</p>
-                    {booking.staffRemark && (
-                      <p className="mt-1.5">
-                        <span className="font-medium">Staff remark:</span>{' '}
-                        <span className="text-muted-foreground">{booking.staffRemark}</span>
-                      </p>
-                    )}
                   </div>
+                )}
+                {booking.staffRemark && (
+                  <p>
+                    <span className="font-medium">Staff remark:</span>{' '}
+                    <span className="text-muted-foreground">{booking.staffRemark}</span>
+                  </p>
                 )}
 
                 {(booking.resourceType === 'room' ||
@@ -1464,17 +1465,38 @@ function ApprovedBookingCard({ booking, resourceName }) {
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {booking.resourceType === 'equipment' && booking.equipmentRequestType === 'loan' && (
                         <>
-                          <p><span className="font-medium">Reason:</span> {booking.loanReason || '—'}</p>
-                          <p><span className="font-medium">Workflow note:</span> {booking.loanWorkflowNote || '—'}</p>
-                          <p><span className="font-medium">Transport plan:</span> {booking.loanTransportPlan || '—'}</p>
+                          <div className="space-y-1 min-w-0">
+                            <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Reason</p>
+                            <p className="break-words text-foreground">{booking.loanReason || '—'}</p>
+                          </div>
+                          <div className="space-y-1 min-w-0">
+                            <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Workflow Note</p>
+                            <p className="break-words text-foreground">{booking.loanWorkflowNote || '—'}</p>
+                          </div>
+                          <div className="space-y-1 min-w-0">
+                            <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Transport Plan</p>
+                            <p className="break-words text-foreground">{booking.loanTransportPlan || '—'}</p>
+                          </div>
                         </>
                       )}
                       {booking.resourceType === 'room' && (
                         <>
-                          <p><span className="font-medium">Expected participants:</span> {booking.roomParticipantCount ?? '—'}</p>
-                          <p><span className="font-medium">Event equipment needs:</span> {booking.roomEquipmentNeeds || '—'}</p>
-                          <p><span className="font-medium">Setup and catering requirements:</span> {booking.roomSetupRequirements || '—'}</p>
-                          <p className="sm:col-span-2 lg:col-span-3"><span className="font-medium">Program or event details:</span> {booking.roomProgramDetails || '—'}</p>
+                          <div className="space-y-1 min-w-0">
+                            <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Expected Participants</p>
+                            <p className="break-words text-foreground">{booking.roomParticipantCount ?? '—'}</p>
+                          </div>
+                          <div className="space-y-1 min-w-0">
+                            <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Event Equipment Needs</p>
+                            <p className="break-words text-foreground">{booking.roomEquipmentNeeds || '—'}</p>
+                          </div>
+                          <div className="space-y-1 min-w-0">
+                            <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Setup & Catering</p>
+                            <p className="break-words text-foreground">{booking.roomSetupRequirements || '—'}</p>
+                          </div>
+                          <div className="space-y-1 min-w-0 sm:col-span-2 lg:col-span-3">
+                            <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Program / Event Details</p>
+                            <p className="break-words text-foreground">{booking.roomProgramDetails || '—'}</p>
+                          </div>
                         </>
                       )}
                     </div>

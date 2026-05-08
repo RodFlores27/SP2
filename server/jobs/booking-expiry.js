@@ -16,6 +16,7 @@ const {
 } = require('../utils/booking-notifications');
 const {
   BOOKING_EVENT_TYPES,
+  deriveRequestType,
   isKafkaEnabled,
   publishBookingLifecycleEvent,
 } = require('../utils/kafka');
@@ -102,24 +103,75 @@ async function emitContentionResolvedNotifications(notifications) {
   if (entries.length === 0) return;
 
   const bookingMap = await loadBookingsForContentionNotifications(entries);
+  const byPair = new Map();
   for (const notification of entries) {
-    const recipientBooking = bookingMap.get(notification.recipientBookingId);
-    if (!recipientBooking) continue;
+    const a = Number(notification?.recipientBookingId || 0);
+    const b = Number(notification?.counterpartyBookingId || 0);
+    if (!a) continue;
+    const key = [Math.min(a, b || a), Math.max(a, b || a)].join(':');
+    if (!byPair.has(key)) byPair.set(key, []);
+    byPair.get(key).push(notification);
+  }
 
-    const resourceName = await resolveResourceName(recipientBooking.resourceType, recipientBooking.resourceId);
+  for (const pairEntries of byPair.values()) {
+    const defenderEntry = pairEntries.find((entry) => entry.recipientContentionRole === 'defender') || null;
+    const challengerEntry = pairEntries.find((entry) => entry.recipientContentionRole === 'challenger') || null;
+    const fallback = pairEntries[0];
+    const defenderBooking = defenderEntry
+      ? bookingMap.get(defenderEntry.recipientBookingId)
+      : fallback?.counterpartyBookingId
+        ? bookingMap.get(fallback.counterpartyBookingId)
+        : null;
+    const challengerBooking = challengerEntry
+      ? bookingMap.get(challengerEntry.recipientBookingId)
+      : fallback?.recipientBookingId
+        ? bookingMap.get(fallback.recipientBookingId)
+        : null;
+    const anchorBooking = defenderBooking || challengerBooking || bookingMap.get(fallback.recipientBookingId);
+    if (!anchorBooking) continue;
+
+    const resourceName = await resolveResourceName(anchorBooking.resourceType, anchorBooking.resourceId);
     const payload = {
-      counterpartyBookingId: notification.counterpartyBookingId || null,
-      recipientOutcome: notification.recipientOutcome,
-      resolutionReason: notification.resolutionReason,
-      resolvedByBookingId: notification.resolvedByBookingId || null,
-      recipientContentionRole: notification.recipientContentionRole || null,
+      requestType: deriveRequestType(anchorBooking),
+      resolutionReason: fallback.resolutionReason || null,
+      resolvedByBookingId: fallback.resolvedByBookingId || null,
+      defender: defenderBooking
+        ? {
+            bookingId: defenderBooking.id,
+            referenceCode: defenderBooking.referenceCode || null,
+            outcome: defenderEntry?.recipientOutcome || null,
+            finalStatus: defenderBooking.status || null,
+          }
+        : null,
+      challenger: challengerBooking
+        ? {
+            bookingId: challengerBooking.id,
+            referenceCode: challengerBooking.referenceCode || null,
+            outcome: challengerEntry?.recipientOutcome || null,
+            finalStatus: challengerBooking.status || null,
+          }
+        : null,
+      targets: [defenderBooking?.id, challengerBooking?.id].filter(Boolean),
     };
 
-    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CONTENTION_RESOLVED, recipientBooking, {
+    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.CONTENTION_RESOLVED, anchorBooking, {
       resourceName,
       payload,
     });
-    if (!isKafkaEnabled()) {
+  }
+
+  if (!isKafkaEnabled()) {
+    for (const notification of entries) {
+      const recipientBooking = bookingMap.get(notification.recipientBookingId);
+      if (!recipientBooking) continue;
+      const resourceName = await resolveResourceName(recipientBooking.resourceType, recipientBooking.resourceId);
+      const payload = {
+        counterpartyBookingId: notification.counterpartyBookingId || null,
+        recipientOutcome: notification.recipientOutcome,
+        resolutionReason: notification.resolutionReason,
+        resolvedByBookingId: notification.resolvedByBookingId || null,
+        recipientContentionRole: notification.recipientContentionRole || null,
+      };
       const counterpartyBooking = notification.counterpartyBookingId
         ? bookingMap.get(notification.counterpartyBookingId) || null
         : null;

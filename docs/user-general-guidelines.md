@@ -237,9 +237,19 @@ The My Bookings dashboard shows the user's active and past bookings.
 
 Active bookings may include penciled, on-hold, pending approval, and approved bookings. Users should review active booking cards for deadlines, status messages, staff remarks, and available actions.
 
+Each active card provides a `View Details` section that can show:
+
+1. Purpose.
+2. Loan request details (for equipment loan bookings).
+3. Room request details (for room bookings).
+4. History timeline of previous attempts in the same booking thread.
+5. Cancellation reason and probable rebook date when available.
+
 ### 2. Past Bookings
 
 Past bookings may include cancelled, denied, expired, displaced, and completed bookings. Eligible past bookings may show a rebook option.
+
+Past booking cards also include a `View Details` section with request details and history context to help users understand prior outcomes.
 
 ### 3. Cancelling a Booking
 

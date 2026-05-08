@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import GoogleIcon from '@/components/GoogleIcon';
+import { getRoleHomePath } from '@/lib/role-home';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -36,6 +37,7 @@ export default function Login() {
   const [searchParams, setSearchParams] = useSearchParams();
   const {
     login,
+    user,
     isAuthenticated,
     logoutReason,
     clearLogoutReason,
@@ -58,9 +60,9 @@ export default function Login() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard', { replace: true });
+      navigate(getRoleHomePath(user), { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, navigate, user]);
 
   useEffect(() => {
     if (getSessionNotice(logoutReason)) {
@@ -85,7 +87,7 @@ export default function Login() {
     const result = await login(data.email, data.password);
 
     if (result.success) {
-      navigate('/dashboard');
+      navigate(getRoleHomePath(result.user), { replace: true });
     } else {
       setError(result.error);
       if (/not confirmed|verify/i.test(result.error || '')) {

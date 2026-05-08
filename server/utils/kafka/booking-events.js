@@ -15,6 +15,17 @@ const BOOKING_EVENT_TYPES = Object.freeze({
   DISPLACED_SLOT_REOPENED: 'booking.displaced_slot_reopened',
 });
 
+function deriveRequestType(booking = {}, options = {}) {
+  const resourceType = booking.resourceType ?? options.resourceType ?? null;
+  const equipmentRequestType = booking.equipmentRequestType ?? options.equipmentRequestType ?? null;
+  if (resourceType === 'room') return 'room';
+  if (resourceType === 'equipment') {
+    if (equipmentRequestType === 'loan') return 'equipment_loan';
+    return 'equipment_inhouse';
+  }
+  return null;
+}
+
 function toPlainBooking(booking) {
   if (!booking) return {};
   if (typeof booking.toJSON === 'function') return booking.toJSON();
@@ -23,6 +34,7 @@ function toPlainBooking(booking) {
 
 function bookingEventData(booking, options = {}) {
   const b = toPlainBooking(booking);
+  const requestType = deriveRequestType(b, options);
   return {
     actorUserId: options.actorUserId ?? null,
     bookingId: b.id ?? options.bookingId ?? null,
@@ -31,6 +43,7 @@ function bookingEventData(booking, options = {}) {
     bookingType: b.bookingType ?? options.bookingType ?? null,
     status: b.status ?? options.status ?? null,
     payload: {
+      requestType,
       userId: b.userId ?? null,
       startTime: b.startTime ?? null,
       endTime: b.endTime ?? null,
@@ -62,5 +75,6 @@ async function publishBookingLifecycleEvent(eventType, booking, options = {}) {
 module.exports = {
   BOOKING_EVENT_TYPES,
   bookingEventData,
+  deriveRequestType,
   publishBookingLifecycleEvent,
 };

@@ -263,9 +263,52 @@ function getAuditTarget(log) {
   }
   if (String(log.eventType || '').startsWith('booking.')) {
     const reference = log.booking?.referenceCode || payload.referenceCode;
-    return reference || (log.bookingId ? `Booking #${log.bookingId}` : 'Booking');
+    const ownerEmail = log.booking?.user?.email || null;
+    const ownerId = payload.userId || log.booking?.user?.id || null;
+    const owner = ownerEmail || (ownerId ? `User #${ownerId}` : null);
+    const bookingLabel = reference || (log.bookingId ? `Booking #${log.bookingId}` : 'Booking');
+    if (
+      [
+        'booking.approved',
+        'booking.denied',
+        'booking.expiring_soon',
+        'booking.expired',
+        'booking.on_hold',
+      ].includes(log.eventType)
+    ) {
+      return owner ? `${bookingLabel} (${owner})` : bookingLabel;
+    }
+    return bookingLabel;
   }
   return 'System';
+}
+
+function inferRequestType(log) {
+  const payload = log?.payload || {};
+  if (payload.requestType) return payload.requestType;
+  const resourceType = log?.booking?.resourceType || log?.resourceType || null;
+  const equipmentRequestType = log?.booking?.equipmentRequestType || null;
+  if (resourceType === 'room') return 'room';
+  if (resourceType === 'equipment') {
+    if (equipmentRequestType === 'loan') return 'equipment_loan';
+    return 'equipment_inhouse';
+  }
+  return null;
+}
+
+function formatRequestType(value) {
+  if (!value) return '-';
+  if (value === 'equipment_inhouse') return 'Equipment In-house';
+  if (value === 'equipment_loan') return 'Equipment Loan';
+  if (value === 'room') return 'Room';
+  return formatLabel(value);
+}
+
+function formatContentionParty(party) {
+  if (!party) return '-';
+  const booking = party.referenceCode || (party.bookingId ? `#${party.bookingId}` : '?');
+  const user = party.email || (party.userId ? `User #${party.userId}` : null);
+  return user ? `${booking} (${user})` : booking;
 }
 
 function getAuditDetails(log) {
@@ -283,6 +326,25 @@ function getAuditDetails(log) {
       : 'Resource details updated';
   }
   if (String(log.eventType || '').startsWith('booking.')) {
+    if (log.eventType === 'booking.contention_started') {
+      const requestType = formatRequestType(inferRequestType(log));
+      const defender = formatContentionParty(payload.defender);
+      const challenger = formatContentionParty(payload.challenger);
+      return `${requestType} - Defender: ${defender} - Challenger: ${challenger}`;
+    }
+    if (log.eventType === 'booking.contention_resolved') {
+      const requestType = formatRequestType(inferRequestType(log));
+      return `${requestType} - ${formatLabel(payload.resolutionReason || 'resolved')}`;
+    }
+    if (log.eventType === 'booking.displaced') {
+      const requestType = formatRequestType(inferRequestType(log));
+      return `${requestType} - ${formatLabel(payload.displacementReason || 'displaced')}`;
+    }
+    if (log.eventType === 'booking.on_hold') {
+      const requestType = formatRequestType(inferRequestType(log));
+      const cause = payload.causingReferenceCode || (payload.causingBookingId ? `#${payload.causingBookingId}` : 'booking overlap');
+      return `${requestType} - Caused by ${cause}`;
+    }
     const bookingType = formatLabel(log.bookingType || log.booking?.bookingType);
     const status = formatLabel(log.status || log.booking?.status);
     const startTime = payload.startTime ? formatAuditTime(payload.startTime) : null;
@@ -344,6 +406,9 @@ function DetailRow({ label, value }) {
 
 function AuditExpandedDetails({ log }) {
   const payload = log.payload || {};
+  const requestType = inferRequestType(log);
+  const isRoomRequest = requestType === 'room';
+  const isEquipmentLoanRequest = requestType === 'equipment_loan';
   const changedFields =
     String(log.eventType || '').startsWith('resource.')
       ? getChangedFields(payload.previous, payload.current)
@@ -397,6 +462,7 @@ function AuditExpandedDetails({ log }) {
       {String(log.eventType || '').startsWith('booking.') && (
         <div className="space-y-3 rounded-md border border-border bg-background p-3">
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <DetailRow label="Request Type" value={formatRequestType(requestType)} />
             <DetailRow label="Type" value={formatLabel(log.bookingType || log.booking?.bookingType)} />
             <DetailRow label="Status" value={formatLabel(log.status || log.booking?.status)} />
             <DetailRow
@@ -408,6 +474,51 @@ function AuditExpandedDetails({ log }) {
               }
             />
           </dl>
+          {log.eventType === 'booking.contention_started' && (
+            <dl className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
+              <DetailRow label="Defender" value={formatContentionParty(payload.defender)} />
+              <DetailRow label="Challenger" value={formatContentionParty(payload.challenger)} />
+              <DetailRow
+                label="Contention Deadline"
+                value={payload.contentionDeadlineAt ? formatAuditTime(payload.contentionDeadlineAt) : '-'}
+              />
+            </dl>
+          )}
+          {log.eventType === 'booking.contention_resolved' && (
+            <dl className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
+              <DetailRow label="Resolution Reason" value={formatLabel(payload.resolutionReason)} />
+              <DetailRow label="Defender" value={formatContentionParty(payload.defender)} />
+              <DetailRow label="Challenger" value={formatContentionParty(payload.challenger)} />
+              <DetailRow label="Defender Outcome" value={formatLabel(payload.defender?.outcome)} />
+              <DetailRow label="Challenger Outcome" value={formatLabel(payload.challenger?.outcome)} />
+            </dl>
+          )}
+          {log.eventType === 'booking.displaced' && (
+            <dl className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
+              <DetailRow label="Displacement Reason" value={formatLabel(payload.displacementReason)} />
+              <DetailRow
+                label="Displacing Booking"
+                value={payload.displacingReferenceCode || (payload.displacingBookingId ? `#${payload.displacingBookingId}` : '-')}
+              />
+            </dl>
+          )}
+          {log.eventType === 'booking.on_hold' && (
+            <dl className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
+              <DetailRow
+                label="Caused By Booking"
+                value={payload.causingReferenceCode || (payload.causingBookingId ? `#${payload.causingBookingId}` : '-')}
+              />
+              <DetailRow label="Cause Source" value={formatLabel(payload.source)} />
+            </dl>
+          )}
+          {['booking.approved', 'booking.denied', 'booking.expiring_soon', 'booking.expired', 'booking.on_hold'].includes(log.eventType) && (
+            <dl className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
+              <DetailRow
+                label="Booking Owner"
+                value={log.booking?.user?.email || (payload.userId ? `User #${payload.userId}` : '-')}
+              />
+            </dl>
+          )}
           {(log.booking?.equipmentRequestType ||
             log.booking?.loanReason ||
             log.booking?.loanWorkflowNote ||
@@ -419,28 +530,36 @@ function AuditExpandedDetails({ log }) {
             log.booking?.cancellationReason ||
             log.booking?.probableRebookDate) && (
             <dl className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
-              <DetailRow
-                label="Equipment Request Type"
-                value={formatLabel(log.booking?.equipmentRequestType)}
-              />
-              <DetailRow label="Loan Reason" value={log.booking?.loanReason || '-'} />
-              <DetailRow label="Loan Workflow Note" value={log.booking?.loanWorkflowNote || '-'} />
-              <DetailRow label="Loan Transport Plan" value={log.booking?.loanTransportPlan || '-'} />
-              <DetailRow
-                label="Expected Participants"
-                value={log.booking?.roomParticipantCount != null ? String(log.booking.roomParticipantCount) : '-'}
-              />
-              <DetailRow label="Event Equipment Needs" value={log.booking?.roomEquipmentNeeds || '-'} />
-              <DetailRow
-                label="Setup and Catering Requirements"
-                value={log.booking?.roomSetupRequirements || '-'}
-              />
-              <DetailRow label="Program or Event Details" value={log.booking?.roomProgramDetails || '-'} />
-              <DetailRow label="Cancellation Reason" value={log.booking?.cancellationReason || '-'} />
-              <DetailRow
-                label="Probable Rebook Date"
-                value={log.booking?.probableRebookDate ? formatAuditTime(log.booking.probableRebookDate) : '-'}
-              />
+              {isEquipmentLoanRequest && <DetailRow label="Loan Reason" value={log.booking?.loanReason || '-'} />}
+              {isEquipmentLoanRequest && (
+                <DetailRow label="Loan Workflow Note" value={log.booking?.loanWorkflowNote || '-'} />
+              )}
+              {isEquipmentLoanRequest && (
+                <DetailRow label="Loan Transport Plan" value={log.booking?.loanTransportPlan || '-'} />
+              )}
+              {isRoomRequest && (
+                <DetailRow
+                  label="Expected Participants"
+                  value={log.booking?.roomParticipantCount != null ? String(log.booking.roomParticipantCount) : '-'}
+                />
+              )}
+              {isRoomRequest && <DetailRow label="Event Equipment Needs" value={log.booking?.roomEquipmentNeeds || '-'} />}
+              {isRoomRequest && (
+                <DetailRow
+                  label="Setup and Catering Requirements"
+                  value={log.booking?.roomSetupRequirements || '-'}
+                />
+              )}
+              {isRoomRequest && <DetailRow label="Program or Event Details" value={log.booking?.roomProgramDetails || '-'} />}
+              {log.eventType === 'booking.cancelled' && (
+                <DetailRow label="Cancellation Reason" value={log.booking?.cancellationReason || '-'} />
+              )}
+              {log.eventType === 'booking.cancelled' && (
+                <DetailRow
+                  label="Probable Rebook Date"
+                  value={log.booking?.probableRebookDate ? formatAuditTime(log.booking.probableRebookDate) : '-'}
+                />
+              )}
             </dl>
           )}
         </div>

@@ -118,7 +118,7 @@ export const AuthProvider = ({ children }) => {
       setToken(newToken);
       setUser(newUser);
 
-      return { success: true };
+      return { success: true, user: newUser };
     } catch (error) {
       return {
         success: false,
@@ -157,7 +157,7 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: 'OAuth URL was not returned by the server' };
       }
       window.location.assign(url);
-      return { success: true };
+      return { success: true, user: newUser };
     } catch (error) {
       return {
         success: false,

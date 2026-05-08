@@ -264,6 +264,42 @@ function createContentionResolvedNotification({
   };
 }
 
+function createDualResolutionNotifications({
+  defender,
+  challenger,
+  defenderOutcome,
+  challengerOutcome,
+  resolutionReason,
+  resolvedByBookingId = null,
+}) {
+  const notifications = [];
+  if (defender) {
+    notifications.push(
+      createContentionResolvedNotification({
+        recipientBookingId: defender.id,
+        counterpartyBookingId: challenger?.id || null,
+        recipientOutcome: defenderOutcome,
+        resolutionReason,
+        resolvedByBookingId,
+        recipientContentionRole: 'defender',
+      })
+    );
+  }
+  if (challenger) {
+    notifications.push(
+      createContentionResolvedNotification({
+        recipientBookingId: challenger.id,
+        counterpartyBookingId: defender?.id || null,
+        recipientOutcome: challengerOutcome,
+        resolutionReason,
+        resolvedByBookingId,
+        recipientContentionRole: 'challenger',
+      })
+    );
+  }
+  return notifications;
+}
+
 /**
  * Defender resolves terminally, challenger is rebuilt (on_hold / free / re-contention).
  */
@@ -498,6 +534,7 @@ async function onFirmDeniedOrCancelled(firmBooking, { transaction, Booking }) {
  */
 async function autoResolveFirmBlockedDefenders(firmBooking, { transaction, Booking }) {
   const onHoldBookingIds = new Set();
+  const contentionNotifications = [];
   const overlappingDefenders = await findOverlappingPencilsForFirm(
     firmBooking,
     { statuses: 'penciled', contentionRole: 'defender' },
@@ -516,13 +553,27 @@ async function autoResolveFirmBlockedDefenders(firmBooking, { transaction, Booki
       onHoldBookingIds.add(defender.id);
     }
 
+    let challengerOutcome = null;
     if (challenger) {
       await clearContentionState(challenger, { transaction });
       const challengerResult = await rebuildPencilAfterEpisode(challenger.id, { transaction, Booking });
       if (challengerResult?.action === 'on_hold' && challengerResult.newlyOnHold) {
         onHoldBookingIds.add(challenger.id);
       }
+      challengerOutcome = mapRebuildOutcome(challengerResult);
     }
+
+    const defenderOutcome = mapRebuildOutcome(defenderResult);
+    contentionNotifications.push(
+      ...createDualResolutionNotifications({
+        defender,
+        challenger,
+        defenderOutcome,
+        challengerOutcome,
+        resolutionReason: 'unwinnable_defender_firm_overlap',
+        resolvedByBookingId: firmBooking.id,
+      })
+    );
   }
 
   // Also park any overlapping free pencils as on_hold.
@@ -543,7 +594,10 @@ async function autoResolveFirmBlockedDefenders(firmBooking, { transaction, Booki
     }
   }
 
-  return { onHoldBookingIds: Array.from(onHoldBookingIds) };
+  return {
+    onHoldBookingIds: Array.from(onHoldBookingIds),
+    contentionNotifications,
+  };
 }
 
 /**

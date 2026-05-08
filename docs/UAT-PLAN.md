@@ -56,7 +56,7 @@ The following are not UAT targets, though they may be covered by technical tests
 | Load/performance testing | Requires separate tooling and success metrics |
 | Kafka internals | Milestone tests already verify event publishing, notification, audit, and analytics consumers |
 | Direct database validation by participants | Not appropriate for non-technical UAT users |
-| Backend-only audit log endpoint | `/api/admin/audit-logs` exists, but no visible Admin Panel audit log tab was found in the current UI |
+| Backend-only audit log endpoint internals | Direct API contract/internal DB checks are not participant-facing UAT tasks; use Admin Panel Audit Trail for UI validation |
 | Browser/device matrix testing | Can be done separately as compatibility testing |
 
 ## 4. User Roles
@@ -65,7 +65,7 @@ The following are not UAT targets, though they may be covered by technical tests
 | --- | --- | --- |
 | Student/requester | `regular_user` | Browse resources, view calendar, create pencil/firm bookings, upload documents, monitor status, cancel, convert, rebook |
 | PTCF staff | `ptcf_staff` | Review pending firm bookings, approve/deny with remarks, inspect authorization documents, understand conflicts, manage resources |
-| System administrator | `system_admin` | Access Admin Panel, view analytics/recent events, manage users and roles, access staff features |
+| System administrator | `system_admin` | Access Admin Panel, view analytics and Audit Trail, manage users and roles, access staff features |
 
 Public self-registration creates regular user accounts only. Staff and administrator roles must be assigned by an existing system administrator.
 
@@ -219,7 +219,7 @@ The system passes UAT when:
 | --- | --- |
 | ADM-S01 | Log in and access Admin Panel |
 | ADM-S02 | View booking event analytics |
-| ADM-S03 | View recent booking lifecycle event summaries |
+| ADM-S03 | View Audit Trail booking lifecycle event entries |
 | ADM-S04 | Search users and inspect role counts |
 | ADM-S05 | Change a user role |
 | ADM-S06 | Attempt self-protected role/delete actions |
@@ -257,14 +257,14 @@ The system passes UAT when:
 | ID | Test Case | Preconditions | Steps | Expected Outcome | Result | Issue ID |
 | --- | --- | --- | --- | --- | --- | --- |
 | STF-01 | Log in as PTCF staff | Staff account exists | Log in; open navigation Manage menu; select Staff Dashboard | Staff Dashboard loads; Admin Panel link is hidden unless account is also system admin |  |  |
-| STF-02 | Review pending approvals | At least one firm booking is `pending_approval` | Open Staff Dashboard; use Pending Approvals tab; search/filter by resource type, requester category, start window, and sort | Pending firm requests display with booking reference, requester, schedule, resource, purpose, document, and status |  |  |
+| STF-02 | Review pending approvals | At least one firm booking is `pending_approval` | Open Staff Dashboard; use Pending Approvals tab; search/filter by resource type, requester category, start window, and sort; open `View Details` on a booking | Pending firm requests display booking reference, requester, schedule, resource, status, and authorization document. `View Details` shows purpose, room/loan request details, rebook change summary (when applicable), and history timeline. |  |  |
 | STF-03 | Approve valid firm booking | Pending firm starts more than 24 hours later | Open booking review area; optionally enter staff remark; click Approve | Booking becomes `approved`; approved staff/time are recorded; it appears in Approved Bookings; overlapping pencils are displaced when applicable |  |  |
 | STF-04 | Deny firm booking | Pending firm exists | Open booking review area; enter reason or staff remark; click Deny | Booking becomes `denied`; denied staff/time and remark are recorded; affected on-hold pencils are rebuilt when applicable |  |  |
 | STF-05 | Verify approval cutoff behavior | Pending firm starts within 24 hours | Open the pending booking in Staff Dashboard | Approve is disabled or blocked; message explains 24-hour approval cutoff; Deny remains available if applicable |  |  |
 | STF-06 | Review authorization document | Pending or approved firm has document URL | Click View Authorization Doc | Document preview or link opens; staff can return to dashboard without losing context |  |  |
-| STF-07 | Review denied-source resubmission | A requester rebooked from a denied booking | Open denied-source resubmission tab/queue; inspect previous attempt and change summary | Staff can see source denied-by information and changed fields such as schedule, purpose, or document |  |  |
-| STF-08 | Review active conflicts | Two requester pencil bookings are in active contention | Open Active conflicts tab; inspect group details | Dashboard summarizes defender/challenger participants and deadline; staff is not offered approve/deny controls for pencil contention |  |  |
-| STF-09 | Review approved bookings | At least one approved booking exists | Open Approved Bookings; filter by resource type, requester category, approved date range, staff remark, and approver | Correct approved bookings appear; approved by/at information and authorization documents are visible |  |  |
+| STF-07 | Review denied-source resubmission | A requester rebooked from a denied booking | Open Resubmissions tab/queue; inspect `View Details`, previous denial context, and change summary | Staff can see source denied context, changed fields (schedule, purpose, document), room/loan request details, and history timeline before deciding approve/deny. |  |  |
+| STF-08 | Review active conflicts | Two requester pencil bookings are in active contention | Open Active conflicts tab; inspect defender/challenger cards | Dashboard shows contention window, defender/challenger summary cards (email, reference, status, request type, and time ranges), defender deadline chip, and overlap window; no approve/deny controls are offered for pencil contention. |  |  |
+| STF-09 | Review approved bookings | At least one approved booking exists | Open Approved Bookings; filter by resource type, requester category, approved date range, staff remark, and approver; open `View Details` | Correct approved bookings appear; approved by/at and authorization document are visible. `View Details` shows purpose, room/loan request details, history timeline, and cancellation metadata when present. |  |  |
 | STF-10 | Create equipment record | Staff is logged in; test image optional | Open Equipment; click Add Equipment; enter name, category, description, status, optional image; save | New equipment appears in list/detail; status badge and image behavior are correct |  |  |
 | STF-11 | Edit equipment record | Test equipment exists | Edit equipment; update category/status/description/image; save | Equipment data updates; filters/detail reflect changes |  |  |
 | STF-12 | Delete equipment record | Test equipment is safe to delete | Click delete; confirm | Equipment is removed or no longer appears; confirmation prevents accidental deletion |  |  |

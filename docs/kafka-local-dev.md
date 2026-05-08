@@ -157,7 +157,10 @@ booking.denied
 booking.cancelled
 booking.expired
 booking.expiring_soon
+booking.on_hold
+booking.displaced
 booking.contention_started
+booking.contention_resolved
 booking.converted_to_firm
 booking.displaced_slot_reopened
 ```

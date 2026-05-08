@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/useAuth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { getRoleHomePath } from '@/lib/role-home';
 
 function parseOAuthTokensFromUrl() {
   const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
@@ -31,7 +32,7 @@ export default function OAuthCallback() {
         setError(result.error || 'Unable to complete OAuth sign-in');
         return;
       }
-      navigate('/dashboard', { replace: true });
+      navigate(getRoleHomePath(result.user), { replace: true });
     };
     finish();
     return () => {
