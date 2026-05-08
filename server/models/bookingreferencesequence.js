@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
     },
     resourceCode: {
-      type: DataTypes.STRING(16),
+      type: DataTypes.STRING(64),
       allowNull: false,
     },
     year: {

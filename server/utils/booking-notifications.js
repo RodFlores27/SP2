@@ -197,11 +197,16 @@ async function notifyBookingApproved(booking, resourceName) {
   if (!recipientEmail) return;
 
   const A = E.approved;
+  const roomPaymentBlock =
+    booking.resourceType === 'room'
+      ? `<p style="${calloutStyle('gold')}"><strong>${A.roomPaymentTitle}</strong><br/>${A.roomPaymentBody}</p>`
+      : '';
   const html = baseEmailWrapper(
     A.title,
     `<p>${A.body}</p>
     ${bookingDetailsBlock(booking, resourceName)}
     ${booking.staffRemark ? `<p><strong>${A.staffRemarkLabel}</strong> ${booking.staffRemark}</p>` : ''}
+    ${roomPaymentBlock}
     <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${A.viewDashboard}</a></p>`
   );
 
@@ -255,6 +260,8 @@ async function notifyBookingCancelled(booking, resourceName, cancelledBy) {
     X.title,
     `<p>${X.body}</p>
     ${bookingDetailsBlock(booking, resourceName)}
+    ${booking.cancellationReason ? `<p><strong>${X.reasonLabel}</strong> ${booking.cancellationReason}</p>` : ''}
+    ${booking.probableRebookDate ? `<p><strong>${X.probableRebookDateLabel}</strong> ${formatDateTime(booking.probableRebookDate)}</p>` : ''}
     ${note}
     <p><a href="${FRONTEND_URL}/bookings/new" style="${LINK_STYLE}">${X.createNew}</a></p>`
   );

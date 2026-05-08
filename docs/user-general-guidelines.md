@@ -156,7 +156,7 @@ A firm booking is not final immediately after submission. It remains Pending App
 
 ## H. General Booking Rules
 
-1. New bookings can only be created up to 7 days in advance.
+1. New bookings must satisfy lead-time rules by request type: equipment in-house at least 2 days, equipment loan at least 7 days, and rooms at least 7 days before start time.
 2. New bookings cannot be created if the start time is within 24 hours.
 3. Pencil bookings expire at the earlier of:
    - 3 days after the pencil booking is created; or
@@ -323,7 +323,7 @@ Users should monitor both the registered email inbox and the My Bookings dashboa
 
 ## N. Important Reminders
 
-1. Submit reservation requests early, but within the allowed 7-day advance window. The system blocks new bookings within 24 hours before the start time.
+1. Submit reservation requests early and within the required lead-time window for your request type. The system also blocks new bookings within 24 hours before the start time.
 2. A pencil booking is tentative and can expire.
 3. A firm booking requires an authorization document and staff approval.
 4. A pending firm booking is not yet approved.
@@ -364,7 +364,7 @@ The system enforces a 24-hour lock window. New bookings, firm conversion, and fi
 
 ### 7. Why can't I book a slot more than 7 days away?
 
-The system only accepts new bookings up to 7 days in advance. Choose a start time within the next 7 days.
+The system enforces request-type lead-time rules. Choose a start time that satisfies the required lead time for your booking type.
 
 ### 8. What does Pending Approval mean?
 

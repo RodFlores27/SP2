@@ -121,14 +121,6 @@ export default function RoomList() {
     return [...new Set(locations)];
   }, [rooms]);
 
-  const codeGroupOptions = useMemo(() => {
-    const codes = rooms
-      .map((room) => room.codeGroup)
-      .filter(Boolean)
-      .sort((a, b) => a.localeCompare(b));
-    return [...new Set(codes)];
-  }, [rooms]);
-
   const filteredRooms = useMemo(() => {
     const query = normalizeText(filters.query);
     const rows = rooms.filter((room) => {
@@ -321,9 +313,9 @@ export default function RoomList() {
                     <CardTitle className="text-xl">{room.name}</CardTitle>
                     <CardDescription className="mt-1">
                       {room.location}
-                      {(room.codeGroup || room.resourceCode) && (
+                      {room.resourceCode && (
                         <span className="block text-xs font-medium text-muted-foreground">
-                          {[room.codeGroup, room.resourceCode].filter(Boolean).join('-')}
+                          {room.resourceCode}
                         </span>
                       )}
                     </CardDescription>
@@ -375,7 +367,6 @@ export default function RoomList() {
         onOpenChange={setFormModalOpen}
         room={editingRoom}
         onSuccess={handleFormSuccess}
-        codeGroupOptions={codeGroupOptions}
       />
 
       <ConfirmDialog

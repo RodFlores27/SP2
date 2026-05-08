@@ -8,11 +8,6 @@ import axiosInstance from '@/lib/axios';
 import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
 import { getBookingReference } from '@/lib/bookingReference';
 import {
-  formatDatetimeLocalValue,
-  getAdvanceBookingMaxStart,
-  isBeyondAdvanceBookingWindow,
-} from '@/lib/bookingAdvanceWindow';
-import {
   peekConvertFirmSuccess,
   clearConvertFirmSuccessSession,
 } from '@/lib/convertFirmSuccessSession';
@@ -60,9 +55,16 @@ const bookingSchema = z.object({
   }),
   startTime: z
     .string()
-    .min(1, bf.schema.startTimeRequired)
-    .refine((value) => !isBeyondAdvanceBookingWindow(value), bf.schema.startBeyondAdvanceWindow),
+    .min(1, bf.schema.startTimeRequired),
   endTime: z.string().min(1, bf.schema.endTimeRequired),
+  equipmentRequestType: z.string().optional(),
+  loanReason: z.string().optional(),
+  loanWorkflowNote: z.string().optional(),
+  loanTransportPlan: z.string().optional(),
+  roomParticipantCount: z.string().optional(),
+  roomEquipmentNeeds: z.string().optional(),
+  roomSetupRequirements: z.string().optional(),
+  roomProgramDetails: z.string().optional(),
   purpose: z.string().optional(),
 });
 
@@ -106,11 +108,6 @@ export default function BookingForm() {
   const [pendingContentionConfirmation, setPendingContentionConfirmation] = useState(null);
   const [activeContentionNotice, setActiveContentionNotice] = useState(null);
   const [firmPencilOverlapDetailsOpen, setFirmPencilOverlapDetailsOpen] = useState(false);
-  const maxStartTimeLocal = useMemo(
-    () => formatDatetimeLocalValue(getAdvanceBookingMaxStart()),
-    []
-  );
-
   // Format ISO string to datetime-local value
   const toDatetimeLocal = (isoString) => {
     if (!isoString) return '';
@@ -146,15 +143,24 @@ export default function BookingForm() {
       bookingType: prefilledBookingType === 'firm' || prefilledBookingType === 'pencil'
         ? prefilledBookingType
         : 'pencil',
+      equipmentRequestType: searchParams.get('equipmentRequestType') || 'in_house',
       startTime: toDatetimeLocal(searchParams.get('startTime')),
       endTime: toDatetimeLocal(searchParams.get('endTime')),
       purpose: searchParams.get('purpose') || '',
+      loanReason: searchParams.get('loanReason') || '',
+      loanWorkflowNote: searchParams.get('loanWorkflowNote') || '',
+      loanTransportPlan: searchParams.get('loanTransportPlan') || '',
+      roomParticipantCount: searchParams.get('roomParticipantCount') || '',
+      roomEquipmentNeeds: searchParams.get('roomEquipmentNeeds') || '',
+      roomSetupRequirements: searchParams.get('roomSetupRequirements') || '',
+      roomProgramDetails: searchParams.get('roomProgramDetails') || '',
     },
   });
 
   const watchedResourceType = form.watch('resourceType');
   const watchedResourceId = form.watch('resourceId');
   const watchedBookingType = form.watch('bookingType');
+  const watchedEquipmentRequestType = form.watch('equipmentRequestType');
 
   useEffect(() => {
     if (watchedBookingType !== 'firm') {
@@ -305,6 +311,36 @@ export default function BookingForm() {
         setSubmitError(bf.docErrors.requiredForFirm);
         return;
       }
+      if (data.bookingType === 'firm' && !data.purpose?.trim()) {
+        setSubmitError(bf.schema.firmPurposeRequired);
+        return;
+      }
+
+      if (data.resourceType === 'equipment' && !['in_house', 'loan'].includes(data.equipmentRequestType || '')) {
+        setSubmitError(bf.schema.equipmentRequestTypeRequired);
+        return;
+      }
+      if (data.resourceType === 'equipment' && data.equipmentRequestType === 'loan') {
+        if (!data.loanReason?.trim() || !data.loanWorkflowNote?.trim() || !data.loanTransportPlan?.trim()) {
+          setSubmitError('Loan requests must include reason, workflow/schematic note, and transport plan.');
+          return;
+        }
+      }
+      if (data.resourceType === 'room') {
+        const participants = Number.parseInt(data.roomParticipantCount, 10);
+        if (
+          !Number.isInteger(participants) ||
+          participants <= 0 ||
+          !data.roomEquipmentNeeds?.trim() ||
+          !data.roomSetupRequirements?.trim() ||
+          !data.roomProgramDetails?.trim()
+        ) {
+          setSubmitError(
+            'Room requests must include participant count, event equipment needs, setup/catering details, and program details.'
+          );
+          return;
+        }
+      }
 
       const startTime = new Date(data.startTime).toISOString();
       const endTime = new Date(data.endTime).toISOString();
@@ -317,6 +353,20 @@ export default function BookingForm() {
         formData.append('resourceType', data.resourceType);
         formData.append('resourceId', data.resourceId);
         formData.append('bookingType', data.bookingType);
+        if (data.resourceType === 'equipment') {
+          formData.append('equipmentRequestType', data.equipmentRequestType || 'in_house');
+          if (data.equipmentRequestType === 'loan') {
+            formData.append('loanReason', data.loanReason || '');
+            formData.append('loanWorkflowNote', data.loanWorkflowNote || '');
+            formData.append('loanTransportPlan', data.loanTransportPlan || '');
+          }
+        }
+        if (data.resourceType === 'room') {
+          formData.append('roomParticipantCount', data.roomParticipantCount || '');
+          formData.append('roomEquipmentNeeds', data.roomEquipmentNeeds || '');
+          formData.append('roomSetupRequirements', data.roomSetupRequirements || '');
+          formData.append('roomProgramDetails', data.roomProgramDetails || '');
+        }
         formData.append('startTime', startTime);
         formData.append('endTime', endTime);
         if (data.purpose) {
@@ -407,6 +457,14 @@ export default function BookingForm() {
           resourceType: data.resourceType,
           resourceId: parseInt(data.resourceId, 10),
           bookingType: data.bookingType,
+          equipmentRequestType: data.resourceType === 'equipment' ? data.equipmentRequestType || 'in_house' : undefined,
+          loanReason: data.resourceType === 'equipment' && data.equipmentRequestType === 'loan' ? data.loanReason || undefined : undefined,
+          loanWorkflowNote: data.resourceType === 'equipment' && data.equipmentRequestType === 'loan' ? data.loanWorkflowNote || undefined : undefined,
+          loanTransportPlan: data.resourceType === 'equipment' && data.equipmentRequestType === 'loan' ? data.loanTransportPlan || undefined : undefined,
+          roomParticipantCount: data.resourceType === 'room' ? Number.parseInt(data.roomParticipantCount, 10) : undefined,
+          roomEquipmentNeeds: data.resourceType === 'room' ? data.roomEquipmentNeeds || undefined : undefined,
+          roomSetupRequirements: data.resourceType === 'room' ? data.roomSetupRequirements || undefined : undefined,
+          roomProgramDetails: data.resourceType === 'room' ? data.roomProgramDetails || undefined : undefined,
           startTime,
           endTime,
           purpose: data.purpose || undefined,
@@ -1094,6 +1152,148 @@ export default function BookingForm() {
                   )}
                 />
 
+                {watchedResourceType === 'equipment' && (
+                  <FormField
+                    control={form.control}
+                    name="equipmentRequestType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{bf.fields.equipmentRequestType()}</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={bf.fields.equipmentRequestTypePlaceholder} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="in_house">{bf.fields.inHouse()}</SelectItem>
+                            <SelectItem value="loan">{bf.fields.loan()}</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
+
+                {watchedResourceType === 'equipment' && watchedEquipmentRequestType === 'loan' && (
+                  <div className="space-y-4 rounded-md border border-border p-4">
+                    <FormField
+                      control={form.control}
+                      name="loanReason"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{bf.fields.loanReason()}</FormLabel>
+                          <FormControl>
+                            <textarea
+                              placeholder={bf.fields.loanReasonPlaceholder}
+                              className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="loanWorkflowNote"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{bf.fields.loanWorkflowNote()}</FormLabel>
+                          <FormControl>
+                            <textarea
+                              placeholder={bf.fields.loanWorkflowNotePlaceholder}
+                              className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="loanTransportPlan"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{bf.fields.loanTransportPlan()}</FormLabel>
+                          <FormControl>
+                            <textarea
+                              placeholder={bf.fields.loanTransportPlanPlaceholder}
+                              className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
+                {watchedResourceType === 'room' && (
+                  <div className="space-y-4 rounded-md border border-border p-4">
+                    <FormField
+                      control={form.control}
+                      name="roomParticipantCount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{bf.fields.roomParticipantCount()}</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="1" {...field} />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="roomEquipmentNeeds"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{bf.fields.roomEquipmentNeeds()}</FormLabel>
+                          <FormControl>
+                            <textarea
+                              placeholder={bf.fields.roomEquipmentNeedsPlaceholder}
+                              className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="roomSetupRequirements"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{bf.fields.roomSetupRequirements()}</FormLabel>
+                          <FormControl>
+                            <textarea
+                              placeholder={bf.fields.roomSetupRequirementsPlaceholder}
+                              className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="roomProgramDetails"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{bf.fields.roomProgramDetails()}</FormLabel>
+                          <FormControl>
+                            <textarea
+                              placeholder={bf.fields.roomProgramDetailsPlaceholder}
+                              className="flex min-h-[72px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                              {...field}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+
                 {/* Time slot pickers */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
@@ -1103,7 +1303,7 @@ export default function BookingForm() {
                       <FormItem>
                         <FormLabel>{bf.fields.startTime()}</FormLabel>
                         <FormControl>
-                          <Input type="datetime-local" max={maxStartTimeLocal} {...field} />
+                          <Input type="datetime-local" {...field} />
                         </FormControl>
                         <p className="text-xs text-muted-foreground">
                           {bf.fields.startTimeWindowHelp()}
@@ -1134,7 +1334,9 @@ export default function BookingForm() {
                   name="purpose"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{bf.fields.purposeOptional()}</FormLabel>
+                      <FormLabel>
+                        {watchedBookingType === 'firm' ? 'Purpose' : bf.fields.purposeOptional()}
+                      </FormLabel>
                       <FormControl>
                         <textarea
                           placeholder={bf.fields.purposePlaceholder}

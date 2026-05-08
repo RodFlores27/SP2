@@ -3,31 +3,18 @@
 const { domain } = require('../messages/bookingMessages');
 
 const LOCK_HOURS = 24;
+const IN_HOUSE_MIN_HOURS = 48;
+const LOAN_MIN_HOURS = 168;
+const ROOM_MIN_HOURS = 168;
+const IN_HOUSE_CANCEL_MIN_HOURS = 2;
+const DEFAULT_CANCEL_MIN_HOURS = 24;
 const PENCIL_MAX_DAYS = 3;
-const ADVANCE_BOOKING_MAX_DAYS = 7;
 
 const MS_HOUR = 60 * 60 * 1000;
 const MS_DAY = 24 * MS_HOUR;
 
 function hoursUntilStart(startTime, now = new Date()) {
   return (new Date(startTime).getTime() - now.getTime()) / MS_HOUR;
-}
-
-function getAdvanceBookingMaxStart(now = new Date()) {
-  return new Date(new Date(now).getTime() + ADVANCE_BOOKING_MAX_DAYS * MS_DAY);
-}
-
-function isBeyondAdvanceBookingWindow(startTime, now = new Date()) {
-  return new Date(startTime).getTime() > getAdvanceBookingMaxStart(now).getTime();
-}
-
-function assertStartWithinAdvanceBookingWindow(startTime, now = new Date()) {
-  if (isBeyondAdvanceBookingWindow(startTime, now)) {
-    const err = new Error(domain.bookingAdvanceWindow);
-    err.code = 'BOOKING_ADVANCE_WINDOW';
-    err.statusCode = 400;
-    throw err;
-  }
 }
 
 /**
@@ -41,6 +28,53 @@ function assertStartNotWithinLockHours(startTime, now = new Date()) {
   if (isWithinLockHours(startTime, now)) {
     const err = new Error(domain.bookingLockWindow);
     err.code = 'BOOKING_LOCK_WINDOW';
+    err.statusCode = 400;
+    throw err;
+  }
+}
+
+function resolveMinimumLeadHours(resourceType, equipmentRequestType) {
+  if (resourceType === 'room') return ROOM_MIN_HOURS;
+  if (resourceType === 'equipment') {
+    return equipmentRequestType === 'loan' ? LOAN_MIN_HOURS : IN_HOUSE_MIN_HOURS;
+  }
+  return LOCK_HOURS;
+}
+
+function assertStartMeetsMinimumLeadTime(startTime, resourceType, equipmentRequestType, now = new Date()) {
+  const minimumLeadHours = resolveMinimumLeadHours(resourceType, equipmentRequestType);
+  if (hoursUntilStart(startTime, now) < minimumLeadHours) {
+    const err = new Error(
+      domain.bookingMinimumLeadTime({
+        resourceType,
+        equipmentRequestType,
+        minimumLeadHours,
+      })
+    );
+    err.code = 'BOOKING_MIN_LEAD_TIME';
+    err.statusCode = 400;
+    throw err;
+  }
+}
+
+function resolveCancellationCutoffHours(resourceType, equipmentRequestType) {
+  if (resourceType === 'equipment' && equipmentRequestType === 'in_house') {
+    return IN_HOUSE_CANCEL_MIN_HOURS;
+  }
+  return DEFAULT_CANCEL_MIN_HOURS;
+}
+
+function assertCancellationBeforeCutoff(startTime, resourceType, equipmentRequestType, now = new Date()) {
+  const cutoffHours = resolveCancellationCutoffHours(resourceType, equipmentRequestType);
+  if (hoursUntilStart(startTime, now) < cutoffHours) {
+    const err = new Error(
+      domain.bookingCancellationCutoff({
+        resourceType,
+        equipmentRequestType,
+        cutoffHours,
+      })
+    );
+    err.code = 'BOOKING_CANCELLATION_CUTOFF';
     err.statusCode = 400;
     throw err;
   }
@@ -80,14 +114,15 @@ function assertPositiveContentionDeadline(deadlineAt, now = new Date()) {
 
 module.exports = {
   LOCK_HOURS,
+  IN_HOUSE_MIN_HOURS,
+  LOAN_MIN_HOURS,
+  ROOM_MIN_HOURS,
   PENCIL_MAX_DAYS,
-  ADVANCE_BOOKING_MAX_DAYS,
   hoursUntilStart,
-  getAdvanceBookingMaxStart,
-  isBeyondAdvanceBookingWindow,
-  assertStartWithinAdvanceBookingWindow,
   isWithinLockHours,
   assertStartNotWithinLockHours,
+  assertStartMeetsMinimumLeadTime,
+  assertCancellationBeforeCutoff,
   computePencilExpiryAt,
   computeContentionDeadline,
   assertPositiveContentionDeadline

@@ -35,14 +35,29 @@ export function isWithinStartLockWindow(startTime, nowMs = Date.now()) {
   return hoursUntilStart <= 24;
 }
 
+function getCancellationCutoffHours(booking) {
+  if (booking?.resourceType === 'equipment' && booking?.equipmentRequestType === 'in_house') {
+    return 2;
+  }
+  return 24;
+}
+
+function isInsideCancellationCutoff(booking, nowMs = Date.now()) {
+  const startMs = new Date(booking?.startTime).getTime();
+  if (Number.isNaN(startMs)) return false;
+  const hoursUntilStart = (startMs - nowMs) / (1000 * 60 * 60);
+  return hoursUntilStart < getCancellationCutoffHours(booking);
+}
+
 export function isCancellable(booking) {
   if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) return false;
   if (
     booking.bookingType === 'firm' &&
     ['pending_approval', 'approved'].includes(booking.status)
   ) {
-    return new Date(booking.startTime) > new Date();
+    if (new Date(booking.startTime) <= new Date()) return false;
   }
+  if (isInsideCancellationCutoff(booking)) return false;
   return true;
 }
 
@@ -50,20 +65,24 @@ export function isCancellable(booking) {
  * When a firm booking can’t be cancelled, explains why (for disabled Cancel UI).
  * Pencil bookings are not returned here.
  *
- * @returns {'started_or_past'|null}
+ * @returns {'started_or_past'|'cutoff_reached'|null}
  */
 export function getFirmCancelBlockedReason(booking) {
   if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) return null;
-  if (booking.bookingType !== 'firm') return null;
-  if (!['pending_approval', 'approved'].includes(booking.status)) return null;
   if (isCancellable(booking)) return null;
-  return 'started_or_past';
+  if (booking.bookingType === 'firm' && ['pending_approval', 'approved'].includes(booking.status)) {
+    if (new Date(booking.startTime) <= new Date()) return 'started_or_past';
+  }
+  return 'cutoff_reached';
 }
 
 /** Human-readable explanation for firm cancel blocked reasons (tooltip / aria-label). */
 export function getFirmCancelBlockedMessage(reason) {
   if (reason === 'started_or_past') {
     return bookingMessages.myBookings.firmCancelBlocked.startedOrPast;
+  }
+  if (reason === 'cutoff_reached') {
+    return bookingMessages.myBookings.firmCancelBlocked.cutoffReached;
   }
   return '';
 }

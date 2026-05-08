@@ -709,6 +709,7 @@ async function getContentionDetails(booking, { Booking, User }) {
       deadlineAt: booking.contentionDeadlineAt || null,
       defender: {
         bookingId: booking.id,
+        referenceCode: booking.referenceCode || null,
         startTime: booking.startTime,
         endTime: booking.endTime,
         user: booking.user ? { id: booking.user.id, email: booking.user.email } : null
@@ -716,6 +717,7 @@ async function getContentionDetails(booking, { Booking, User }) {
       challenger: challenger
         ? {
             bookingId: challenger.id,
+            referenceCode: challenger.referenceCode || null,
             startTime: challenger.startTime,
             endTime: challenger.endTime,
             user: challenger.user ? { id: challenger.user.id, email: challenger.user.email } : null
@@ -734,6 +736,7 @@ async function getContentionDetails(booking, { Booking, User }) {
       defender: defender
         ? {
             bookingId: defender.id,
+            referenceCode: defender.referenceCode || null,
             startTime: defender.startTime,
             endTime: defender.endTime,
             user: defender.user ? { id: defender.user.id, email: defender.user.email } : null
@@ -741,6 +744,7 @@ async function getContentionDetails(booking, { Booking, User }) {
         : null,
       challenger: {
         bookingId: booking.id,
+        referenceCode: booking.referenceCode || null,
         startTime: booking.startTime,
         endTime: booking.endTime,
         user: booking.user ? { id: booking.user.id, email: booking.user.email } : null

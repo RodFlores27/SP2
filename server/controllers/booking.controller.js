@@ -1,5 +1,6 @@
 const {
   Booking,
+  AuditLog,
   User,
   Equipment,
   Room,
@@ -26,17 +27,19 @@ const {
   publishBookingLifecycleEvent,
 } = require('../utils/kafka');
 const {
-  assertStartWithinAdvanceBookingWindow,
   computeContentionDeadline,
   computePencilExpiryAt,
   assertStartNotWithinLockHours,
-  isWithinLockHours
+  isWithinLockHours,
+  assertStartMeetsMinimumLeadTime,
+  assertCancellationBeforeCutoff,
 } = require('../utils/booking-rules');
 const contention = require('../services/contention.service');
 const { api } = require('../messages/bookingMessages');
 
 const getUserAccountType = (req) => req.user?.accountType || req.user?.role;
 const REBOOKABLE_STATUSES = ['cancelled', 'denied', 'expired', 'displaced', 'completed'];
+const TERMINAL_BOOKING_STATUSES = ['cancelled', 'denied', 'expired', 'displaced', 'completed'];
 
 /** Firm still "holds" the slot for displacement purposes — rebook not allowed until gone. */
 const FIRM_ACTIVE_FOR_DISPLACEMENT = ['pending_approval', 'approved'];
@@ -134,9 +137,29 @@ const THREAD_BOOKING_ATTRIBUTES = [
   'endTime',
   'purpose',
   'staffRemark',
+  'cancellationReason',
+  'probableRebookDate',
   'rebookedFromStatus',
   'deniedByUserId',
   'createdAt',
+  'updatedAt',
+];
+
+const HISTORY_TERMINAL_EVENT_TYPE_BY_STATUS = Object.freeze({
+  denied: 'booking.denied',
+  cancelled: 'booking.cancelled',
+  expired: 'booking.expired',
+  displaced: 'booking.displaced',
+});
+
+const HISTORY_STATE_EVENT_TYPES = [
+  'booking.created',
+  'booking.converted_to_firm',
+  'booking.approved',
+  'booking.denied',
+  'booking.cancelled',
+  'booking.expired',
+  'booking.displaced',
 ];
 
 const buildBookingIncludes = ({ includeThreadHistory = false } = {}) => {
@@ -197,6 +220,97 @@ function isNewerBooking(a, b) {
   return a.id > b.id;
 }
 
+function toMs(value) {
+  const ms = new Date(value).getTime();
+  return Number.isNaN(ms) ? 0 : ms;
+}
+
+function pickTerminalAuditIndexForAttempt(attempt, logs) {
+  if (!Array.isArray(logs) || logs.length === 0) return -1;
+  const status = String(attempt?.status || '').trim().toLowerCase();
+  const expectedEventType = HISTORY_TERMINAL_EVENT_TYPE_BY_STATUS[status] || null;
+  if (expectedEventType) {
+    for (let i = logs.length - 1; i >= 0; i -= 1) {
+      const row = logs[i];
+      if (row.eventType === expectedEventType) return i;
+    }
+  }
+  for (let i = logs.length - 1; i >= 0; i -= 1) {
+    const row = logs[i];
+    if (row.status && String(row.status).trim().toLowerCase() === status) return i;
+  }
+  return logs.length - 1;
+}
+
+async function attachThreadHistoryMetadata(bookingsPlain) {
+  if (!Array.isArray(bookingsPlain) || bookingsPlain.length === 0) return;
+
+  const attemptIds = new Set();
+  for (const booking of bookingsPlain) {
+    for (const attempt of booking?.threadBookings || []) {
+      if (Number.isInteger(attempt?.id)) attemptIds.add(attempt.id);
+    }
+  }
+  if (attemptIds.size === 0) return;
+
+  const logs = await AuditLog.findAll({
+    where: {
+      bookingId: { [Op.in]: Array.from(attemptIds) },
+      eventType: { [Op.in]: HISTORY_STATE_EVENT_TYPES },
+    },
+    attributes: ['bookingId', 'eventType', 'occurredAt', 'bookingType', 'status', 'payload'],
+    order: [
+      ['bookingId', 'ASC'],
+      ['occurredAt', 'ASC'],
+      ['id', 'ASC'],
+    ],
+  });
+
+  const logsByBookingId = new Map();
+  for (const row of logs) {
+    const list = logsByBookingId.get(row.bookingId) || [];
+    list.push(row);
+    logsByBookingId.set(row.bookingId, list);
+  }
+
+  for (const booking of bookingsPlain) {
+    const nextAttempts = (booking.threadBookings || []).map((attempt) => {
+      const attemptLogs = logsByBookingId.get(attempt.id) || [];
+      const terminalIndex = pickTerminalAuditIndexForAttempt(attempt, attemptLogs);
+      const terminalLog = terminalIndex >= 0 ? attemptLogs[terminalIndex] : null;
+      const previousLog = terminalIndex > 0 ? attemptLogs[terminalIndex - 1] : null;
+
+      return {
+        ...attempt,
+        historyEvent: {
+          eventType: terminalLog?.eventType || null,
+          occurredAt: terminalLog?.occurredAt || null,
+          snapshotAtEvent: terminalLog
+            ? {
+                bookingType: terminalLog.bookingType || null,
+                status: terminalLog.status || null,
+              }
+            : null,
+          stateBeforeEvent: previousLog
+            ? {
+                bookingType: previousLog.bookingType || null,
+                status: previousLog.status || null,
+              }
+            : null,
+        },
+      };
+    });
+
+    nextAttempts.sort((a, b) => {
+      const aMs = toMs(a?.historyEvent?.occurredAt) || toMs(a?.createdAt);
+      const bMs = toMs(b?.historyEvent?.occurredAt) || toMs(b?.createdAt);
+      if (aMs !== bMs) return bMs - aMs;
+      return (b.id || 0) - (a.id || 0);
+    });
+    booking.threadBookings = nextAttempts;
+  }
+}
+
 function getLatestBookingIdByThread(bookings) {
   const latestByThread = new Map();
 
@@ -223,6 +337,13 @@ function normalizeReferencePart(value) {
     .replace(/[^A-Z0-9]/g, '');
 }
 
+function normalizeRoomCode(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '');
+}
+
 function acronymFallback(value, fallback) {
   const cleaned = String(value || '').trim();
   if (!cleaned) return fallback;
@@ -239,10 +360,11 @@ function resolveResourceCodeParts(resourceType, resource) {
   const groupFallbackSource = resourceType === 'equipment' ? resource.category : resource.location;
   const codeGroup =
     normalizeReferencePart(resource.codeGroup) ||
-    acronymFallback(groupFallbackSource, resourceType === 'equipment' ? 'EQP' : 'ROM');
+    acronymFallback(groupFallbackSource, resourceType === 'equipment' ? 'EQP' : 'ROOM');
   const resourceCode =
-    normalizeReferencePart(resource.resourceCode) ||
-    acronymFallback(resource.name, resourceType === 'equipment' ? 'EQUIP' : 'ROOM');
+    resourceType === 'room'
+      ? normalizeRoomCode(resource.resourceCode) || acronymFallback(resource.name, 'ROOM')
+      : normalizeReferencePart(resource.resourceCode) || acronymFallback(resource.name, 'EQUIP');
 
   return {
     codeGroup,
@@ -250,14 +372,14 @@ function resolveResourceCodeParts(resourceType, resource) {
   };
 }
 
-async function generateBookingReferenceCode({ resourceType, resource, startTime, transaction }) {
+async function generateBookingReferenceCode({ resourceType, resource, createdAt, transaction }) {
   const { codeGroup, resourceCode } = resolveResourceCodeParts(resourceType, resource);
-  const year = new Date(startTime).getFullYear();
+  const year = new Date(createdAt).getFullYear();
   const shortYear = String(year).slice(-2);
 
   const where = {
     resourceType,
-    codeGroup,
+    codeGroup: resourceType === 'room' ? 'ROOM' : codeGroup,
     resourceCode,
     year,
   };
@@ -277,6 +399,9 @@ async function generateBookingReferenceCode({ resourceType, resource, startTime,
   await sequence.save({ transaction });
 
   const sequenceText = String(sequence.lastNumber).padStart(3, '0');
+  if (resourceType === 'room') {
+    return `${resourceCode}-${sequenceText}-${shortYear}`;
+  }
   return `${codeGroup}-${resourceCode}-${sequenceText}-${shortYear}`;
 }
 
@@ -446,7 +571,22 @@ function buildRebookChangeSummary(sourceBooking, nextValues) {
 
 const createBooking = async (req, res) => {
   try {
-    const { resourceType, resourceId, bookingType, startTime, endTime, purpose } = req.body;
+    const {
+      resourceType,
+      resourceId,
+      bookingType,
+      startTime,
+      endTime,
+      purpose,
+      equipmentRequestType,
+      loanReason,
+      loanWorkflowNote,
+      loanTransportPlan,
+      roomParticipantCount,
+      roomEquipmentNeeds,
+      roomSetupRequirements,
+      roomProgramDetails,
+    } = req.body;
     const confirmOverlapOwn = req.body.confirmOverlapOwn === true || req.body.confirmOverlapOwn === 'true';
     const confirmContention =
       req.body.confirmContention === true || req.body.confirmContention === 'true';
@@ -471,9 +611,18 @@ const createBooking = async (req, res) => {
     if (!['equipment', 'room'].includes(resourceType)) {
       return res.status(400).json({ error: api.create.invalidResourceType });
     }
+    if (
+      resourceType === 'equipment' &&
+      !['in_house', 'loan'].includes(String(equipmentRequestType || '').trim())
+    ) {
+      return res.status(400).json({ error: api.create.invalidEquipmentRequestType });
+    }
 
     if (!['pencil', 'firm'].includes(bookingType)) {
       return res.status(400).json({ error: api.create.invalidBookingType });
+    }
+    if (bookingType === 'firm' && !normalizeOptionalText(purpose)) {
+      return res.status(400).json({ error: api.create.firmPurposeRequired });
     }
     if (bookingType === 'firm' && !hasAuthDoc(authorizationDocUrl)) {
       return res.status(400).json({ error: api.create.firmAuthRequired });
@@ -495,8 +644,12 @@ const createBooking = async (req, res) => {
     }
 
     try {
-      assertStartWithinAdvanceBookingWindow(start);
       assertStartNotWithinLockHours(start);
+      assertStartMeetsMinimumLeadTime(
+        start,
+        resourceType,
+        resourceType === 'equipment' ? equipmentRequestType : null
+      );
     } catch (ruleErr) {
       if (ruleErr.statusCode) {
         return res.status(ruleErr.statusCode).json({ error: ruleErr.message, code: ruleErr.code });
@@ -604,6 +757,32 @@ const createBooking = async (req, res) => {
       return res.status(400).json({ 
         error: api.create.resourceNotBookable({ resourceType, resourceStatus: resource.status })
       });
+    }
+
+    const normalizedEquipmentRequestType =
+      resourceType === 'equipment' ? String(equipmentRequestType || '').trim() : null;
+
+    if (normalizedEquipmentRequestType === 'loan') {
+      const hasLoanDetails =
+        normalizeOptionalText(loanReason) &&
+        normalizeOptionalText(loanWorkflowNote) &&
+        normalizeOptionalText(loanTransportPlan);
+      if (!hasLoanDetails) {
+        return res.status(400).json({ error: api.create.loanDetailsRequired });
+      }
+    }
+
+    if (resourceType === 'room') {
+      const participants = Number.parseInt(roomParticipantCount, 10);
+      const hasRoomDetails =
+        Number.isInteger(participants) &&
+        participants > 0 &&
+        normalizeOptionalText(roomEquipmentNeeds) &&
+        normalizeOptionalText(roomSetupRequirements) &&
+        normalizeOptionalText(roomProgramDetails);
+      if (!hasRoomDetails) {
+        return res.status(400).json({ error: api.create.roomDetailsRequired });
+      }
     }
 
     const firmBlockers = await Booking.findFirmBlockers(resourceType, resourceId, start, end);
@@ -799,7 +978,7 @@ const createBooking = async (req, res) => {
         const referenceCode = await generateBookingReferenceCode({
           resourceType,
           resource,
-          startTime: start,
+          createdAt: issuedAt,
           transaction: t,
         });
 
@@ -815,6 +994,20 @@ const createBooking = async (req, res) => {
             startTime: start,
             endTime: end,
             purpose,
+            equipmentRequestType: normalizedEquipmentRequestType,
+            loanReason: normalizedEquipmentRequestType === 'loan' ? normalizeOptionalText(loanReason) : null,
+            loanWorkflowNote:
+              normalizedEquipmentRequestType === 'loan' ? normalizeOptionalText(loanWorkflowNote) : null,
+            loanTransportPlan:
+              normalizedEquipmentRequestType === 'loan' ? normalizeOptionalText(loanTransportPlan) : null,
+            roomParticipantCount:
+              resourceType === 'room' ? Number.parseInt(roomParticipantCount, 10) : null,
+            roomEquipmentNeeds:
+              resourceType === 'room' ? normalizeOptionalText(roomEquipmentNeeds) : null,
+            roomSetupRequirements:
+              resourceType === 'room' ? normalizeOptionalText(roomSetupRequirements) : null,
+            roomProgramDetails:
+              resourceType === 'room' ? normalizeOptionalText(roomProgramDetails) : null,
             authorizationDocUrl,
             authorizationDocHash,
             expiryAt,
@@ -1107,6 +1300,7 @@ const getAllBookings = async (req, res) => {
       
       return plain;
     }));
+    await attachThreadHistoryMetadata(enriched);
 
     res.json(enriched);
   } catch (error) {
@@ -1165,6 +1359,7 @@ const getBookingById = async (req, res) => {
     }
 
     await attachDashboardOverlapHints(plain);
+    await attachThreadHistoryMetadata([plain]);
 
     res.json(plain);
   } catch (error) {
@@ -1178,6 +1373,19 @@ const cancelBooking = async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
     const userAccountType = getUserAccountType(req);
+    const cancellationReason = normalizeOptionalText(req.body?.cancellationReason);
+    const probableRebookDateRaw = req.body?.probableRebookDate;
+
+    if (!cancellationReason) {
+      return res.status(400).json({ error: api.cancel.reasonRequired });
+    }
+    if (!probableRebookDateRaw) {
+      return res.status(400).json({ error: api.cancel.probableRebookDateRequired });
+    }
+    const probableRebookDate = new Date(probableRebookDateRaw);
+    if (Number.isNaN(probableRebookDate.getTime())) {
+      return res.status(400).json({ error: api.cancel.probableRebookDateInvalid });
+    }
 
     const booking = await Booking.findByPk(id, {
       include: buildBookingIncludes({ includeThreadHistory: true })
@@ -1193,7 +1401,7 @@ const cancelBooking = async (req, res) => {
       return res.status(403).json({ error: api.cancel.accessDenied });
     }
 
-    if (['cancelled', 'denied', 'expired', 'displaced', 'completed'].includes(booking.status)) {
+    if (TERMINAL_BOOKING_STATUSES.includes(booking.status)) {
       return res.status(400).json({ error: api.cancel.alreadyTerminal({ status: booking.status }) });
     }
 
@@ -1205,6 +1413,21 @@ const cancelBooking = async (req, res) => {
       return res.status(400).json({
         error: api.cancel.firmStarted
       });
+    }
+
+    try {
+      assertCancellationBeforeCutoff(
+        booking.startTime,
+        booking.resourceType,
+        booking.resourceType === 'equipment' ? booking.equipmentRequestType : null
+      );
+    } catch (cutoffErr) {
+      if (cutoffErr.statusCode) {
+        return res
+          .status(cutoffErr.statusCode)
+          .json({ error: cutoffErr.message || api.cancel.cutoffReached, code: cutoffErr.code });
+      }
+      throw cutoffErr;
     }
 
     const displacedNotifyList = [];
@@ -1220,10 +1443,17 @@ const cancelBooking = async (req, res) => {
     await sequelize.transaction(async (t) => {
       const b = await Booking.findByPk(booking.id, { transaction: t, lock: t.LOCK.UPDATE });
       if (!b) return;
+      if (TERMINAL_BOOKING_STATUSES.includes(b.status)) {
+        const err = new Error(api.cancel.alreadyTerminal({ status: b.status }));
+        err.statusCode = 400;
+        throw err;
+      }
 
       // Set status to cancelled FIRST so that overlap queries inside the
       // contention promotion logic do not see this booking as an active pencil.
       b.status = 'cancelled';
+      b.cancellationReason = cancellationReason;
+      b.probableRebookDate = probableRebookDate;
       await b.save({ transaction: t });
 
       if (b.contentionRole) {
@@ -1282,6 +1512,9 @@ const cancelBooking = async (req, res) => {
       }
     }
   } catch (error) {
+    if (error?.statusCode === 400) {
+      return res.status(400).json({ error: error.message || api.cancel.failed });
+    }
     console.error('Error cancelling booking:', error);
     res.status(500).json({ error: api.cancel.failed });
   }
@@ -1353,6 +1586,10 @@ const convertToFirm = async (req, res) => {
       purposeInput !== undefined && purposeInput !== null
         ? normalizeOptionalText(purposeInput) || null
         : undefined;
+    const resolvedPurpose = nextPurpose !== undefined ? nextPurpose : booking.purpose || null;
+    if (!normalizeOptionalText(resolvedPurpose)) {
+      return res.status(400).json({ error: api.convert.purposeRequired });
+    }
 
     const formatConflict = (c) => ({
       id: c.id,
@@ -1577,6 +1814,7 @@ const denyBooking = async (req, res) => {
     }
     const { staffRemark } = req.body;
     const deniedByUserId = req.user.id;
+    const normalizedRemark = normalizeOptionalText(staffRemark);
 
     const booking = await Booking.findByPk(id, {
       attributes: ['id', 'status', 'bookingType', 'contentionRole']
@@ -1592,10 +1830,11 @@ const denyBooking = async (req, res) => {
       });
     }
 
-    const updatePayload = { status: 'denied', deniedByUserId };
-    if (staffRemark) {
-      updatePayload.staffRemark = staffRemark;
+    if (!normalizedRemark) {
+      return res.status(400).json({ error: api.deny.remarkRequired });
     }
+
+    const updatePayload = { status: 'denied', deniedByUserId, staffRemark: normalizedRemark };
 
     try {
       await sequelize.transaction(async (t) => {

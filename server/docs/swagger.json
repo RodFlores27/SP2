@@ -1462,7 +1462,7 @@
           "Bookings"
         ],
         "summary": "Create a new booking",
-        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention plus expectedWillBeQueued matching the prior 409 when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings can only start up to 7 days in advance and cannot start within 24 hours of now. Firm pending requests must be staff-approved before that same 24-hour cutoff or they expire automatically.",
+        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention plus expectedWillBeQueued matching the prior 409 when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings must satisfy request-type lead time rules (equipment in-house: 2 days, equipment loan: 7 days, room: 7 days) and cannot start within 24 hours of now. Firm pending requests must be staff-approved before that same 24-hour cutoff or they expire automatically.",
         "operationId": "createBooking",
         "security": [
           {
@@ -1617,8 +1617,8 @@
                   },
                   "advanceWindow": {
                     "value": {
-                      "error": "Bookings can only be created up to 7 days in advance. Please choose a schedule within the next 7 days.",
-                      "code": "BOOKING_ADVANCE_WINDOW"
+                      "error": "Minimum lead time not met for this request type.",
+                      "code": "BOOKING_MIN_LEAD_TIME"
                     }
                   },
                   "resourceUnavailable": {

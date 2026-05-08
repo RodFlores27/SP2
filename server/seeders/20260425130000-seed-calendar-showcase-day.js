@@ -70,6 +70,11 @@ module.exports = {
         .toUpperCase()
         .replace(/[^A-Z0-9]/g, '')
         .slice(0, 8);
+    const normalizeRoomCode = (value) =>
+      String(value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, '');
 
     const resolveReferenceParts = async (resourceType, resourceId) => {
       const isEquipment = resourceType === 'equipment';
@@ -78,7 +83,9 @@ module.exports = {
       const fallbackResource = String(resourceId).padStart(3, '0').slice(-3);
 
       const rows = await queryInterface.sequelize.query(
-        `SELECT "codeGroup", "resourceCode" FROM "${tableName}" WHERE id = :resourceId LIMIT 1`,
+        isEquipment
+          ? `SELECT "codeGroup", "resourceCode" FROM "${tableName}" WHERE id = :resourceId LIMIT 1`
+          : `SELECT "resourceCode" FROM "${tableName}" WHERE id = :resourceId LIMIT 1`,
         {
           replacements: { resourceId },
           type: Sequelize.QueryTypes.SELECT,
@@ -88,14 +95,17 @@ module.exports = {
 
       return {
         codeGroup: normalizeCodePart(record.codeGroup) || fallbackGroup,
-        resourceCode: normalizeCodePart(record.resourceCode) || fallbackResource,
+        resourceCode: isEquipment
+          ? normalizeCodePart(record.resourceCode) || fallbackResource
+          : normalizeRoomCode(record.resourceCode) || fallbackResource,
       };
     };
 
-    const nextReferenceCode = async (resourceType, resourceId, startTime) => {
+    const nextReferenceCode = async (resourceType, resourceId, createdAt) => {
       const { codeGroup, resourceCode } = await resolveReferenceParts(resourceType, resourceId);
-      const year = new Date(startTime).getFullYear();
+      const year = new Date(createdAt).getFullYear();
       const yearShort = String(year).slice(-2);
+      const sequenceCodeGroup = resourceType === 'room' ? 'ROOM' : codeGroup;
 
       const nextRows = await queryInterface.sequelize.query(
         `INSERT INTO "BookingReferenceSequences"
@@ -107,12 +117,15 @@ module.exports = {
            "updatedAt" = NOW()
          RETURNING "lastNumber"`,
         {
-          replacements: { resourceType, codeGroup, resourceCode, year },
+          replacements: { resourceType, codeGroup: sequenceCodeGroup, resourceCode, year },
           type: Sequelize.QueryTypes.SELECT,
         }
       );
 
       const nextNumber = Number(nextRows[0]?.lastNumber || 1);
+      if (resourceType === 'room') {
+        return `${resourceCode}-${String(nextNumber).padStart(3, '0')}-${yearShort}`;
+      }
       return `${codeGroup}-${resourceCode}-${String(nextNumber).padStart(3, '0')}-${yearShort}`;
     };
 
@@ -120,7 +133,7 @@ module.exports = {
       const referenceCode = await nextReferenceCode(
         row.resourceType,
         row.resourceId,
-        row.startTime
+        row.createdAt
       );
       const inserted = await queryInterface.sequelize.query(
         `INSERT INTO "Bookings" (

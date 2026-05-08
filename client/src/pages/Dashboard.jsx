@@ -5,7 +5,14 @@ import axiosInstance from '@/lib/axios';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { AlertTriangle, CalendarDays, RefreshCw, PlusCircle, X } from 'lucide-react';
 import { ActiveBookingCard } from '@/components/my-bookings/ActiveBookingCard';
 import { PastBookingRow } from '@/components/my-bookings/PastBookingRow';
@@ -29,7 +36,6 @@ import {
   saveDashboardTab,
 } from '@/components/my-bookings/myBookingsDashboardSession';
 import { stashConvertFirmSuccess } from '@/lib/convertFirmSuccessSession';
-import { isBeyondAdvanceBookingWindow } from '@/lib/bookingAdvanceWindow';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const DASHBOARD_POLL_INTERVAL_MS = 30 * 1000;
@@ -123,6 +129,24 @@ function buildRebookLink(booking) {
   if (booking.purpose) {
     params.set('purpose', booking.purpose);
   }
+  if (booking.resourceType === 'equipment' && booking.equipmentRequestType) {
+    params.set('equipmentRequestType', booking.equipmentRequestType);
+    if (booking.equipmentRequestType === 'loan') {
+      if (booking.loanReason) params.set('loanReason', booking.loanReason);
+      if (booking.loanWorkflowNote) params.set('loanWorkflowNote', booking.loanWorkflowNote);
+      if (booking.loanTransportPlan) params.set('loanTransportPlan', booking.loanTransportPlan);
+    }
+  }
+  if (booking.resourceType === 'room') {
+    if (booking.roomParticipantCount != null) {
+      params.set('roomParticipantCount', String(booking.roomParticipantCount));
+    }
+    if (booking.roomEquipmentNeeds) params.set('roomEquipmentNeeds', booking.roomEquipmentNeeds);
+    if (booking.roomSetupRequirements) {
+      params.set('roomSetupRequirements', booking.roomSetupRequirements);
+    }
+    if (booking.roomProgramDetails) params.set('roomProgramDetails', booking.roomProgramDetails);
+  }
   if (booking.authorizationDocUrl) {
     params.set('authorizationDocUrl', booking.authorizationDocUrl);
   }
@@ -135,8 +159,7 @@ function buildRebookLink(booking) {
     !isNaN(start.getTime()) &&
     !isNaN(end.getTime()) &&
     start > now &&
-    end > now &&
-    !isBeyondAdvanceBookingWindow(start, now)
+    end > now
   ) {
     params.set('startTime', start.toISOString());
     params.set('endTime', end.toISOString());
@@ -164,6 +187,14 @@ function buildRedoPayloadFromUndoneBooking(booking) {
     resourceType: booking.resourceType,
     resourceId: booking.resourceId,
     bookingType: booking.bookingType,
+    equipmentRequestType: booking.equipmentRequestType || undefined,
+    loanReason: booking.loanReason || undefined,
+    loanWorkflowNote: booking.loanWorkflowNote || undefined,
+    loanTransportPlan: booking.loanTransportPlan || undefined,
+    roomParticipantCount: booking.roomParticipantCount ?? undefined,
+    roomEquipmentNeeds: booking.roomEquipmentNeeds || undefined,
+    roomSetupRequirements: booking.roomSetupRequirements || undefined,
+    roomProgramDetails: booking.roomProgramDetails || undefined,
     startTime: booking.startTime,
     endTime: booking.endTime,
     purpose: booking.purpose || '',
@@ -187,7 +218,11 @@ export default function Dashboard() {
   const [pastFilters, setPastFilters] = useState(() => loadFilters('past'));
 
   const [cancelDialog, setCancelDialog] = useState({ open: false, bookingId: null });
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelProbableRebookDate, setCancelProbableRebookDate] = useState('');
+  const [cancelSubmitting, setCancelSubmitting] = useState(false);
   const [cancelError, setCancelError] = useState(null);
+  const [cancelFormErrors, setCancelFormErrors] = useState({ reason: '', date: '' });
   const [devUndoLoading, setDevUndoLoading] = useState(false);
   const [devUndoMessage, setDevUndoMessage] = useState(null);
   const [devUndoError, setDevUndoError] = useState(null);
@@ -305,16 +340,33 @@ export default function Dashboard() {
   }, []);
 
   const handleCancelConfirm = async () => {
-    if (!cancelDialog.bookingId) return;
+    if (!cancelDialog.bookingId || cancelSubmitting) return;
+    const nextErrors = {
+      reason: cancelReason.trim() ? '' : 'Cancellation reason is required.',
+      date: cancelProbableRebookDate ? '' : 'Probable rebook date is required.',
+    };
+    setCancelFormErrors(nextErrors);
+    if (nextErrors.reason || nextErrors.date) {
+      setCancelError('Please complete the required cancellation fields.');
+      return;
+    }
     setCancelError(null);
+    setCancelSubmitting(true);
     try {
-      await axiosInstance.patch(`/bookings/${cancelDialog.bookingId}/cancel`);
+      await axiosInstance.patch(`/bookings/${cancelDialog.bookingId}/cancel`, {
+        cancellationReason: cancelReason.trim(),
+        probableRebookDate: cancelProbableRebookDate,
+      });
       setCancelDialog({ open: false, bookingId: null });
+      setCancelReason('');
+      setCancelProbableRebookDate('');
+      setCancelFormErrors({ reason: '', date: '' });
       await fetchData();
     } catch (err) {
       const msg = err.response?.data?.error || 'Failed to cancel booking.';
       setCancelError(msg);
-      setCancelDialog({ open: false, bookingId: null });
+    } finally {
+      setCancelSubmitting(false);
     }
   };
 
@@ -333,7 +385,10 @@ export default function Dashboard() {
 
     setDevUndoLoading(true);
     try {
-      await axiosInstance.patch(`/bookings/${latestUndoable.id}/cancel`);
+      await axiosInstance.patch(`/bookings/${latestUndoable.id}/cancel`, {
+        cancellationReason: 'Dev undo latest transition',
+        probableRebookDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      });
       setDevUndoMessage(
         `Undid latest transition by cancelling booking #${latestUndoable.id}.`
       );
@@ -731,15 +786,84 @@ export default function Dashboard() {
         />
       )}
 
-      <ConfirmDialog
+      <Dialog
         open={cancelDialog.open}
         onOpenChange={(open) => {
-          if (!open) setCancelDialog({ open: false, bookingId: null });
+          if (!open) {
+            setCancelDialog({ open: false, bookingId: null });
+            setCancelReason('');
+            setCancelProbableRebookDate('');
+            setCancelFormErrors({ reason: '', date: '' });
+          }
         }}
-        onConfirm={handleCancelConfirm}
-        title="Cancel Booking"
-        description="Are you sure you want to cancel this booking? This action cannot be undone."
-      />
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Cancel Booking</DialogTitle>
+            <DialogDescription>
+              Provide a cancellation reason and probable rebook date.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Cancellation reason</label>
+              <textarea
+                className={`w-full rounded-md border bg-background px-3 py-2 text-sm resize-none ${
+                  cancelFormErrors.reason ? 'border-destructive' : 'border-input'
+                }`}
+                rows={3}
+                value={cancelReason}
+                onChange={(e) => {
+                  setCancelReason(e.target.value);
+                  if (cancelFormErrors.reason) {
+                    setCancelFormErrors((prev) => ({ ...prev, reason: '' }));
+                  }
+                }}
+                placeholder="State why this booking is being cancelled..."
+              />
+              {cancelFormErrors.reason && (
+                <p className="text-xs text-destructive">{cancelFormErrors.reason}</p>
+              )}
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Probable rebook date</label>
+              <input
+                type="date"
+                className={`h-9 w-full rounded-md border bg-background px-3 text-sm ${
+                  cancelFormErrors.date ? 'border-destructive' : 'border-input'
+                }`}
+                value={cancelProbableRebookDate}
+                onChange={(e) => {
+                  setCancelProbableRebookDate(e.target.value);
+                  if (cancelFormErrors.date) {
+                    setCancelFormErrors((prev) => ({ ...prev, date: '' }));
+                  }
+                }}
+              />
+              {cancelFormErrors.date && (
+                <p className="text-xs text-destructive">{cancelFormErrors.date}</p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCancelDialog({ open: false, bookingId: null });
+                setCancelReason('');
+                setCancelProbableRebookDate('');
+                setCancelFormErrors({ reason: '', date: '' });
+              }}
+              disabled={cancelSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCancelConfirm} disabled={cancelSubmitting}>
+              {cancelSubmitting ? 'Cancelling...' : 'Confirm Cancellation'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

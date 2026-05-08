@@ -23,7 +23,7 @@ There is **no** separate `confirmed` status. Approved firm = `approved`.
 
 Rules tied to the booking start time:
 
-- Users can create new pencil or firm bookings only up to **7 days in advance**.
+- Users can create new pencil or firm bookings based on request-type lead time: equipment in-house requires at least 2 days, equipment loan at least 7 days, and rooms at least 7 days before start time.
 - Users cannot create **new** pencil or firm bookings when start time is within 24 hours.
 - Staff can approve a firm only while start time is still **more than 24 hours away**.
 - A firm still `pending_approval` at the cutoff is auto-marked `expired` by cron.

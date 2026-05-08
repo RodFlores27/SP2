@@ -395,18 +395,55 @@ function AuditExpandedDetails({ log }) {
       )}
 
       {String(log.eventType || '').startsWith('booking.') && (
-        <dl className="grid grid-cols-1 gap-3 rounded-md border border-border bg-background p-3 sm:grid-cols-3">
-          <DetailRow label="Type" value={formatLabel(log.bookingType || log.booking?.bookingType)} />
-          <DetailRow label="Status" value={formatLabel(log.status || log.booking?.status)} />
-          <DetailRow
-            label="Schedule"
-            value={
-              payload.startTime || payload.endTime
-                ? `${payload.startTime ? formatAuditTime(payload.startTime) : '?'} to ${payload.endTime ? formatAuditTime(payload.endTime) : '?'}`
-                : '-'
-            }
-          />
-        </dl>
+        <div className="space-y-3 rounded-md border border-border bg-background p-3">
+          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <DetailRow label="Type" value={formatLabel(log.bookingType || log.booking?.bookingType)} />
+            <DetailRow label="Status" value={formatLabel(log.status || log.booking?.status)} />
+            <DetailRow
+              label="Schedule"
+              value={
+                payload.startTime || payload.endTime
+                  ? `${payload.startTime ? formatAuditTime(payload.startTime) : '?'} to ${payload.endTime ? formatAuditTime(payload.endTime) : '?'}`
+                  : '-'
+              }
+            />
+          </dl>
+          {(log.booking?.equipmentRequestType ||
+            log.booking?.loanReason ||
+            log.booking?.loanWorkflowNote ||
+            log.booking?.loanTransportPlan ||
+            log.booking?.roomParticipantCount != null ||
+            log.booking?.roomEquipmentNeeds ||
+            log.booking?.roomSetupRequirements ||
+            log.booking?.roomProgramDetails ||
+            log.booking?.cancellationReason ||
+            log.booking?.probableRebookDate) && (
+            <dl className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
+              <DetailRow
+                label="Equipment Request Type"
+                value={formatLabel(log.booking?.equipmentRequestType)}
+              />
+              <DetailRow label="Loan Reason" value={log.booking?.loanReason || '-'} />
+              <DetailRow label="Loan Workflow Note" value={log.booking?.loanWorkflowNote || '-'} />
+              <DetailRow label="Loan Transport Plan" value={log.booking?.loanTransportPlan || '-'} />
+              <DetailRow
+                label="Expected Participants"
+                value={log.booking?.roomParticipantCount != null ? String(log.booking.roomParticipantCount) : '-'}
+              />
+              <DetailRow label="Event Equipment Needs" value={log.booking?.roomEquipmentNeeds || '-'} />
+              <DetailRow
+                label="Setup and Catering Requirements"
+                value={log.booking?.roomSetupRequirements || '-'}
+              />
+              <DetailRow label="Program or Event Details" value={log.booking?.roomProgramDetails || '-'} />
+              <DetailRow label="Cancellation Reason" value={log.booking?.cancellationReason || '-'} />
+              <DetailRow
+                label="Probable Rebook Date"
+                value={log.booking?.probableRebookDate ? formatAuditTime(log.booking.probableRebookDate) : '-'}
+              />
+            </dl>
+          )}
+        </div>
       )}
     </div>
   );

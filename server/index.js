@@ -6,6 +6,7 @@ const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('./docs/swagger.json');
 const { devHttpErrorLog } = require('./middleware/dev-http-error-log.middleware');
 const kafkaConfig = require('./config/kafka');
+const { validateRuntimeConfig } = require('./config/runtime-check');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -57,6 +58,20 @@ const { sequelize } = require('./models');
 sequelize.authenticate()
   .then(() => {
     console.log('DB connection OK');
+    const runtime = validateRuntimeConfig();
+    if (runtime.warnings.length > 0) {
+      runtime.warnings.forEach((warning) => {
+        console.warn(`[runtime] Warning: ${warning}`);
+      });
+    }
+    if (!runtime.valid) {
+      runtime.errors.forEach((error) => {
+        console.error(`[runtime] Config error: ${error}`);
+      });
+      console.warn(
+        '[runtime] Invalid configuration detected. Server will continue running in degraded mode where possible.'
+      );
+    }
     require('./jobs/booking-expiry');
     const {
       connectKafkaProducer,

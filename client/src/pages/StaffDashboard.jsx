@@ -190,6 +190,11 @@ function getSourceDeniedByInfo(booking) {
   return { id: 'unknown', email: 'Unknown/Legacy' };
 }
 
+function getSourceAttempt(booking) {
+  if (!booking?.rebookedFromBookingId) return null;
+  return booking.threadBookings?.find((attempt) => attempt.id === booking.rebookedFromBookingId) || null;
+}
+
 function getConflictParticipants(group) {
   const defenderBookingIdFromDetail =
     group.bookings.find((booking) => booking?.contentionDetail?.defender?.bookingId)?.contentionDetail?.defender?.bookingId || null;
@@ -586,7 +591,33 @@ function getPreviousAttempts(booking) {
       if (!attempt.createdAt || !booking.createdAt) return true;
       return new Date(attempt.createdAt) < new Date(booking.createdAt);
     })
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    .sort((a, b) => {
+      const aTime = new Date(a.historyEvent?.occurredAt || a.updatedAt || a.createdAt).getTime();
+      const bTime = new Date(b.historyEvent?.occurredAt || b.updatedAt || b.createdAt).getTime();
+      return bTime - aTime;
+    });
+}
+
+function formatDateTimeSafe(value, pattern = 'MMM d, yyyy h:mm a', fallback = '—') {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return fallback;
+  return format(date, pattern);
+}
+
+function formatHistoryStatus(status) {
+  return String(status || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function getHistoryRemark(attempt) {
+  const status = String(attempt?.status || '').toLowerCase();
+  if (status === 'cancelled') return attempt?.cancellationReason || '';
+  if (status === 'denied') return attempt?.staffRemark || '';
+  if (status === 'expired') return 'Expired';
+  if (status === 'displaced') return 'Displaced';
+  return attempt?.staffRemark || attempt?.cancellationReason || '';
 }
 
 function formatChangeValue(field, value) {
@@ -1337,8 +1368,16 @@ export default function StaffDashboard() {
 }
 
 function ApprovedBookingCard({ booking, resourceName }) {
-  const approvedAt = booking.approvedAt ? format(new Date(booking.approvedAt), 'MMM d, yyyy h:mm a') : '—';
+  const approvedAt = formatDateTimeSafe(booking.approvedAt);
   const approvedBy = booking.approvedBy?.email || 'Unknown';
+  const [showDetails, setShowDetails] = useState(false);
+  const previousAttempts = getPreviousAttempts(booking);
+  const equipmentRequestTypeLabel =
+    booking.resourceType === 'equipment'
+      ? booking.equipmentRequestType === 'loan'
+        ? 'Loan'
+        : 'In-house'
+      : null;
   const requesterLine = booking.user?.userCategory
     ? `${booking.user?.email || 'Unknown user'} (${formatUserCategory(booking.user.userCategory)})`
     : booking.user?.email || 'Unknown user';
@@ -1346,40 +1385,159 @@ function ApprovedBookingCard({ booking, resourceName }) {
   return (
     <Card className="border-up-forest-green/20">
       <CardContent className="pt-4 pb-4">
-        <div className="space-y-1.5 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm">{getBookingReference(booking)}</span>
-            <span className="font-medium truncate">{resourceName}</span>
-            <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
-          </div>
-          <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
-          <div className="space-y-1.5 pt-1">
-            <p className="text-sm">
-              <span className="font-medium text-foreground">Requester:</span>{' '}
-              <span className="text-muted-foreground">{requesterLine}</span>
-            </p>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
+        <div className="space-y-3 min-w-0">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.2fr_1fr_auto] md:items-start">
+            <div className="space-y-1.5 min-w-0">
+              <p className="font-medium truncate">{resourceName}</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-sm">{getBookingReference(booking)}</span>
+                <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
+                {equipmentRequestTypeLabel && (
+                  <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary">
+                    {equipmentRequestTypeLabel}
+                  </span>
+                )}
+              </div>
+              <AuthorizationDocButton url={booking.authorizationDocUrl} />
+            </div>
+
+            <div className="space-y-1 min-w-0">
+              <div className="text-sm text-muted-foreground flex items-center gap-1">
+                <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+                <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
+              </div>
+              <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
+              <p className="text-sm">
+                <span className="font-medium text-foreground">Requester:</span>{' '}
+                <span className="text-muted-foreground">{requesterLine}</span>
+              </p>
+            </div>
+
+            <div className="text-xs text-muted-foreground space-y-1 md:text-right">
+              <p>
+                <span className="font-medium text-foreground/80">Approved by:</span>{' '}
+                <span>{approvedBy}</span>
+              </p>
+              <p>
+                <span className="font-medium text-foreground/80">Approved at:</span>{' '}
+                <span>{approvedAt}</span>
+              </p>
             </div>
           </div>
-          <div className="border-t border-border/70 pt-2 mt-1 text-xs text-muted-foreground space-y-1">
-            <p>
-              <span className="font-medium text-foreground/80">Approved by:</span>{' '}
-              <span>{approvedBy}</span>
-            </p>
-            <p>
-              <span className="font-medium text-foreground/80">Approved at:</span>{' '}
-              <span>{approvedAt}</span>
-            </p>
+
+          <div className="rounded-md border border-border bg-muted/20">
+            <button
+              type="button"
+              onClick={() => setShowDetails((prev) => !prev)}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium"
+              aria-expanded={showDetails}
+            >
+              <span>{showDetails ? 'Hide Details' : 'View Details'}</span>
+              {showDetails ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+
+            {showDetails && (
+              <div className="border-t border-border px-3 py-3 space-y-3 text-sm">
+                {booking.purpose && (
+                  <div>
+                    <p className="font-medium text-foreground">Purpose:</p>
+                    <p className="text-muted-foreground whitespace-pre-wrap break-words">{booking.purpose}</p>
+                    {booking.staffRemark && (
+                      <p className="mt-1.5">
+                        <span className="font-medium">Staff remark:</span>{' '}
+                        <span className="text-muted-foreground">{booking.staffRemark}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {(booking.resourceType === 'room' ||
+                  (booking.resourceType === 'equipment' && booking.equipmentRequestType === 'loan')) && (
+                  <div className="space-y-2">
+                    <p className="font-medium text-foreground">
+                      {booking.resourceType === 'room' ? 'Room request details:' : 'Loan request details:'}
+                    </p>
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {booking.resourceType === 'equipment' && booking.equipmentRequestType === 'loan' && (
+                        <>
+                          <p><span className="font-medium">Reason:</span> {booking.loanReason || '—'}</p>
+                          <p><span className="font-medium">Workflow note:</span> {booking.loanWorkflowNote || '—'}</p>
+                          <p><span className="font-medium">Transport plan:</span> {booking.loanTransportPlan || '—'}</p>
+                        </>
+                      )}
+                      {booking.resourceType === 'room' && (
+                        <>
+                          <p><span className="font-medium">Expected participants:</span> {booking.roomParticipantCount ?? '—'}</p>
+                          <p><span className="font-medium">Event equipment needs:</span> {booking.roomEquipmentNeeds || '—'}</p>
+                          <p><span className="font-medium">Setup and catering requirements:</span> {booking.roomSetupRequirements || '—'}</p>
+                          <p className="sm:col-span-2 lg:col-span-3"><span className="font-medium">Program or event details:</span> {booking.roomProgramDetails || '—'}</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {previousAttempts.length > 0 && (
+                  <div className="rounded-md border border-up-gold/30 bg-accent px-3 py-2">
+                    <p className="text-sm font-medium text-accent-foreground mb-2">
+                      History ({previousAttempts.length})
+                    </p>
+                    <div className={previousAttempts.length > 2 ? 'max-h-[9rem] overflow-y-auto pr-1' : ''}>
+                      <div className="relative space-y-3">
+                        {previousAttempts.map((attempt, index) => (
+                          <div
+                            key={attempt.id}
+                            className={`relative ${index === 0 ? 'opacity-100' : index === 1 ? 'opacity-[0.85]' : 'opacity-[0.7]'}`}
+                          >
+                            <div className={`absolute left-3 top-0 bottom-0 w-px ${index === 0 ? 'bg-accent-foreground/35' : index === 1 ? 'bg-accent-foreground/25' : 'bg-accent-foreground/15'}`} />
+                            <div className="grid grid-cols-[9.5rem_1fr] gap-3 pl-0">
+                              <div className="pt-0.5 text-xs text-accent-foreground/80 whitespace-nowrap">
+                                {formatDateTimeSafe(
+                                  attempt.historyEvent?.occurredAt || attempt.updatedAt || attempt.createdAt
+                                )}
+                              </div>
+                              <div className="relative min-w-0 pb-0.5">
+                                <span className={`absolute -left-[1.95rem] top-[0.35rem] h-2.5 w-2.5 rounded-full border ${index === 0 ? 'border-accent-foreground/60 bg-accent-foreground ring-2 ring-accent-foreground/20' : 'border-accent-foreground/40 bg-accent-foreground/60'}`} />
+                                <p className="text-sm break-words text-accent-foreground">
+                                  <span className="font-semibold">{formatHistoryStatus(attempt.status)}</span>
+                                  {' — '}
+                                  <span className="font-medium">{getBookingReference(attempt)}</span>
+                                </p>
+                                {!!getHistoryRemark(attempt) && (
+                                  <p className="mt-1 text-sm italic text-accent-foreground/85 break-words">
+                                    Remark: {getHistoryRemark(attempt)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {booking.cancellationReason && (
+                  <p>
+                    <span className="font-medium">Cancellation reason:</span>{' '}
+                    <span className="text-muted-foreground">{booking.cancellationReason}</span>
+                  </p>
+                )}
+                {booking.probableRebookDate && (
+                  <p>
+                    <span className="font-medium">Probable rebook date:</span>{' '}
+                    <span className="text-muted-foreground">
+                      {formatDateTimeSafe(booking.probableRebookDate)}
+                    </span>
+                  </p>
+                )}
+              </div>
+            )}
           </div>
-          {booking.staffRemark && (
-            <p className="text-sm">
-              <span className="font-medium">Staff remark:</span>{' '}
-              <span className="text-muted-foreground">{booking.staffRemark}</span>
-            </p>
-          )}
-          <AuthorizationDocButton url={booking.authorizationDocUrl} />
         </div>
       </CardContent>
     </Card>
@@ -1387,97 +1545,140 @@ function ApprovedBookingCard({ booking, resourceName }) {
 }
 
 function ActiveConflictGroupCard({ group }) {
-  const [showDetails, setShowDetails] = useState(false);
   const { defenderBooking, challengerBooking } = getConflictParticipants(group);
   const defenderDeadline = group.urgencyAt ? format(new Date(group.urgencyAt), 'MMM d, yyyy h:mm a') : 'No active deadline';
+  const deadlineMs = group.urgencyAt ? new Date(group.urgencyAt).getTime() : null;
+  const nowMs = Date.now();
+  const hoursToDeadline = deadlineMs != null ? (deadlineMs - nowMs) / (1000 * 60 * 60) : null;
+  const deadlineSeverity =
+    deadlineMs == null
+      ? 'none'
+      : hoursToDeadline <= 0
+        ? 'overdue'
+        : hoursToDeadline <= 24
+          ? 'near'
+          : 'normal';
+  const deadlineChipClass =
+    deadlineSeverity === 'overdue'
+      ? 'border-destructive/40 bg-destructive/10 text-destructive'
+      : deadlineSeverity === 'near'
+        ? 'border-up-gold/50 bg-up-gold/20 text-up-spot-black'
+        : deadlineSeverity === 'normal'
+          ? 'border-primary/25 bg-primary/10 text-primary'
+          : 'border-border bg-muted text-muted-foreground';
+
+  const overlapWindow = (() => {
+    if (!defenderBooking?.startTime || !defenderBooking?.endTime || !challengerBooking?.startTime || !challengerBooking?.endTime) {
+      return null;
+    }
+    const dStart = new Date(defenderBooking.startTime).getTime();
+    const dEnd = new Date(defenderBooking.endTime).getTime();
+    const cStart = new Date(challengerBooking.startTime).getTime();
+    const cEnd = new Date(challengerBooking.endTime).getTime();
+    if ([dStart, dEnd, cStart, cEnd].some(Number.isNaN)) return null;
+    const start = Math.max(dStart, cStart);
+    const end = Math.min(dEnd, cEnd);
+    if (start >= end) return null;
+    return { start: new Date(start), end: new Date(end) };
+  })();
+  const getEquipmentRequestTypeLabel = (booking) =>
+    booking?.resourceType === 'equipment'
+      ? booking?.equipmentRequestType === 'loan'
+        ? 'Loan'
+        : 'In-house'
+      : null;
 
   return (
     <Card className="border-primary/20">
       <CardContent className="pt-4 pb-4 space-y-3">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold">{group.resourceName}</span>
-              <span className="text-xs text-muted-foreground capitalize">{group.resourceType}</span>
-            </div>
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>{formatBookingDateRange(group.windowStart, group.windowEnd)}</span>
-            </div>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold">{group.resourceName}</span>
+            <span className="text-xs text-muted-foreground capitalize">{group.resourceType}</span>
           </div>
-          <div className="flex gap-1.5 flex-wrap justify-end">
-            <span className="inline-flex items-center rounded-full border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
-              Defender deadline: {defenderDeadline}
-            </span>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">Contention Window:</span>{' '}
+            {formatBookingDateRange(group.windowStart, group.windowEnd)}
+          </p>
         </div>
 
-        <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-primary">Defender</span>
-            <span className="font-semibold text-sm">
-              {defenderBooking ? getBookingReference(defenderBooking) : '—'}
-            </span>
-            {defenderBooking ? (
-              <BookingStatusBadge status={defenderBooking.status} bookingType={defenderBooking.bookingType} />
-            ) : (
-              <span className="text-xs text-muted-foreground">Missing booking</span>
-            )}
-            <span className="text-sm text-muted-foreground">{defenderBooking?.user?.email || 'Unknown user'}</span>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-up-forest-green">Challenger</span>
-            <span className="font-semibold text-sm">
-              {challengerBooking ? getBookingReference(challengerBooking) : '—'}
-            </span>
-            {challengerBooking ? (
-              <BookingStatusBadge status={challengerBooking.status} bookingType={challengerBooking.bookingType} />
-            ) : (
-              <span className="text-xs text-muted-foreground">Missing booking</span>
-            )}
-            <span className="text-sm text-muted-foreground">{challengerBooking?.user?.email || 'Unknown user'}</span>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setShowDetails((prev) => !prev)}
-          className="inline-flex items-center gap-1 text-xs font-medium text-primary"
-          aria-expanded={showDetails}
-        >
-          {showDetails ? 'Hide member bookings' : 'View member bookings'}
-          {showDetails ? (
-            <ChevronUp className="h-3.5 w-3.5" />
-          ) : (
-            <ChevronDown className="h-3.5 w-3.5" />
-          )}
-        </button>
-
-        {showDetails && (
-          <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 space-y-2">
-            {group.bookings.map((booking) => (
-              <div key={booking.id} className="space-y-1 border-b border-primary/10 pb-2 last:border-b-0 last:pb-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-sm">{getBookingReference(booking)}</span>
-                  <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
-                  {booking.contentionRole && (
-                    <span className="inline-flex items-center rounded-full bg-card px-2 py-0.5 text-[10px] font-medium capitalize text-primary border border-primary/20">
-                      {booking.contentionRole}
-                    </span>
-                  )}
+        <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-3">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-2 items-stretch">
+            <div className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-sky-700">Defender</p>
+              <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-2 items-start">
+                <div className="min-w-0 space-y-1">
+                  <p className="text-xs text-sky-900 break-words">{defenderBooking?.user?.email || 'Unknown user'}</p>
+                  <p className="text-xs font-semibold text-sky-800 break-words">
+                    {defenderBooking ? getBookingReference(defenderBooking) : '—'}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {defenderBooking ? (
+                      <BookingStatusBadge status={defenderBooking.status} bookingType={defenderBooking.bookingType} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Missing booking</span>
+                    )}
+                    {getEquipmentRequestTypeLabel(defenderBooking) && (
+                      <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary">
+                        {getEquipmentRequestTypeLabel(defenderBooking)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Users className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span>{booking.user?.email || 'Unknown user'}</span>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
+                <div className="text-xs text-sky-900 text-left sm:text-right">
+                  {defenderBooking
+                    ? formatBookingDateRange(defenderBooking.startTime, defenderBooking.endTime)
+                    : '—'}
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="flex items-center justify-center">
+              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border bg-background text-xs font-semibold text-muted-foreground">
+                VS
+              </span>
+            </div>
+
+            <div className="rounded-md border border-orange-200 bg-orange-50 px-3 py-2 space-y-1">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-orange-700 text-right">Challenger</p>
+              <div className="grid grid-cols-1 sm:grid-cols-[auto_1fr] gap-2 items-start">
+                <div className="text-xs text-orange-900 text-left sm:text-right">
+                  {challengerBooking
+                    ? formatBookingDateRange(challengerBooking.startTime, challengerBooking.endTime)
+                    : '—'}
+                </div>
+                <div className="min-w-0 space-y-1 text-right">
+                  <p className="text-xs text-orange-900 break-words">{challengerBooking?.user?.email || 'Unknown user'}</p>
+                  <p className="text-xs font-semibold text-orange-800 break-words">
+                    {challengerBooking ? getBookingReference(challengerBooking) : '—'}
+                  </p>
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
+                    {challengerBooking ? (
+                      <BookingStatusBadge status={challengerBooking.status} bookingType={challengerBooking.bookingType} />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Missing booking</span>
+                    )}
+                    {getEquipmentRequestTypeLabel(challengerBooking) && (
+                      <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[10px] font-medium text-primary">
+                        {getEquipmentRequestTypeLabel(challengerBooking)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        )}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${deadlineChipClass}`}>
+              Defender deadline: {defenderDeadline}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {overlapWindow
+                ? `Overlap: ${format(overlapWindow.start, 'h:mm a')} — ${format(overlapWindow.end, 'h:mm a')}`
+                : 'No overlap window detected'}
+            </span>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -1495,38 +1696,50 @@ function ApprovalCard({
   actionLoading,
 }) {
   const isLoading = (action) => actionLoading === booking.id + action;
+  const equipmentRequestTypeLabel =
+    booking.resourceType === 'equipment'
+      ? booking.equipmentRequestType === 'loan'
+        ? 'Loan'
+        : 'In-house'
+      : null;
   const firmApprovePastDeadline =
     booking.bookingType === 'firm' &&
     booking.status === 'pending_approval' &&
     isWithinStartLockWindow(booking.startTime);
   const previousAttempts = getPreviousAttempts(booking);
+  const sourceAttempt = getSourceAttempt(booking);
+  const sourceDeniedRemark = sourceAttempt?.staffRemark || '';
   const rebookChanges = getRebookChangeItems(booking);
   const isRebookAttempt = Boolean(booking.rebookedFromBookingId);
   const rebookSourceStatus = getEffectiveRebookSourceStatus(booking);
   const showUrgentRebookBadge = isRebookAttempt && rebookSourceStatus === 'denied';
   const [showPreviousAttempts, setShowPreviousAttempts] = useState(false);
   const [showRebookChanges, setShowRebookChanges] = useState(true);
+  const [showUnifiedDetails, setShowUnifiedDetails] = useState(false);
+  const showRequestInfoBlock =
+    booking.resourceType === 'room' ||
+    (booking.resourceType === 'equipment' && booking.equipmentRequestType === 'loan');
 
   return (
     <Card>
       <CardContent className="pt-4 pb-4">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-[1.2fr_1fr_auto] md:items-start">
           <div className="space-y-1.5 min-w-0">
+            <p className="font-medium truncate">{resourceName}</p>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm">{getBookingReference(booking)}</span>
-              <span className="font-medium truncate">{resourceName}</span>
               <span className="text-xs text-muted-foreground capitalize">{booking.resourceType}</span>
-            </div>
-
-            <div className="flex items-center gap-2 flex-wrap">
-              <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
+              {equipmentRequestTypeLabel && (
+                <span className="inline-flex items-center rounded-full border border-primary/20 bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary">
+                  {equipmentRequestTypeLabel}
+                </span>
+              )}
               {showUrgentRebookBadge && (
                 <span className="inline-flex items-center rounded-full border border-up-forest-green/20 bg-secondary px-2 py-0.5 text-[11px] font-medium text-up-forest-green">
                   Rebooked
                 </span>
               )}
             </div>
-
             {isRebookAttempt && (
               <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
                 <CornerDownRight className="h-3 w-3" />
@@ -1537,7 +1750,15 @@ function ApprovalCard({
                 </span>
               </p>
             )}
+            {!isRebookAttempt && <AuthorizationDocButton url={booking.authorizationDocUrl} />}
+          </div>
 
+          <div className="space-y-1 min-w-0">
+            <div className="text-sm text-muted-foreground flex items-center gap-1">
+              <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+              <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
+            </div>
+            <BookingStatusBadge status={booking.status} bookingType={booking.bookingType} />
             <div className="flex items-center gap-1 text-sm text-muted-foreground">
               <Users className="h-3.5 w-3.5 flex-shrink-0" />
               <span>
@@ -1549,22 +1770,9 @@ function ApprovalCard({
                 )}
               </span>
             </div>
-
-            <div className="flex items-center gap-1 text-sm text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-              <span>{formatBookingDateRange(booking.startTime, booking.endTime)}</span>
-            </div>
-
-            {booking.purpose && (
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">Purpose:</span> {booking.purpose}
-              </p>
-            )}
-
-            <AuthorizationDocButton url={booking.authorizationDocUrl} />
           </div>
 
-          <div className="flex-shrink-0">
+          <div className="flex md:justify-end">
             <Button size="sm" variant="outline" onClick={onToggleReview}>
               {reviewOpen ? (
                 <>
@@ -1580,69 +1788,188 @@ function ApprovalCard({
             </Button>
           </div>
         </div>
+        {isRebookAttempt && (
+          <div className="mt-3">
+            <AuthorizationDocButton url={booking.authorizationDocUrl} />
+          </div>
+        )}
 
         {reviewOpen && (
           <div className="mt-4 border-t pt-4 space-y-3">
-            {isRebookAttempt && (
-              <div className="rounded-md border border-up-forest-green/20 bg-secondary px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => setShowRebookChanges((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-2 text-left"
-                >
-                  <span className="text-sm font-medium text-up-forest-green">Changes from previous attempt</span>
-                  <span className="text-xs text-up-forest-green/80">
-                    {showRebookChanges ? 'Hide' : 'Show'}
-                  </span>
-                </button>
-                {showRebookChanges && (
-                  rebookChanges.length > 0 ? (
-                    <div className="mt-1 space-y-1">
-                      {rebookChanges.map((item) => (
-                        <RebookChangeRow key={item.field} item={item} />
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="mt-1 text-xs text-up-forest-green/90">
-                      No changed fields detected from the previous attempt.
-                    </p>
-                  )
+            <div className="rounded-md border border-border bg-muted/20">
+              <button
+                type="button"
+                onClick={() => setShowUnifiedDetails((prev) => !prev)}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium"
+                aria-expanded={showUnifiedDetails}
+              >
+                <span>{showUnifiedDetails ? 'Hide Details' : 'View Details'}</span>
+                {showUnifiedDetails ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
                 )}
-              </div>
-            )}
-            {previousAttempts.length > 0 && (
-              <div className="rounded-md border border-up-gold/30 bg-accent px-3 py-2">
-                <button
-                  type="button"
-                  onClick={() => setShowPreviousAttempts((prev) => !prev)}
-                  className="flex w-full items-center justify-between gap-2 text-left"
-                >
-                  <span className="text-sm font-medium text-accent-foreground">
-                    Previous attempts ({previousAttempts.length})
-                  </span>
-                  <span className="text-xs text-accent-foreground/75">
-                    {showPreviousAttempts ? 'Hide' : 'Show'}
-                  </span>
-                </button>
-                {showPreviousAttempts && (
-                  <div className="mt-2 space-y-2">
-                    {previousAttempts.map((attempt) => (
-                      <div key={attempt.id} className="text-sm text-accent-foreground">
-                        <p className="font-medium">
-                          Booking {getBookingReference(attempt)} ({attempt.status?.replace('_', ' ')})
-                        </p>
-                        <p className="text-xs text-accent-foreground/75">
-                          {formatBookingDateRange(attempt.startTime, attempt.endTime)}
-                        </p>
-                        {!!attempt.staffRemark && (
-                          <p className="mt-1 text-sm text-accent-foreground">{attempt.staffRemark}</p>
+              </button>
+
+              {showUnifiedDetails && (
+                <div className="border-t border-border px-3 py-3 space-y-3 text-sm">
+                  {booking.purpose && (
+                    <div>
+                      <p className="font-medium text-foreground">Purpose:</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">
+                        {booking.purpose}
+                      </p>
+                    </div>
+                  )}
+                  {sourceDeniedRemark && (
+                    <p className="text-sm text-muted-foreground">
+                      <span className="font-medium text-foreground">Previous denial remark:</span> {sourceDeniedRemark}
+                    </p>
+                  )}
+
+                  {showRequestInfoBlock && (
+                    <div className="space-y-2">
+                      <p className="font-medium text-foreground">
+                        {booking.resourceType === 'room' ? 'Room request details:' : 'Loan request details:'}
+                      </p>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {booking.resourceType === 'equipment' && booking.equipmentRequestType === 'loan' && (
+                          <>
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Reason</p>
+                              <p className="break-words text-foreground">{booking.loanReason || '—'}</p>
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Workflow Note</p>
+                              <p className="break-words text-foreground">{booking.loanWorkflowNote || '—'}</p>
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Transport Plan</p>
+                              <p className="break-words text-foreground">{booking.loanTransportPlan || '—'}</p>
+                            </div>
+                          </>
+                        )}
+                        {booking.resourceType === 'room' && (
+                          <>
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Expected Participants</p>
+                              <p className="break-words text-foreground">{booking.roomParticipantCount ?? '—'}</p>
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Event Equipment Needs</p>
+                              <p className="break-words text-foreground">{booking.roomEquipmentNeeds || '—'}</p>
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Setup & Catering</p>
+                              <p className="break-words text-foreground">{booking.roomSetupRequirements || '—'}</p>
+                            </div>
+                            <div className="space-y-1 min-w-0 sm:col-span-2 lg:col-span-3">
+                              <p className="text-[11px] font-semibold tracking-wide uppercase text-muted-foreground">Program / Event Details</p>
+                              <p className="break-words text-foreground">{booking.roomProgramDetails || '—'}</p>
+                            </div>
+                          </>
                         )}
                       </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                    </div>
+                  )}
+
+                  {isRebookAttempt && (
+                    <div className="rounded-md border border-up-forest-green/20 bg-secondary px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowRebookChanges((prev) => !prev)}
+                        className="flex w-full items-center justify-between gap-2 text-left"
+                      >
+                        <span className="text-sm font-medium text-up-forest-green">Changes from previous attempt</span>
+                        <span className="text-xs text-up-forest-green/80">
+                          {showRebookChanges ? 'Hide' : 'Show'}
+                        </span>
+                      </button>
+                      {showRebookChanges && (
+                        rebookChanges.length > 0 ? (
+                          <div className="mt-1 space-y-1">
+                            {rebookChanges.map((item) => (
+                              <RebookChangeRow key={item.field} item={item} />
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-xs text-up-forest-green/90">
+                            No changed fields detected from the previous attempt.
+                          </p>
+                        )
+                      )}
+                    </div>
+                  )}
+
+                  {previousAttempts.length > 0 && (
+                    <div className="rounded-md border border-up-gold/30 bg-accent px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowPreviousAttempts((prev) => !prev)}
+                        className="flex w-full items-center justify-between gap-2 text-left"
+                      >
+                        <span className="text-sm font-medium text-accent-foreground">
+                          History ({previousAttempts.length})
+                        </span>
+                        <span className="text-xs text-accent-foreground/75">
+                          {showPreviousAttempts ? 'Hide' : 'Show'}
+                        </span>
+                      </button>
+                      {showPreviousAttempts && (
+                        <div className="mt-2">
+                          <div className={previousAttempts.length > 2 ? 'max-h-[9rem] overflow-y-auto pr-1' : ''}>
+                            <div className="relative space-y-3">
+                              {previousAttempts.map((attempt, index) => (
+                                <div
+                                  key={attempt.id}
+                                  className={`relative ${
+                                    index === 0 ? 'opacity-100' : index === 1 ? 'opacity-[0.85]' : 'opacity-[0.7]'
+                                  }`}
+                                >
+                                  <div
+                                    className={`absolute left-3 top-0 bottom-0 w-px ${
+                                      index === 0 ? 'bg-accent-foreground/35' : index === 1 ? 'bg-accent-foreground/25' : 'bg-accent-foreground/15'
+                                    }`}
+                                  />
+                                  <div className="grid grid-cols-[9.5rem_1fr] gap-3 pl-0">
+                                    <div className="pt-0.5 text-xs text-accent-foreground/80 whitespace-nowrap">
+                                      {formatDateTimeSafe(
+                                        attempt.historyEvent?.occurredAt ||
+                                          attempt.updatedAt ||
+                                          attempt.createdAt
+                                      )}
+                                    </div>
+                                    <div className="relative min-w-0 pb-0.5">
+                                      <span
+                                        className={`absolute -left-[1.95rem] top-[0.35rem] h-2.5 w-2.5 rounded-full border ${
+                                          index === 0
+                                            ? 'border-accent-foreground/60 bg-accent-foreground ring-2 ring-accent-foreground/20'
+                                            : 'border-accent-foreground/40 bg-accent-foreground/60'
+                                        }`}
+                                      />
+                                      <p className="text-sm break-words text-accent-foreground">
+                                        <span className="font-semibold">{formatHistoryStatus(attempt.status)}</span>
+                                        {' — '}
+                                        <span className="font-medium">{getBookingReference(attempt)}</span>
+                                      </p>
+                                      {!!getHistoryRemark(attempt) && (
+                                        <p className="mt-1 text-sm italic text-accent-foreground/85 break-words">
+                                          Remark: {getHistoryRemark(attempt)}
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             {firmApprovePastDeadline && (
               <div className="rounded-md border border-up-gold/30 bg-accent px-3 py-2 text-sm text-accent-foreground">
                 <p className="font-medium">Approval deadline passed</p>
@@ -1656,7 +1983,7 @@ function ApprovalCard({
             <div>
               <label className="text-sm font-medium block mb-1">
                 Staff Remark{' '}
-                <span className="text-muted-foreground font-normal">(optional for approve, recommended for deny)</span>
+                <span className="text-muted-foreground font-normal">(optional for approve, required for deny)</span>
               </label>
               <textarea
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"

@@ -178,7 +178,7 @@ export const bookingMessages = {
           <>Convert as a firm request which will be submitted for staff approval.</>
         ),
         convertAuthRequiredSuffix: () => <> An authorization document is required.</>,
-        convertPurposeLabel: () => <>Purpose (optional)</>,
+        convertPurposeLabel: () => <>Purpose</>,
         convertPurposePlaceholder: 'Describe the purpose of your booking...',
         convertConflictsHeading: () => <>Conflicting bookings:</>,
         convertConflictLine: ({ id, resourceName, typeLabel, statusLabel, range }) => (
@@ -204,6 +204,7 @@ export const bookingMessages = {
 
     firmCancelBlocked: {
       startedOrPast: 'The start time has passed; this booking can’t be cancelled here.',
+      cutoffReached: 'Cancellation cutoff has been reached for this booking type.',
     },
     deadlineQualifier: {
       expiry: 'This deadline matches pencil expiry.',
@@ -221,8 +222,9 @@ export const bookingMessages = {
       bookingTypeRequired: 'Select a booking type',
       startTimeRequired: 'Start time is required',
       endTimeRequired: 'End time is required',
-      startBeyondAdvanceWindow:
-        'Bookings can only be created up to 7 days in advance. Please choose a start time within the next 7 days.',
+      equipmentRequestTypeRequired: 'Select equipment request type',
+      roomParticipantCountRequired: 'Participant count is required',
+      firmPurposeRequired: 'Purpose is required for firm bookings.',
     },
     docErrors: {
       invalidType: 'Invalid file type. Only PDF, DOC, DOCX, JPG, and PNG are allowed.',
@@ -371,6 +373,10 @@ export const bookingMessages = {
       selectRoom: 'Select a room',
       selectEquipment: 'Select equipment',
       bookingType: () => <>Booking Type</>,
+      equipmentRequestType: () => <>Equipment Request Type</>,
+      equipmentRequestTypePlaceholder: 'Select equipment request type',
+      inHouse: () => <>In-house use</>,
+      loan: () => <>Loan</>,
       pencilTitle: () => <>Pencil</>,
       pencilBlurb: () => (
         <>
@@ -405,10 +411,23 @@ export const bookingMessages = {
         </>
       ),
       startTime: () => <>Start Time</>,
-      startTimeWindowHelp: () => <>Bookings can only start within the next 7 days.</>,
+      startTimeWindowHelp: () => <>Lead-time requirements vary by booking type.</>,
       endTime: () => <>End Time</>,
       purposeOptional: () => <>Purpose (optional)</>,
       purposePlaceholder: 'Describe the purpose of your booking...',
+      loanReason: () => <>Loan reason</>,
+      loanReasonPlaceholder: 'Why does the equipment need to be transported?',
+      loanWorkflowNote: () => <>Workflow or schematic note</>,
+      loanWorkflowNotePlaceholder: 'Describe the workflow/schematic context for this loan request...',
+      loanTransportPlan: () => <>Transport plan</>,
+      loanTransportPlanPlaceholder: 'How will the equipment be transported safely?',
+      roomParticipantCount: () => <>Expected participants</>,
+      roomEquipmentNeeds: () => <>Event equipment needs</>,
+      roomEquipmentNeedsPlaceholder: 'Microphone, LCD, speakers, or other needs...',
+      roomSetupRequirements: () => <>Setup and catering requirements</>,
+      roomSetupRequirementsPlaceholder: 'Setup arrangement, catering, and additional setup notes...',
+      roomProgramDetails: () => <>Program or event details</>,
+      roomProgramDetailsPlaceholder: 'Provide brief event description or program details...',
       authLabelFirm: () => <>Authorization Document</>,
       authLabelOptional: () => <>Authorization Document (optional)</>,
       authHelpFirm: () => (
@@ -443,9 +462,6 @@ export const bookingMessages = {
   // ---------------------------------------------------------------------------
   calendar: {
     fetchAvailabilityFailed: 'Failed to fetch availability',
-    advanceWindowHint: () => <>Bookings can only be created up to 7 days in advance.</>,
-    slotBeyondAdvanceWindow:
-      'That slot is beyond the 7-day advance booking window. Please choose a schedule within the next 7 days.',
     errorLoading: ({ message }) => (
       <>
         Error loading calendar: {message}

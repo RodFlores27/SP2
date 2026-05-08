@@ -221,6 +221,10 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: 'pencil'
     },
+    equipmentRequestType: {
+      type: DataTypes.ENUM('in_house', 'loan'),
+      allowNull: true
+    },
     status: {
       type: DataTypes.ENUM(
         'penciled',
@@ -246,6 +250,34 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     purpose: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    loanReason: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    loanWorkflowNote: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    loanTransportPlan: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    roomParticipantCount: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    roomEquipmentNeeds: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    roomSetupRequirements: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    roomProgramDetails: {
       type: DataTypes.TEXT,
       allowNull: true
     },
@@ -280,6 +312,14 @@ module.exports = (sequelize, DataTypes) => {
     },
     staffRemark: {
       type: DataTypes.TEXT,
+      allowNull: true
+    },
+    cancellationReason: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    probableRebookDate: {
+      type: DataTypes.DATE,
       allowNull: true
     },
     approvedByUserId: {
