@@ -121,6 +121,12 @@ function normalizeText(value) {
   return String(value ?? '').toLowerCase();
 }
 
+function formatTabBadgeCount(count, max = 99) {
+  if (!Number.isFinite(count) || count <= 0) return '0';
+  if (count > max) return `${max}+`;
+  return String(count);
+}
+
 
 function getStartWindowBucket(startTime, nowMs = Date.now()) {
   const diffHours = (new Date(startTime).getTime() - nowMs) / (1000 * 60 * 60);
@@ -1109,7 +1115,7 @@ export default function StaffDashboard() {
           Pending Approvals
           {pendingBookings.length > 0 && (
             <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs w-5 h-5">
-              {pendingBookings.length}
+              {formatTabBadgeCount(pendingBookings.length)}
             </span>
           )}
         </button>
@@ -1124,7 +1130,7 @@ export default function StaffDashboard() {
           Resubmissions
           {deniedRebookQueueCount > 0 && (
             <span className="ml-2 inline-flex items-center justify-center rounded-full bg-up-forest-green text-white text-xs min-w-5 h-5 px-1">
-              {deniedRebookQueueCount}
+              {formatTabBadgeCount(deniedRebookQueueCount)}
             </span>
           )}
         </button>
@@ -1139,7 +1145,7 @@ export default function StaffDashboard() {
           Active conflicts
           {activeConflictGroupCount > 0 && (
             <span className="ml-2 inline-flex items-center justify-center rounded-full bg-primary text-primary-foreground text-xs min-w-5 h-5 px-1">
-              {activeConflictGroupCount}
+              {formatTabBadgeCount(activeConflictGroupCount)}
             </span>
           )}
         </button>
@@ -1154,7 +1160,7 @@ export default function StaffDashboard() {
           Approved Bookings
           {approvedBookings.length > 0 && (
             <span className="ml-2 inline-flex items-center justify-center rounded-full bg-up-forest-green text-white text-xs min-w-5 h-5 px-1">
-              {approvedBookings.length}
+              {formatTabBadgeCount(approvedBookings.length)}
             </span>
           )}
         </button>

@@ -1585,8 +1585,10 @@ const cancelBooking = async (req, res) => {
       payload: {
         source: 'booking.cancel',
         triggerBookingId: updated.id,
-        releasedByBookingId: updated.id,
-        releasedByReferenceCode: updated.referenceCode || null,
+        causingBookingId: updated.id,
+        causingReferenceCode: updated.referenceCode || null,
+        causingBookingStatus: updated.status || null,
+        releaseReason: 'firm_cancelled',
       },
       directNotifier: notifyBookingOnHoldReleased,
     });
@@ -2013,8 +2015,10 @@ const denyBooking = async (req, res) => {
         payload: {
           source: 'booking.deny',
           triggerBookingId: updatedBooking.id,
-          releasedByBookingId: updatedBooking.id,
-          releasedByReferenceCode: updatedBooking.referenceCode || null,
+          causingBookingId: updatedBooking.id,
+          causingReferenceCode: updatedBooking.referenceCode || null,
+          causingBookingStatus: updatedBooking.status || null,
+          releaseReason: 'firm_denied',
         },
         directNotifier: notifyBookingOnHoldReleased,
       }).catch(() => {});

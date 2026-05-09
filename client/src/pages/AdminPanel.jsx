@@ -345,6 +345,12 @@ function getAuditDetails(log) {
       const cause = payload.causingReferenceCode || (payload.causingBookingId ? `#${payload.causingBookingId}` : 'booking overlap');
       return `${requestType} - Caused by ${cause}`;
     }
+    if (log.eventType === 'booking.on_hold_released') {
+      const requestType = formatRequestType(inferRequestType(log));
+      const cause = payload.causingReferenceCode || (payload.causingBookingId ? `#${payload.causingBookingId}` : 'booking update');
+      const reason = formatLabel(payload.releaseReason || 'released');
+      return `${requestType} - Released by ${cause} (${reason})`;
+    }
     const bookingType = formatLabel(log.bookingType || log.booking?.bookingType);
     const status = formatLabel(log.status || log.booking?.status);
     const startTime = payload.startTime ? formatAuditTime(payload.startTime) : null;
@@ -365,6 +371,23 @@ function getAuditStatusResource(log) {
     : '';
   const status = log.status ? formatLabel(log.status) : '';
   return [resource, status].filter(Boolean).join(' - ') || '-';
+}
+
+function shouldShowBookingOwner(log) {
+  if (!String(log?.eventType || '').startsWith('booking.')) return false;
+  const ownerUserId = log?.booking?.user?.id ?? log?.payload?.userId ?? null;
+  const actorUserId = log?.actorUserId ?? log?.actor?.id ?? null;
+  const ownerMatchesActor =
+    ownerUserId != null && actorUserId != null && Number(ownerUserId) === Number(actorUserId);
+
+  if (
+    ['booking.created', 'booking.cancelled', 'booking.converted_to_firm'].includes(log?.eventType) &&
+    ownerMatchesActor
+  ) {
+    return false;
+  }
+
+  return true;
 }
 
 function buildAuditSearchText(log) {
@@ -473,6 +496,12 @@ function AuditExpandedDetails({ log }) {
                   : '-'
               }
             />
+            {shouldShowBookingOwner(log) && (
+              <DetailRow
+                label="Booking Owner"
+                value={log.booking?.user?.email || (payload.userId ? `User #${payload.userId}` : '-')}
+              />
+            )}
           </dl>
           {log.eventType === 'booking.contention_started' && (
             <dl className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
@@ -511,12 +540,13 @@ function AuditExpandedDetails({ log }) {
               <DetailRow label="Cause Source" value={formatLabel(payload.source)} />
             </dl>
           )}
-          {['booking.approved', 'booking.denied', 'booking.expiring_soon', 'booking.expired', 'booking.on_hold'].includes(log.eventType) && (
+          {log.eventType === 'booking.on_hold_released' && (
             <dl className="grid grid-cols-1 gap-3 border-t border-border pt-3 sm:grid-cols-2">
               <DetailRow
-                label="Booking Owner"
-                value={log.booking?.user?.email || (payload.userId ? `User #${payload.userId}` : '-')}
+                label="Caused By Booking"
+                value={payload.causingReferenceCode || (payload.causingBookingId ? `#${payload.causingBookingId}` : '-')}
               />
+              <DetailRow label="Release Reason" value={formatLabel(payload.releaseReason)} />
             </dl>
           )}
           {(log.booking?.equipmentRequestType ||

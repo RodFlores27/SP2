@@ -359,8 +359,10 @@ cron.schedule(expiryCronExpression, async () => {
             source: 'cron:expire',
             reason: 'firm_pending_approval_lock_window',
             triggerBookingId: forNotify.id,
-            releasedByBookingId: forNotify.id,
-            releasedByReferenceCode: forNotify.referenceCode || null,
+            causingBookingId: forNotify.id,
+            causingReferenceCode: forNotify.referenceCode || null,
+            causingBookingStatus: forNotify.status || null,
+            releaseReason: 'firm_pending_auto_expired',
           },
           directNotifier: notifyBookingOnHoldReleased,
         });

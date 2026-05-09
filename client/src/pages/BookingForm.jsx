@@ -943,13 +943,16 @@ export default function BookingForm() {
               <div>
                 <CardTitle className="text-2xl">{bf.formCard.title()}</CardTitle>
                 <p className="text-muted-foreground">{bf.formCard.subtitle()}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Need help with requirements?{' '}
+                  <Link
+                    to="/guidelines"
+                    className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+                  >
+                    Review guidelines
+                  </Link>
+                </p>
               </div>
-              <Link
-                to="/guidelines"
-                className="text-sm font-medium text-primary underline underline-offset-4 hover:text-primary/80"
-              >
-                Review guidelines
-              </Link>
             </div>
           </CardHeader>
           <CardContent>
