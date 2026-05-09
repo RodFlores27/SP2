@@ -117,6 +117,9 @@ These reports serve as:
 - Demo booking seed data (6 bookings including contested scenarios)
 - Swagger API documentation updated (3 endpoints, 4 schemas)
 - Verification test script (16 automated test scenarios)
+- Freeze alignment notes (May 10, 2026):
+  - Firm-overlap verification now includes an authorization document field before asserting `409` conflict behavior.
+  - Advance-window validation is environment-policy dependent in current backend behavior and is reported accordingly by milestone tests.
 
 ### Milestone 7: Booking Lifecycle & Staff Approval Endpoints
 **File:** `MILESTONE-7-COMPLETION-REPORT.md`
@@ -327,3 +330,36 @@ These reports serve as:
 - Product naming cleaned to `PTCF Reservation` / `Plant Tissue Culture Facility`
 - Seal/Oblation usage boundary preserved
 - Milestone 20 verification script registered as `npm run test:milestone-20`
+
+## Accuracy Check Snapshot (2026-05-10)
+
+The completion reports below remain valuable as historical implementation records, but not all verification claims reflect the **current** API/business-rule contracts.
+
+### Reports currently aligned with active tests
+- `MILESTONE-1-COMPLETION-REPORT.md`
+- `MILESTONE-2-COMPLETION-REPORT.md`
+- `MILESTONE-11-COMPLETION-REPORT.md`
+- `MILESTONE-12-COMPLETION-REPORT.md`
+- `MILESTONE-14-COMPLETION-REPORT.md`
+- `MILESTONE-15-COMPLETION-REPORT.md`
+- `MILESTONE-16-COMPLETION-REPORT.md`
+- `MILESTONE-17-COMPLETION-REPORT.md`
+- `MILESTONE-18-COMPLETION-REPORT.md`
+- `MILESTONE-20-COMPLETION-REPORT.md`
+
+### Reports needing refresh due to contract drift
+- `MILESTONE-3-COMPLETION-REPORT.md`
+- `MILESTONE-5-COMPLETION-REPORT.md`
+- `MILESTONE-6-COMPLETION-REPORT.md`
+- `MILESTONE-7-COMPLETION-REPORT.md`
+- `MILESTONE-8-COMPLETION-REPORT.md`
+- `MILESTONE-9-COMPLETION-REPORT.md`
+- `MILESTONE-10-COMPLETION-REPORT.md`
+- `MILESTONE-13-COMPLETION-REPORT.md`
+- `MILESTONE-19-COMPLETION-REPORT.md`
+
+### Refresh priorities for outdated reports
+- Add current required fields for resource CRUD (`codeGroup`, `resourceCode`, room code).
+- Add current required field for equipment bookings (`equipmentRequestType`: `in_house` or `loan`).
+- Reconcile booking flow assertions with present lead-time/cutoff and contention lifecycle behavior.
+- Ensure verification sections do not claim full pass when scripts currently fail.

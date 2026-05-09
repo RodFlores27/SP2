@@ -1,5 +1,6 @@
 const axios = require('axios');
 const path = require('path');
+const { execSync } = require('child_process');
 const { checkServerHealth } = require('./utils/test-helpers');
 
 const BASE_URL = process.env.API_BASE_URL || 'http://localhost:4000/api';
@@ -18,7 +19,6 @@ if (process.env.KAFKA_ENABLED === 'true') {
 
 let passed = 0;
 let failed = 0;
-const capturedEmails = [];
 
 function pass(label) {
   console.log(`✅ ${label}`);
@@ -36,15 +36,6 @@ function wait(ms) {
 
 function loadServerModule(relativePath) {
   return require(path.join(SERVER_ROOT, relativePath));
-}
-
-function patchEmailTransport() {
-  const emailPath = path.join(SERVER_ROOT, 'utils', 'email.js');
-  const emailModule = require(emailPath);
-  emailModule.sendEmail = async (message) => {
-    capturedEmails.push(message);
-    console.log(`[email:test-capture] ${message.to} - ${message.subject}`);
-  };
 }
 
 function assert(condition, message) {
@@ -82,6 +73,7 @@ async function createPencilBooking(studentToken, equipmentId) {
     `${BASE_URL}/bookings`,
     {
       resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId,
       bookingType: 'pencil',
       startTime: start.toISOString(),
@@ -123,8 +115,6 @@ async function testMilestone19() {
     return;
   }
 
-  patchEmailTransport();
-
   const {
     BOOKING_EVENT_TYPES,
     disconnectKafkaProducer,
@@ -136,9 +126,13 @@ async function testMilestone19() {
     stopAuditConsumer,
     stopNotificationConsumer,
   } = loadServerModule('utils/kafka');
-  const { AuditLog, BookingAnalyticsEvent } = loadServerModule('models');
+  const { AuditLog, BookingAnalyticsEvent, NotificationDelivery } = loadServerModule('models');
 
   try {
+    try {
+      execSync('npm run clear:bookings', { cwd: SERVER_ROOT, stdio: 'ignore' });
+    } catch {}
+
     const adminLogin = await login(ADMIN_EMAIL, ADMIN_PASSWORD);
     const studentLogin = await login(STUDENT_EMAIL, STUDENT_PASSWORD);
     const adminHeaders = { Authorization: `Bearer ${adminLogin.token}` };
@@ -184,14 +178,16 @@ async function testMilestone19() {
     assert(analyticsRow.eventId, 'Analytics row missing eventId');
     pass('Analytics consumer wrote booking.created row');
 
-    const capturedEmail = await waitForCondition('Notification email capture', () =>
-      capturedEmails.find((email) =>
-        String(email.to).includes(STUDENT_EMAIL) &&
-        String(email.subject || '').includes(`#${booking.id}`)
-      )
+    const delivery = await waitForCondition('Notification delivery persistence', () =>
+      NotificationDelivery.findOne({
+        where: {
+          bookingId: booking.id,
+          notificationType: BOOKING_EVENT_TYPES.CREATED,
+        },
+      })
     );
-    assert(capturedEmail, 'Booking-created email was not captured');
-    pass('Notification consumer handled booking.created email side effect');
+    assert(delivery, 'Notification delivery row was not captured');
+    pass('Notification consumer persisted booking.created delivery side effect');
 
     const [auditRes, analyticsRes] = await Promise.all([
       axios.get(

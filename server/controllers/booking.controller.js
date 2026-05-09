@@ -1959,6 +1959,7 @@ const denyBooking = async (req, res) => {
     const { staffRemark } = req.body;
     const deniedByUserId = req.user.id;
     const normalizedRemark = normalizeOptionalText(staffRemark);
+    const onHoldReleasedBookingIds = new Set();
 
     const booking = await Booking.findByPk(id, {
       attributes: ['id', 'status', 'bookingType', 'contentionRole']
@@ -2024,33 +2025,33 @@ const denyBooking = async (req, res) => {
       booking: updatedBooking
     });
 
-    resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId).then((resourceName) => {
-      publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.DENIED, updatedBooking, {
-        actorUserId: deniedByUserId,
-        resourceName,
-        payload: {
-          deniedByUserId,
-        },
-      });
-      if (!isKafkaEnabled()) {
-        notifyBookingDenied(updatedBooking, resourceName).catch(() => {});
-      }
-      emitBookingTransitionNotifications({
-        bookingIds: Array.from(onHoldReleasedBookingIds),
-        eventType: BOOKING_EVENT_TYPES.ON_HOLD_RELEASED,
-        resourceName,
-        actorUserId: deniedByUserId,
-        payload: {
-          source: 'booking.deny',
-          triggerBookingId: updatedBooking.id,
-          causingBookingId: updatedBooking.id,
-          causingReferenceCode: updatedBooking.referenceCode || null,
-          causingBookingStatus: updatedBooking.status || null,
-          releaseReason: 'firm_denied',
-        },
-        directNotifier: notifyBookingOnHoldReleased,
-      }).catch(() => {});
+    const resourceName = await resolveResourceName(updatedBooking.resourceType, updatedBooking.resourceId);
+    const releasedBookingIds = Array.from(onHoldReleasedBookingIds);
+    publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.DENIED, updatedBooking, {
+      actorUserId: deniedByUserId,
+      resourceName,
+      payload: {
+        deniedByUserId,
+      },
     });
+    if (!isKafkaEnabled()) {
+      notifyBookingDenied(updatedBooking, resourceName).catch(() => {});
+    }
+    emitBookingTransitionNotifications({
+      bookingIds: releasedBookingIds,
+      eventType: BOOKING_EVENT_TYPES.ON_HOLD_RELEASED,
+      resourceName,
+      actorUserId: deniedByUserId,
+      payload: {
+        source: 'booking.deny',
+        triggerBookingId: updatedBooking.id,
+        causingBookingId: updatedBooking.id,
+        causingReferenceCode: updatedBooking.referenceCode || null,
+        causingBookingStatus: updatedBooking.status || null,
+        releaseReason: 'firm_denied',
+      },
+      directNotifier: notifyBookingOnHoldReleased,
+    }).catch(() => {});
   } catch (error) {
     console.error('Error denying booking:', error);
     res.status(500).json({ error: api.deny.failed });

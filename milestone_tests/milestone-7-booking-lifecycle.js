@@ -19,7 +19,8 @@ let roomIds = [];
 function isoAt(dayOffset, startHour, durationHours = 2) {
   const start = new Date();
   start.setDate(start.getDate() + 2 + (Math.floor(dayOffset / 5) % 5));
-  start.setHours(startHour, (RUN_MINUTE_OFFSET + dayOffset) % 55, 0, 0);
+  const minute = (RUN_MINUTE_OFFSET + dayOffset + Math.floor(Math.random() * 7)) % 55;
+  start.setHours(startHour, minute, Math.floor(Math.random() * 50), 0);
 
   const end = new Date(start);
   end.setHours(end.getHours() + durationHours);
@@ -82,6 +83,16 @@ async function createBooking(token, payload) {
     headers: { Authorization: `Bearer ${token}` }
   });
   return response.data.booking;
+}
+
+function cancelPayload(dayOffset = 21) {
+  const probable = new Date();
+  probable.setDate(probable.getDate() + dayOffset);
+  probable.setHours(10, 0, 0, 0);
+  return {
+    cancellationReason: 'Milestone 7 automated cancellation verification',
+    probableRebookDate: probable.toISOString(),
+  };
 }
 
 async function convertBookingToFirmWithDoc(bookingId, token, label) {
@@ -192,6 +203,9 @@ async function testMilestone7() {
   console.log('Testing: Booking Lifecycle & Staff Approval Endpoints\n');
 
   await maybeReseedDatabase();
+  try {
+    execSync('npm run clear:bookings', { cwd: SERVER_DIR, stdio: 'ignore' });
+  } catch {}
 
   const healthCheck = await checkServerHealth(BASE_URL);
   if (!healthCheck.success) {
@@ -262,6 +276,7 @@ async function testCancelBooking() {
 
     const response = await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId(0),
       bookingType: 'pencil',
       startTime: window.startTime,
@@ -280,7 +295,7 @@ async function testCancelBooking() {
   // Test 2: Student cancels own booking
   console.log('\nTest 2: Student cancels own pencil booking');
   try {
-    const response = await axios.patch(`${BASE_URL}/bookings/${testBookingId}/cancel`, {}, {
+    const response = await axios.patch(`${BASE_URL}/bookings/${testBookingId}/cancel`, cancelPayload(), {
       headers: { Authorization: `Bearer ${studentToken}` }
     });
     if (response.data.booking.status === 'cancelled') {
@@ -296,7 +311,7 @@ async function testCancelBooking() {
   // Test 3: Cannot cancel already cancelled booking
   console.log('\nTest 3: Cannot cancel already cancelled booking');
   try {
-    await axios.patch(`${BASE_URL}/bookings/${testBookingId}/cancel`, {}, {
+    await axios.patch(`${BASE_URL}/bookings/${testBookingId}/cancel`, cancelPayload(), {
       headers: { Authorization: `Bearer ${studentToken}` }
     });
     console.log('❌ Should have failed - booking already cancelled');
@@ -320,6 +335,7 @@ async function testCancelBooking() {
 
     const createResponse = await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId(1),
       bookingType: 'pencil',
       startTime: startTime.toISOString(),
@@ -330,7 +346,7 @@ async function testCancelBooking() {
     });
     const nearBookingId = createResponse.data.booking.id;
 
-    await axios.patch(`${BASE_URL}/bookings/${nearBookingId}/cancel`, {}, {
+    await axios.patch(`${BASE_URL}/bookings/${nearBookingId}/cancel`, cancelPayload(), {
       headers: { Authorization: `Bearer ${studentToken}` }
     });
     console.log('❌ Should have failed - booking within 24 hours');
@@ -349,8 +365,13 @@ async function testCancelBooking() {
     const window = isoAt(7, 14, 2);
 
     const createResponse = await axios.post(`${BASE_URL}/bookings`, {
-      resourceType: 'room',
-      resourceId: roomId(0),
+      resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+      resourceId: equipmentId(0),
+      roomParticipantCount: 12,
+      roomEquipmentNeeds: 'Projector and audio system',
+      roomSetupRequirements: 'Classroom seating',
+      roomProgramDetails: 'Milestone automated verification session',
       bookingType: 'pencil',
       startTime: window.startTime,
       endTime: window.endTime,
@@ -360,7 +381,7 @@ async function testCancelBooking() {
     });
     const bookingId = createResponse.data.booking.id;
 
-    const cancelResponse = await axios.patch(`${BASE_URL}/bookings/${bookingId}/cancel`, {}, {
+    const cancelResponse = await axios.patch(`${BASE_URL}/bookings/${bookingId}/cancel`, cancelPayload(), {
       headers: { Authorization: `Bearer ${staffToken}` }
     });
     if (cancelResponse.data.booking.status === 'cancelled') {
@@ -380,6 +401,7 @@ async function testCancelBooking() {
 
     const createResponse = await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId(2),
       bookingType: 'pencil',
       startTime: window.startTime,
@@ -396,7 +418,7 @@ async function testCancelBooking() {
       headers: { Authorization: `Bearer ${staffToken}` }
     });
 
-    const cancelResponse = await axios.patch(`${BASE_URL}/bookings/${bookingId}/cancel`, {}, {
+    const cancelResponse = await axios.patch(`${BASE_URL}/bookings/${bookingId}/cancel`, cancelPayload(), {
       headers: { Authorization: `Bearer ${studentToken}` }
     });
 
@@ -422,8 +444,13 @@ async function testConvertToFirm() {
     const window = isoAt(15, 13, 2);
 
     const response = await axios.post(`${BASE_URL}/bookings`, {
-      resourceType: 'room',
-      resourceId: roomId(1),
+      resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+      resourceId: equipmentId(1),
+      roomParticipantCount: 12,
+      roomEquipmentNeeds: 'Projector and audio system',
+      roomSetupRequirements: 'Classroom seating',
+      roomProgramDetails: 'Milestone automated verification session',
       bookingType: 'pencil',
       startTime: window.startTime,
       endTime: window.endTime,
@@ -499,6 +526,7 @@ async function testConvertToFirm() {
 
     const booking1 = await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId(0),
       bookingType: 'pencil',
       startTime: window1.startTime,
@@ -513,6 +541,7 @@ async function testConvertToFirm() {
 
     await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId(0),
       bookingType: 'pencil',
       startTime: window2.startTime,
@@ -540,8 +569,9 @@ async function testConvertToFirm() {
     const window = isoAt(25, 14, 2);
 
     const staffBooking = await axios.post(`${BASE_URL}/bookings`, {
-      resourceType: 'room',
-      resourceId: roomId(0),
+      resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+      resourceId: equipmentId(0),
       bookingType: 'pencil',
       startTime: window.startTime,
       endTime: window.endTime,
@@ -596,6 +626,7 @@ async function testStaffApproval() {
 
     const createResponse = await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId(1),
       bookingType: 'pencil',
       startTime: window.startTime,
@@ -636,8 +667,9 @@ async function testStaffApproval() {
     const window = isoAt(35, 10, 2);
 
     const createResponse = await axios.post(`${BASE_URL}/bookings`, {
-      resourceType: 'room',
-      resourceId: roomId(0),
+      resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+      resourceId: equipmentId(0),
       bookingType: 'pencil',
       startTime: window.startTime,
       endTime: window.endTime,
@@ -701,6 +733,7 @@ async function testStaffDenial() {
 
     const createResponse = await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId(2),
       bookingType: 'pencil',
       startTime: window.startTime,
@@ -718,7 +751,7 @@ async function testStaffDenial() {
 
     const denyResponse = await axios.patch(
       `${BASE_URL}/bookings/${firmBooking.id}/deny`,
-      {},
+      { staffRemark: 'Denied in milestone 7 automated verification.' },
       {
         headers: { Authorization: `Bearer ${staffToken}` }
       }
@@ -740,8 +773,9 @@ async function testStaffDenial() {
     const window = isoAt(45, 14, 2);
 
     const createResponse = await axios.post(`${BASE_URL}/bookings`, {
-      resourceType: 'room',
-      resourceId: roomId(1),
+      resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+      resourceId: equipmentId(1),
       bookingType: 'pencil',
       startTime: window.startTime,
       endTime: window.endTime,
@@ -785,6 +819,7 @@ async function testStaffDenial() {
 
     const createResponse = await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId(0),
       bookingType: 'pencil',
       startTime: window.startTime,
@@ -819,8 +854,9 @@ async function testStaffDenial() {
     const window = isoAt(55, 10, 2);
 
     const createResponse = await axios.post(`${BASE_URL}/bookings`, {
-      resourceType: 'room',
-      resourceId: roomId(0),
+      resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+      resourceId: equipmentId(0),
       bookingType: 'pencil',
       startTime: window.startTime,
       endTime: window.endTime,

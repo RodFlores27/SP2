@@ -1,7 +1,10 @@
 const axios = require('axios');
+const { execSync } = require('child_process');
+const path = require('path');
 const { checkServerHealth } = require('./utils/test-helpers');
 
 const BASE_URL = 'http://localhost:4000/api';
+const SERVER_DIR = path.join(__dirname, '..', 'server');
 const RUN_MINUTE_OFFSET = Math.floor(Date.now() / 1000) % 45;
 
 async function testMilestone8() {
@@ -14,6 +17,10 @@ async function testMilestone8() {
     console.log('   Please start the server with: cd server && npm start');
     return;
   }
+
+  try {
+    execSync('npm run clear:bookings', { cwd: SERVER_DIR, stdio: 'ignore' });
+  } catch {}
 
   let studentToken;
   let equipmentId;
@@ -196,12 +203,14 @@ async function testMilestone8() {
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
+        equipmentRequestType: 'in_house',
         resourceId: equipmentId || 1,
         bookingType: 'firm',
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         purpose: 'Test firm booking for calendar milestone',
-        authorizationDocUrl: 'https://res.cloudinary.com/demo/test.pdf'
+        authorizationDocUrl: 'https://res.cloudinary.com/demo/test.pdf',
+        confirmOverlapOwn: true
       },
       {
         headers: { Authorization: `Bearer ${studentToken}` }

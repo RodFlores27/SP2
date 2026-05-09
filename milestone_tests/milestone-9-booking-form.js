@@ -2,9 +2,11 @@ const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 const { checkServerHealth } = require('./utils/test-helpers');
 
 const BASE_URL = 'http://localhost:4000/api';
+const SERVER_DIR = path.join(__dirname, '..', 'server');
 const RUN_MINUTE_OFFSET = Math.floor(Date.now() / 1000) % 45;
 
 async function testMilestone9() {
@@ -17,6 +19,10 @@ async function testMilestone9() {
     console.log('   Please start the server with: cd server && npm start');
     return;
   }
+
+  try {
+    execSync('npm run clear:bookings', { cwd: SERVER_DIR, stdio: 'ignore' });
+  } catch {}
 
   let studentToken;
   let staffToken;
@@ -98,6 +104,9 @@ async function testMilestone9() {
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+       equipmentRequestType: 'in_house',
+        equipmentRequestType: 'in_house',
         resourceId: equipmentId,
         bookingType: 'pencil',
         startTime: startTime.toISOString(),
@@ -135,6 +144,10 @@ async function testMilestone9() {
       {
         resourceType: 'room',
         resourceId: roomId,
+        roomParticipantCount: 12,
+        roomEquipmentNeeds: 'Projector and audio system',
+        roomSetupRequirements: 'Classroom seating',
+        roomProgramDetails: 'Milestone automated verification session',
         bookingType: 'firm',
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
@@ -167,6 +180,7 @@ async function testMilestone9() {
 
     const form = new FormData();
     form.append('resourceType', 'equipment');
+    form.append('equipmentRequestType', 'in_house');
     form.append('resourceId', String(equipmentId));
     form.append('bookingType', 'pencil');
     form.append('startTime', startTime.toISOString());
@@ -193,7 +207,7 @@ async function testMilestone9() {
   console.log('\n--- Test 8: Create Booking with Authorization Document Upload ---');
   try {
     const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + testRunDay + 3);
+    futureDate.setDate(futureDate.getDate() + testRunDay + 10);
     const startTime = new Date(futureDate);
     startTime.setHours(9, RUN_MINUTE_OFFSET, 0, 0);
     const endTime = new Date(futureDate);
@@ -210,6 +224,10 @@ async function testMilestone9() {
     form.append('startTime', startTime.toISOString());
     form.append('endTime', endTime.toISOString());
     form.append('purpose', 'Milestone 9 test - firm booking with doc upload');
+    form.append('roomParticipantCount', '12');
+    form.append('roomEquipmentNeeds', 'Projector and audio system');
+    form.append('roomSetupRequirements', 'Classroom seating');
+    form.append('roomProgramDetails', 'Milestone automated verification session');
     form.append('authorizationDoc', fs.createReadStream(testFilePath), {
       filename: 'test-auth-doc.jpg',
       contentType: 'image/jpeg'
@@ -273,6 +291,9 @@ async function testMilestone9() {
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+       equipmentRequestType: 'in_house',
+        equipmentRequestType: 'in_house',
         resourceId: equipmentId,
         bookingType: 'pencil',
         startTime: pastDate.toISOString(),
@@ -300,6 +321,9 @@ async function testMilestone9() {
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+       equipmentRequestType: 'in_house',
+        equipmentRequestType: 'in_house',
         resourceId: 99999,
         bookingType: 'pencil',
         startTime: futureDate.toISOString(),
@@ -325,6 +349,9 @@ async function testMilestone9() {
 
     await axios.post(`${BASE_URL}/bookings`, {
       resourceType: 'equipment',
+    equipmentRequestType: 'in_house',
+     equipmentRequestType: 'in_house',
+      equipmentRequestType: 'in_house',
       resourceId: equipmentId,
       bookingType: 'pencil',
       startTime: futureDate.toISOString(),
@@ -355,6 +382,9 @@ async function testMilestone9() {
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+       equipmentRequestType: 'in_house',
+        equipmentRequestType: 'in_house',
         resourceId: equipmentId,
         bookingType: 'pencil',
         startTime: startTime.toISOString(),
@@ -388,11 +418,15 @@ async function testMilestone9() {
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+       equipmentRequestType: 'in_house',
+        equipmentRequestType: 'in_house',
         resourceId: equipmentId,
         bookingType: 'firm',
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
-        purpose: 'Milestone 9 test - firm over own pencil (no confirm)'
+        purpose: 'Milestone 9 test - firm over own pencil (no confirm)',
+        authorizationDocUrl: 'https://res.cloudinary.com/demo/test.pdf'
       },
       { headers: { Authorization: `Bearer ${studentToken}` } }
     );
@@ -421,11 +455,15 @@ async function testMilestone9() {
       `${BASE_URL}/bookings`,
       {
         resourceType: 'equipment',
+      equipmentRequestType: 'in_house',
+       equipmentRequestType: 'in_house',
+        equipmentRequestType: 'in_house',
         resourceId: equipmentId,
         bookingType: 'firm',
         startTime: startTime.toISOString(),
         endTime: endTime.toISOString(),
         purpose: 'Milestone 9 test - firm over own pencil (confirmed)',
+        authorizationDocUrl: 'https://res.cloudinary.com/demo/test.pdf',
         confirmOverlapOwn: true
       },
       { headers: { Authorization: `Bearer ${studentToken}` } }

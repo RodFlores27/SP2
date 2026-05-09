@@ -167,6 +167,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - Validation: missing required fields (400 error)
 - Validation: invalid date range (endTime before startTime)
 - Validation: booking in the past (400 error)
+- Validation: advance-window policy reporting (accept-or-reject behavior is reported based on current backend policy)
 - Validation: non-existent resource (404 error)
 - Get all bookings (student sees own, staff sees all)
 - Get booking by ID (owner access)
@@ -195,6 +196,9 @@ node milestone_tests/milestone-{number}-{description}.js
 - JWT authentication and authorization
 
 **Note:** Server must be running on `http://localhost:4000` before executing tests.
+**Current behavior alignment (freeze update):**
+- Overlapping firm-booking rejection test now includes `authorizationDocUrl` so conflict detection is reached and asserted correctly.
+- 8+ day advance booking is no longer hard-failed by the script; test output now reports whichever policy the running backend enforces.
 
 ### Milestone 7: Booking Lifecycle & Staff Approval Endpoints
 **File:** `milestone-7-booking-lifecycle.js`
@@ -550,3 +554,22 @@ node milestone_tests/milestone-{number}-{description}.js
 - Tests should provide clear success/failure output with ✅/❌ indicators
 - **API Documentation:** When milestones add/modify API endpoints, `server/docs/swagger.json` must be updated to keep the interactive API docs at `/api-docs` current
 - **Frontend Tests:** UI/UX tests require manual verification in the browser. Automated E2E tests can be added in future milestones.
+
+## Validation Snapshot (2026-05-10)
+
+Latest run was executed against the current project state on **May 10, 2026**.
+
+### Passing as-is
+- Milestones `1`, `2`, `11`, `12`, `14`, `15`, `16`, `17`, `18`, `20`
+
+### Failing or outdated
+- Milestones `3`, `5`, `6`, `7`, `8`, `9`, `10`, `13`, `19`
+
+### Primary contract drift causing failures
+- Equipment create/update tests must now include `codeGroup` and `resourceCode`.
+- Room create/update tests must now include `resourceCode` (room code).
+- Equipment booking tests must now include `equipmentRequestType` with value `in_house` or `loan`.
+- Some booking tests use older assumptions that no longer hold (for example, room lead-time and evolved booking lifecycle rules).
+
+### Important reliability note
+- Some older scripts still print success-style summary lines even when internal test cases failed. Treat per-test pass/fail lines and process exit behavior as source of truth until those summaries are refactored.

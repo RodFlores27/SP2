@@ -86,6 +86,8 @@ async function testMilestone3() {
         name: 'Microscope',
         category: 'Laboratory Equipment',
         description: 'High-powered research microscope',
+        codeGroup: 'LAB',
+        resourceCode: `MIC-${Date.now()}`,
         status: 'available',
       },
       { headers: { Authorization: `Bearer ${staffToken}` } }
@@ -155,6 +157,7 @@ async function testMilestone3() {
         name: 'Sterilization Room',
         description: 'Dedicated room for sterilization procedures',
         location: 'ICropS 1st Floor',
+        resourceCode: `SR-${Date.now()}` ,
         capacity: 6,
         status: 'available',
       },

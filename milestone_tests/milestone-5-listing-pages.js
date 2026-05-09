@@ -79,6 +79,8 @@ async function testEquipmentEndpoints() {
       name: 'Test Equipment',
       category: 'Testing',
       description: 'This is a test equipment for Milestone 5 verification',
+      codeGroup: 'TEST',
+      resourceCode: `TE-${Date.now()}`,
       status: 'available',
     },
     {
@@ -131,6 +133,7 @@ async function testRoomEndpoints() {
       name: 'Test Room',
       description: 'This is a test room for Milestone 5 verification',
       location: 'Test Building',
+      resourceCode: `TR-${Date.now()}` ,
       capacity: 10,
       status: 'available',
     },
