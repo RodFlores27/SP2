@@ -11,11 +11,14 @@ import {
   Activity,
   BarChart3,
   ChevronDown,
+  ChevronUp,
   ChevronRight,
   Clock3,
+  Download,
   RefreshCw,
   Search,
   Shield,
+  SlidersHorizontal,
   Trash2,
   Users,
   X,
@@ -57,6 +60,93 @@ const EMPTY_ANALYTICS = {
   countsByBookingType: [],
   countsByStatus: [],
 };
+
+const ANALYTICS_RANGE_OPTIONS = [
+  { value: 'all', label: 'All Time' },
+  { value: 'today', label: 'Today' },
+  { value: 'last_7_days', label: 'Last 7 Days' },
+  { value: 'last_30_days', label: 'Last 30 Days' },
+  { value: 'custom', label: 'Custom' },
+];
+
+const USERS_FILTER_DEFAULTS = {
+  query: '',
+  role: 'all',
+  category: 'all',
+  joinedWindow: 'all',
+  sort: 'joined_desc',
+};
+
+const USERS_SORT_OPTIONS = [
+  { value: 'joined_desc', label: 'Joined: Newest' },
+  { value: 'joined_asc', label: 'Joined: Oldest' },
+  { value: 'email_asc', label: 'Email: A-Z' },
+  { value: 'role_then_email', label: 'Role then Email' },
+];
+
+const USERS_JOINED_WINDOW_OPTIONS = [
+  { value: 'all', label: 'Any Join Date' },
+  { value: 'today', label: 'Joined Today' },
+  { value: 'last_7_days', label: 'Joined Last 7 Days' },
+  { value: 'last_30_days', label: 'Joined Last 30 Days' },
+];
+
+const USER_ROLE_FILTER_OPTIONS = [
+  { value: 'all', label: 'All Roles' },
+  { value: 'system_admin', label: 'System Admin' },
+  { value: 'ptcf_staff', label: 'PTCF Staff' },
+  { value: 'regular_user', label: 'Regular User' },
+];
+
+const USER_GROUP_ORDER = ['system_admin', 'ptcf_staff', 'regular_user'];
+const ADMIN_USERS_FILTERS_STORAGE_KEY = 'ptcf.admin.users.filters.v1';
+const ADMIN_USERS_ACCORDION_STORAGE_KEY = 'ptcf.admin.users.accordion.v1';
+
+function formatCountBadge(count, max = 99) {
+  if (!Number.isFinite(count) || count <= 0) return '0';
+  if (count > max) return `${max}+`;
+  return String(count);
+}
+
+function safeParseStorageObject(raw) {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed;
+  } catch {
+    // ignore malformed persisted state
+  }
+  return null;
+}
+
+function loadUsersFiltersState() {
+  if (typeof sessionStorage === 'undefined') return { ...USERS_FILTER_DEFAULTS };
+  const parsed = safeParseStorageObject(sessionStorage.getItem(ADMIN_USERS_FILTERS_STORAGE_KEY));
+  if (!parsed) return { ...USERS_FILTER_DEFAULTS };
+  return {
+    query: typeof parsed.query === 'string' ? parsed.query : USERS_FILTER_DEFAULTS.query,
+    role:
+      typeof parsed.role === 'string' &&
+      USER_ROLE_FILTER_OPTIONS.some((o) => o.value === parsed.role)
+        ? parsed.role
+        : USERS_FILTER_DEFAULTS.role,
+    category: typeof parsed.category === 'string' ? parsed.category : USERS_FILTER_DEFAULTS.category,
+    joinedWindow:
+      typeof parsed.joinedWindow === 'string' &&
+      USERS_JOINED_WINDOW_OPTIONS.some((o) => o.value === parsed.joinedWindow)
+        ? parsed.joinedWindow
+        : USERS_FILTER_DEFAULTS.joinedWindow,
+    sort:
+      typeof parsed.sort === 'string' && USERS_SORT_OPTIONS.some((o) => o.value === parsed.sort)
+        ? parsed.sort
+        : USERS_FILTER_DEFAULTS.sort,
+  };
+}
+
+function loadUsersAccordionState() {
+  if (typeof sessionStorage === 'undefined') return {};
+  return safeParseStorageObject(sessionStorage.getItem(ADMIN_USERS_ACCORDION_STORAGE_KEY)) || {};
+}
 
 function roleChangeConsequence(fromRole, toRole) {
   if (fromRole === toRole) return '';
@@ -605,7 +695,9 @@ export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [search, setSearch] = useState('');
+  const [usersFilters, setUsersFilters] = useState(() => loadUsersFiltersState());
+  const [showUsersFilters, setShowUsersFilters] = useState(false);
+  const [usersAccordionMap, setUsersAccordionMap] = useState(() => loadUsersAccordionState());
 
   const [roleLoading, setRoleLoading] = useState(null);
   const [roleError, setRoleError] = useState(null);
@@ -618,6 +710,12 @@ export default function AdminPanel() {
   const [analytics, setAnalytics] = useState(EMPTY_ANALYTICS);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
   const [analyticsError, setAnalyticsError] = useState(null);
+  const [analyticsFilters, setAnalyticsFilters] = useState({
+    range: 'all',
+    startDate: '',
+    endDate: '',
+  });
+  const [analyticsExporting, setAnalyticsExporting] = useState(false);
 
   const [auditLogs, setAuditLogs] = useState([]);
   const [auditLimit, setAuditLimit] = useState(50);
@@ -645,7 +743,10 @@ export default function AdminPanel() {
     setAnalyticsLoading(true);
     setAnalyticsError(null);
     try {
-      const res = await axiosInstance.get('/admin/analytics');
+      const params = { range: analyticsFilters.range };
+      if (analyticsFilters.startDate) params.startDate = analyticsFilters.startDate;
+      if (analyticsFilters.endDate) params.endDate = analyticsFilters.endDate;
+      const res = await axiosInstance.get('/admin/analytics', { params });
       setAnalytics({ ...EMPTY_ANALYTICS, ...res.data });
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -653,7 +754,7 @@ export default function AdminPanel() {
     } finally {
       setAnalyticsLoading(false);
     }
-  }, []);
+  }, [analyticsFilters]);
 
   const fetchAuditLogs = useCallback(async () => {
     setAuditLoading(true);
@@ -677,9 +778,64 @@ export default function AdminPanel() {
     fetchAuditLogs();
   }, [fetchUsers, fetchAnalytics, fetchAuditLogs]);
 
+  const handleExportAnalyticsCsv = async () => {
+    setAnalyticsExporting(true);
+    setAnalyticsError(null);
+    try {
+      const params = { range: analyticsFilters.range };
+      if (analyticsFilters.startDate) params.startDate = analyticsFilters.startDate;
+      if (analyticsFilters.endDate) params.endDate = analyticsFilters.endDate;
+      const res = await axiosInstance.get('/admin/analytics/export.csv', {
+        params,
+        responseType: 'blob',
+      });
+
+      const header = res.headers['content-disposition'] || '';
+      const nameMatch = header.match(/filename="([^"]+)"/i);
+      const filename = nameMatch?.[1] || `analytics-report-${Date.now()}.csv`;
+      const blob = new Blob([res.data], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error exporting analytics CSV:', err);
+      setAnalyticsError('Failed to export analytics CSV. Please try again.');
+    } finally {
+      setAnalyticsExporting(false);
+    }
+  };
+
   useEffect(() => {
-    refreshAdminData();
-  }, [refreshAdminData]);
+    fetchUsers();
+    fetchAuditLogs();
+  }, [fetchUsers, fetchAuditLogs]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [fetchAnalytics]);
+
+  useEffect(() => {
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      sessionStorage.setItem(ADMIN_USERS_FILTERS_STORAGE_KEY, JSON.stringify(usersFilters));
+    } catch {
+      // ignore
+    }
+  }, [usersFilters]);
+
+  useEffect(() => {
+    if (typeof sessionStorage === 'undefined') return;
+    try {
+      sessionStorage.setItem(ADMIN_USERS_ACCORDION_STORAGE_KEY, JSON.stringify(usersAccordionMap));
+    } catch {
+      // ignore
+    }
+  }, [usersAccordionMap]);
 
   const handleRoleChange = async (userId, newRole) => {
     setRoleLoading(userId);
@@ -719,9 +875,98 @@ export default function AdminPanel() {
     }
   };
 
-  const filtered = users.filter((u) =>
-    u.email.toLowerCase().includes(search.toLowerCase())
+  const userCategoryOptions = useMemo(() => {
+    const unique = [...new Set(users.map((u) => u.userCategory).filter(Boolean))];
+    return unique
+      .sort((a, b) => String(a).localeCompare(String(b)))
+      .map((value) => ({ value, label: formatUserCategory(value) }));
+  }, [users]);
+
+  const filteredUsers = useMemo(() => {
+    const query = usersFilters.query.trim().toLowerCase();
+    const now = new Date();
+    const list = users.filter((u) => {
+      if (query && !String(u.email || '').toLowerCase().includes(query)) return false;
+      if (usersFilters.role !== 'all' && u.accountType !== usersFilters.role) return false;
+      if (usersFilters.category !== 'all' && String(u.userCategory || '') !== usersFilters.category) {
+        return false;
+      }
+      if (usersFilters.joinedWindow !== 'all') {
+        const createdAt = new Date(u.createdAt);
+        if (Number.isNaN(createdAt.getTime())) return false;
+        if (usersFilters.joinedWindow === 'today') {
+          const sameDay =
+            createdAt.getFullYear() === now.getFullYear() &&
+            createdAt.getMonth() === now.getMonth() &&
+            createdAt.getDate() === now.getDate();
+          if (!sameDay) return false;
+        } else if (usersFilters.joinedWindow === 'last_7_days') {
+          if (createdAt.getTime() < now.getTime() - 7 * 24 * 60 * 60 * 1000) return false;
+        } else if (usersFilters.joinedWindow === 'last_30_days') {
+          if (createdAt.getTime() < now.getTime() - 30 * 24 * 60 * 60 * 1000) return false;
+        }
+      }
+      return true;
+    });
+
+    const roleRank = {
+      system_admin: 0,
+      ptcf_staff: 1,
+      regular_user: 2,
+    };
+    list.sort((a, b) => {
+      if (usersFilters.sort === 'joined_asc') {
+        return new Date(a.createdAt) - new Date(b.createdAt);
+      }
+      if (usersFilters.sort === 'email_asc') {
+        return String(a.email || '').localeCompare(String(b.email || ''));
+      }
+      if (usersFilters.sort === 'role_then_email') {
+        const rankDiff = (roleRank[a.accountType] ?? 99) - (roleRank[b.accountType] ?? 99);
+        if (rankDiff !== 0) return rankDiff;
+        return String(a.email || '').localeCompare(String(b.email || ''));
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt);
+    });
+
+    return list;
+  }, [users, usersFilters]);
+
+  const usersByRole = useMemo(() => {
+    const grouped = {
+      system_admin: [],
+      ptcf_staff: [],
+      regular_user: [],
+    };
+    for (const u of filteredUsers) {
+      if (grouped[u.accountType]) grouped[u.accountType].push(u);
+    }
+    return grouped;
+  }, [filteredUsers]);
+
+  const hasActiveUsersFilters = useMemo(
+    () =>
+      usersFilters.query !== USERS_FILTER_DEFAULTS.query ||
+      usersFilters.role !== USERS_FILTER_DEFAULTS.role ||
+      usersFilters.category !== USERS_FILTER_DEFAULTS.category ||
+      usersFilters.joinedWindow !== USERS_FILTER_DEFAULTS.joinedWindow ||
+      usersFilters.sort !== USERS_FILTER_DEFAULTS.sort,
+    [usersFilters]
   );
+
+  useEffect(() => {
+    if (Object.keys(usersAccordionMap || {}).length > 0) return;
+    const withCounts = USER_GROUP_ORDER.map((role) => ({
+      role,
+      count: usersByRole[role]?.length || 0,
+    }));
+    const largest = withCounts.sort((a, b) => b.count - a.count)[0];
+    const next = {};
+    USER_GROUP_ORDER.forEach((role) => {
+      next[role] = role === largest?.role;
+    });
+    setUsersAccordionMap(next);
+  }, [usersByRole, usersAccordionMap]);
 
   const filteredAuditLogs = useMemo(() => {
     const query = auditSearch.trim().toLowerCase();
@@ -835,6 +1080,60 @@ export default function AdminPanel() {
                   <p className="text-xs text-muted-foreground">Total events</p>
                   <p className="text-2xl font-bold">{analytics.totalEvents}</p>
                 </div>
+              </div>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <select
+                    value={analyticsFilters.range}
+                    onChange={(e) =>
+                      setAnalyticsFilters((prev) => ({
+                        ...prev,
+                        range: e.target.value,
+                        ...(e.target.value !== 'custom' ? { startDate: '', endDate: '' } : {}),
+                      }))
+                    }
+                    className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    {ANALYTICS_RANGE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  {analyticsFilters.range === 'custom' && (
+                    <>
+                      <input
+                        type="date"
+                        value={analyticsFilters.startDate}
+                        onChange={(e) =>
+                          setAnalyticsFilters((prev) => ({ ...prev, startDate: e.target.value }))
+                        }
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        aria-label="Analytics start date"
+                      />
+                      <input
+                        type="date"
+                        value={analyticsFilters.endDate}
+                        onChange={(e) =>
+                          setAnalyticsFilters((prev) => ({ ...prev, endDate: e.target.value }))
+                        }
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                        aria-label="Analytics end date"
+                      />
+                    </>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportAnalyticsCsv}
+                  disabled={analyticsLoading || analyticsExporting}
+                  className="h-9"
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  {analyticsExporting ? 'Exporting...' : 'Export CSV'}
+                </Button>
               </div>
             </CardHeader>
             <CardContent>
@@ -987,12 +1286,12 @@ export default function AdminPanel() {
       {activeTab === 'users' && (
         <section className="space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {['regular_user', 'ptcf_staff', 'system_admin'].map((role) => (
+            {USER_GROUP_ORDER.map((role) => (
               <Card key={role}>
                 <CardContent className="pb-4 pt-4">
                   <p className="text-xs text-muted-foreground">{ROLE_LABELS[role]}</p>
                   <p className="mt-1 text-2xl font-bold">
-                    {users.filter((u) => u.accountType === role).length}
+                    {formatCountBadge(users.filter((u) => u.accountType === role).length)}
                   </p>
                 </CardContent>
               </Card>
@@ -1001,21 +1300,119 @@ export default function AdminPanel() {
 
           <Card>
             <CardHeader className="pb-3">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-3">
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Users className="h-4 w-4" />
-                  Users ({filtered.length})
+                  Users ({filteredUsers.length})
                 </CardTitle>
-                <div className="relative">
-                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search by email..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background py-1.5 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring sm:w-64"
-                  />
+
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search by email..."
+                      value={usersFilters.query}
+                      onChange={(e) =>
+                        setUsersFilters((prev) => ({ ...prev, query: e.target.value }))
+                      }
+                      className="h-9 w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowUsersFilters((prev) => !prev)}
+                    className={`inline-flex h-9 items-center justify-center gap-1 rounded-md border px-3 text-sm transition-colors ${
+                      hasActiveUsersFilters
+                        ? 'border-primary/30 bg-primary/5 text-primary hover:bg-primary/10'
+                        : 'hover:bg-accent'
+                    }`}
+                    aria-expanded={showUsersFilters}
+                    aria-label="Toggle filters"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                    Filters
+                    {!showUsersFilters && hasActiveUsersFilters && (
+                      <span className="inline-block h-2 w-2 rounded-full bg-primary" aria-hidden="true" />
+                    )}
+                    {showUsersFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  </button>
                 </div>
+
+                {showUsersFilters && (
+                  <div className="rounded-md border border-border bg-muted/20 p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                      <select
+                        value={usersFilters.role}
+                        onChange={(e) =>
+                          setUsersFilters((prev) => ({ ...prev, role: e.target.value }))
+                        }
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        {USER_ROLE_FILTER_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={usersFilters.category}
+                        onChange={(e) =>
+                          setUsersFilters((prev) => ({ ...prev, category: e.target.value }))
+                        }
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="all">All Categories</option>
+                        {userCategoryOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={usersFilters.joinedWindow}
+                        onChange={(e) =>
+                          setUsersFilters((prev) => ({ ...prev, joinedWindow: e.target.value }))
+                        }
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        {USERS_JOINED_WINDOW_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      <select
+                        value={usersFilters.sort}
+                        onChange={(e) =>
+                          setUsersFilters((prev) => ({ ...prev, sort: e.target.value }))
+                        }
+                        className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        {USERS_SORT_OPTIONS.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+
+                      {hasActiveUsersFilters && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setUsersFilters({ ...USERS_FILTER_DEFAULTS })}
+                          className="h-9"
+                        >
+                          Clear filters
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </CardHeader>
             <CardContent className="p-0">
@@ -1023,78 +1420,113 @@ export default function AdminPanel() {
                 <div className="py-10">
                   <LoadingSpinner />
                 </div>
-              ) : filtered.length === 0 ? (
+              ) : filteredUsers.length === 0 ? (
                 <div className="py-10 text-center text-sm text-muted-foreground">
-                  {search ? 'No users match your search.' : 'No users found.'}
+                  {usersFilters.query ? 'No users match your filters.' : 'No users found.'}
                 </div>
               ) : (
                 <div className="divide-y divide-border">
-                  {filtered.map((u) => {
-                    const isSelf = u.id === user?.id;
+                  {USER_GROUP_ORDER.map((role) => {
+                    const groupUsers = usersByRole[role] || [];
+                    if (groupUsers.length === 0) return null;
+                    const isOpen = usersAccordionMap[role] !== false;
                     return (
-                      <div
-                        key={u.id}
-                        className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center"
-                      >
-                        <div className="min-w-0 flex-1 space-y-0.5">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="truncate text-sm font-medium">{u.email}</span>
-                            {isSelf && (
-                              <span className="text-xs text-muted-foreground">(you)</span>
-                            )}
-                            <RoleBadge accountType={u.accountType} />
+                      <div key={role}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setUsersAccordionMap((prev) => ({ ...prev, [role]: !isOpen }))
+                          }
+                          className="flex w-full items-center gap-2 bg-muted/30 px-4 py-2 text-left"
+                        >
+                          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            {ROLE_LABELS[role]}
+                          </span>
+                          <span className="rounded-full border border-border bg-background px-2 py-0.5 text-xs font-medium">
+                            {formatCountBadge(groupUsers.length)}
+                          </span>
+                          <span className="ml-auto text-muted-foreground">
+                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                          </span>
+                        </button>
+                        {isOpen && (
+                          <div className="divide-y divide-border">
+                            {groupUsers.map((u) => {
+                              const isSelf = u.id === user?.id;
+                              return (
+                                <div
+                                  key={u.id}
+                                  className="grid grid-cols-1 gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_260px] md:items-center"
+                                >
+                                  <div className="min-w-0 space-y-1">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="truncate text-sm font-medium">{u.email}</span>
+                                      {isSelf && (
+                                        <span className="text-xs text-muted-foreground">(you)</span>
+                                      )}
+                                      <RoleBadge accountType={u.accountType} />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                      {formatUserCategory(u.userCategory)}
+                                      {u.createdAt && (
+                                        <span className="ml-2">
+                                          &mdash; Joined {format(new Date(u.createdAt), 'MMM d, yyyy')}
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex items-center justify-start gap-2 md:justify-end">
+                                    <select
+                                      value={u.accountType}
+                                      disabled={isSelf || roleLoading === u.id}
+                                      onChange={(e) => {
+                                        const newRole = e.target.value;
+                                        if (newRole === u.accountType) return;
+                                        e.target.value = u.accountType;
+                                        setRoleDialog({
+                                          open: true,
+                                          userId: u.id,
+                                          email: u.email,
+                                          fromRole: u.accountType,
+                                          toRole: newRole,
+                                        });
+                                      }}
+                                      className="rounded-md border border-input bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {ROLE_OPTIONS.map((opt) => (
+                                        <option key={opt.value} value={opt.value}>
+                                          {opt.label}
+                                        </option>
+                                      ))}
+                                    </select>
+
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      disabled={isSelf || deleteLoading}
+                                      onClick={() =>
+                                        setDeleteDialog({ open: true, userId: u.id, email: u.email })
+                                      }
+                                      className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                      title={isSelf ? 'Cannot delete your own account' : `Delete ${u.email}`}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                          <p className="text-xs text-muted-foreground">
-                            {formatUserCategory(u.userCategory)}
-                            {u.createdAt && (
-                              <span className="ml-2">
-                                &mdash; Joined {format(new Date(u.createdAt), 'MMM d, yyyy')}
-                              </span>
-                            )}
-                          </p>
-                        </div>
-
-                        <div className="flex flex-shrink-0 items-center gap-2">
-                          <select
-                            value={u.accountType}
-                            disabled={isSelf || roleLoading === u.id}
-                            onChange={(e) => {
-                              const newRole = e.target.value;
-                              if (newRole === u.accountType) return;
-                              e.target.value = u.accountType;
-                              setRoleDialog({
-                                open: true,
-                                userId: u.id,
-                                email: u.email,
-                                fromRole: u.accountType,
-                                toRole: newRole,
-                              });
-                            }}
-                            className="rounded-md border border-input bg-background px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {ROLE_OPTIONS.map((opt) => (
-                              <option key={opt.value} value={opt.value}>
-                                {opt.label}
-                              </option>
-                            ))}
-                          </select>
-
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={isSelf || deleteLoading}
-                            onClick={() =>
-                              setDeleteDialog({ open: true, userId: u.id, email: u.email })
-                            }
-                            className="h-8 w-8 p-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                            title={isSelf ? 'Cannot delete your own account' : `Delete ${u.email}`}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
+                        )}
                       </div>
                     );
                   })}
+                  {USER_GROUP_ORDER.every((role) => (usersByRole[role] || []).length === 0) && (
+                    <div className="py-10 text-center text-sm text-muted-foreground">
+                      No users match your filters.
+                    </div>
+                  )}
                 </div>
               )}
             </CardContent>

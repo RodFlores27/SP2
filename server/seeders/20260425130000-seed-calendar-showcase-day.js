@@ -75,6 +75,14 @@ module.exports = {
         .trim()
         .toUpperCase()
         .replace(/[^A-Z0-9-]/g, '');
+    const normalizeEquipmentCode = (value) =>
+      String(value || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-+/, '')
+        .replace(/-+$/, '');
 
     const resolveReferenceParts = async (resourceType, resourceId) => {
       const isEquipment = resourceType === 'equipment';
@@ -96,7 +104,7 @@ module.exports = {
       return {
         codeGroup: normalizeCodePart(record.codeGroup) || fallbackGroup,
         resourceCode: isEquipment
-          ? normalizeCodePart(record.resourceCode) || fallbackResource
+          ? normalizeEquipmentCode(record.resourceCode) || fallbackResource
           : normalizeRoomCode(record.resourceCode) || fallbackResource,
       };
     };

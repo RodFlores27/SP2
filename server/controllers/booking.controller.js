@@ -346,6 +346,16 @@ function normalizeRoomCode(value) {
     .replace(/[^A-Z0-9-]/g, '');
 }
 
+function normalizeEquipmentCode(value) {
+  return String(value || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-+/, '')
+    .replace(/-+$/, '');
+}
+
 function acronymFallback(value, fallback) {
   const cleaned = String(value || '').trim();
   if (!cleaned) return fallback;
@@ -366,7 +376,7 @@ function resolveResourceCodeParts(resourceType, resource) {
   const resourceCode =
     resourceType === 'room'
       ? normalizeRoomCode(resource.resourceCode) || acronymFallback(resource.name, 'ROOM')
-      : normalizeReferencePart(resource.resourceCode) || acronymFallback(resource.name, 'EQUIP');
+      : normalizeEquipmentCode(resource.resourceCode) || acronymFallback(resource.name, 'EQUIP');
 
   return {
     codeGroup,

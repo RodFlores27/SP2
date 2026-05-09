@@ -90,3 +90,7 @@ The project currently supports two authentication modes:
   - Triggered when an `on_hold` pencil becomes active (`penciled`) after firm blocker removal.
   - Notification wired through Kafka consumer and direct fallback notifier.
 - Firm `pending_approval` auto-expiry path now always re-evaluates overlapping on-hold pencils and emits release notifications when applicable.
+- Admin Panel Analytics Phase 1:
+  - Added date-range filtering (`all`, `today`, `last_7_days`, `last_30_days`, `custom` via `startDate`/`endDate`) to `GET /admin/analytics`.
+  - Added CSV export endpoint `GET /admin/analytics/export.csv` with the same filters.
+  - Analytics tab now includes range controls and an `Export CSV` action for the current filtered view.

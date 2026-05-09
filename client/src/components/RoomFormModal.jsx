@@ -34,6 +34,8 @@ const roomSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().min(1, 'Description is required'),
   location: z.string().min(1, 'Location is required'),
+  zone: z.string().max(64, 'Zone is too long').optional(),
+  ppe: z.string().max(500, 'PPE notes are too long').optional(),
   resourceCode: z.string().min(2, 'Room code is required').max(64, 'Room code is too long').regex(/^[A-Za-z0-9-]+$/, 'Use letters, numbers, and hyphen only'),
   capacity: z.string().min(1, 'Capacity is required').refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: 'Capacity must be a positive number',
@@ -55,6 +57,8 @@ export function RoomFormModal({ open, onOpenChange, room, onSuccess }) {
       name: '',
       description: '',
       location: '',
+      zone: '',
+      ppe: '',
       resourceCode: '',
       capacity: '',
       status: 'available',
@@ -67,6 +71,8 @@ export function RoomFormModal({ open, onOpenChange, room, onSuccess }) {
         name: room.name || '',
         description: room.description || '',
         location: room.location || '',
+        zone: room.zone || '',
+        ppe: room.ppe || '',
         resourceCode: room.resourceCode || '',
         capacity: room.capacity?.toString() || '',
         status: room.status || 'available',
@@ -78,6 +84,8 @@ export function RoomFormModal({ open, onOpenChange, room, onSuccess }) {
         name: '',
         description: '',
         location: '',
+        zone: '',
+        ppe: '',
         resourceCode: '',
         capacity: '',
         status: 'available',
@@ -182,7 +190,34 @@ export function RoomFormModal({ open, onOpenChange, room, onSuccess }) {
                   </FormItem>
                 )}
               />
+              <FormField
+                control={form.control}
+                name="zone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Zone</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g., Red" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
+
+            <FormField
+              control={form.control}
+              name="ppe"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Required PPE</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Lab coat, gloves, mask" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

@@ -2890,6 +2890,45 @@
             "bearerAuth": []
           }
         ],
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "today",
+                "last_7_days",
+                "last_30_days",
+                "custom"
+              ],
+              "default": "all"
+            },
+            "description": "Preset analytics date range."
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Optional start date (YYYY-MM-DD)."
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Optional end date (YYYY-MM-DD)."
+          }
+        ],
         "responses": {
           "200": {
             "description": "Analytics fetched successfully",
@@ -3019,6 +3058,25 @@
                           }
                         }
                       }
+                    },
+                    "filters": {
+                      "type": "object",
+                      "properties": {
+                        "range": {
+                          "type": "string",
+                          "example": "last_7_days"
+                        },
+                        "startDate": {
+                          "type": "string",
+                          "nullable": true,
+                          "example": "2026-05-01"
+                        },
+                        "endDate": {
+                          "type": "string",
+                          "nullable": true,
+                          "example": "2026-05-09"
+                        }
+                      }
                     }
                   }
                 }
@@ -3033,6 +3091,85 @@
           },
           "500": {
             "description": "Failed to fetch analytics"
+          }
+        }
+      }
+    },
+    "/admin/analytics/export.csv": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Export analytics report as CSV (Admin only)",
+        "description": "Exports filtered booking analytics summary and recent events as a CSV file.",
+        "operationId": "exportAdminAnalyticsCsv",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "all",
+                "today",
+                "last_7_days",
+                "last_30_days",
+                "custom"
+              ],
+              "default": "all"
+            },
+            "description": "Preset analytics date range."
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Optional start date (YYYY-MM-DD)."
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "description": "Optional end date (YYYY-MM-DD)."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CSV exported successfully",
+            "content": {
+              "text/csv": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid date range parameters"
+          },
+          "401": {
+            "description": "Unauthorized - Missing or invalid token"
+          },
+          "403": {
+            "description": "Forbidden - Requires system_admin role"
+          },
+          "500": {
+            "description": "Failed to export analytics CSV"
           }
         }
       }

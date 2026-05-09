@@ -34,12 +34,20 @@ const equipmentSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   category: z.string().min(1, 'Category is required'),
   codeGroup: z.string().min(2, 'Code group is required').max(16, 'Code group is too long').regex(/^[A-Za-z0-9]+$/, 'Use letters and numbers only'),
-  resourceCode: z.string().min(2, 'Resource code is required').max(16, 'Resource code is too long').regex(/^[A-Za-z0-9]+$/, 'Use letters and numbers only'),
+  resourceCode: z
+    .string()
+    .min(2, 'Resource code is required')
+    .max(64, 'Resource code is too long')
+    .regex(/^[A-Za-z0-9-]+$/, 'Use letters, numbers, and hyphen only')
+    .refine((value) => !value.startsWith('-') && !value.endsWith('-') && !value.includes('--'), {
+      message: 'Avoid leading, trailing, or consecutive hyphens',
+    }),
   description: z.string().min(1, 'Description is required'),
   status: z.enum(['available', 'in-use', 'maintenance', 'unavailable']),
 });
 
 const normalizeCodeInput = (value) => value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+const normalizeEquipmentCodeInput = (value) => value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
 
 export function EquipmentFormModal({ open, onOpenChange, equipment, onSuccess, codeGroupOptions = [] }) {
   const [imageFile, setImageFile] = useState(null);
@@ -197,9 +205,9 @@ export function EquipmentFormModal({ open, onOpenChange, equipment, onSuccess, c
                     <FormLabel>Equipment Code</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder="e.g., AUT"
+                        placeholder="e.g., SHK-001"
                         {...field}
-                        onChange={(e) => field.onChange(normalizeCodeInput(e.target.value))}
+                        onChange={(e) => field.onChange(normalizeEquipmentCodeInput(e.target.value))}
                       />
                     </FormControl>
                     <FormMessage />

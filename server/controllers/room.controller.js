@@ -34,7 +34,7 @@ const getRoomById = async (req, res) => {
 
 const createRoom = async (req, res) => {
   try {
-    const { name, description, location, capacity, status } = req.body;
+    const { name, description, location, zone, ppe, capacity, status } = req.body;
     const resourceCode = normalizeCode(req.body.resourceCode);
 
     if (!name || !description || !location || !capacity || !resourceCode) {
@@ -57,6 +57,8 @@ const createRoom = async (req, res) => {
       name,
       description,
       location,
+      zone: String(zone || '').trim() || null,
+      ppe: String(ppe || '').trim() || null,
       capacity: parseInt(capacity),
       imageUrl,
       resourceCode,
@@ -73,7 +75,7 @@ const createRoom = async (req, res) => {
 const updateRoom = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, location, capacity, status, removeImage } = req.body;
+    const { name, description, location, zone, ppe, capacity, status, removeImage } = req.body;
     const resourceCode = req.body.resourceCode !== undefined ? normalizeCode(req.body.resourceCode) : undefined;
 
     const room = await Room.findByPk(id);
@@ -101,6 +103,8 @@ const updateRoom = async (req, res) => {
       name: name || room.name,
       description: description || room.description,
       location: location || room.location,
+      zone: zone !== undefined ? String(zone).trim() || null : room.zone,
+      ppe: ppe !== undefined ? String(ppe).trim() || null : room.ppe,
       capacity: capacity ? parseInt(capacity) : room.capacity,
       resourceCode: resourceCode || room.resourceCode,
       status: status || room.status,

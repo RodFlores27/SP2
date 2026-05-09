@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/select';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { AuthorizationDocButton } from '@/components/my-bookings/AuthorizationDocButton';
-import { ArrowLeft, Upload, FileText, X, AlertTriangle, CheckCircle, Info } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, X, AlertTriangle, CheckCircle, Info, Check } from 'lucide-react';
 import { bookingMessages } from '@/messages/bookingMessages';
 
 const bf = bookingMessages.bookingForm;
@@ -108,6 +108,8 @@ export default function BookingForm() {
   const [pendingContentionConfirmation, setPendingContentionConfirmation] = useState(null);
   const [activeContentionNotice, setActiveContentionNotice] = useState(null);
   const [firmPencilOverlapDetailsOpen, setFirmPencilOverlapDetailsOpen] = useState(false);
+  const [resourceQuery, setResourceQuery] = useState('');
+  const [resourceListOpen, setResourceListOpen] = useState(true);
   // Format ISO string to datetime-local value
   const toDatetimeLocal = (isoString) => {
     if (!isoString) return '';
@@ -195,6 +197,27 @@ export default function BookingForm() {
     return bf.fields.resourceNumber(watchedResourceId);
   }, [watchedResourceType, watchedResourceId, equipment, rooms]);
 
+  const selectedResourceSummary = useMemo(() => {
+    if (!watchedResourceId || !watchedResourceType) return null;
+    if (watchedResourceType === 'equipment') {
+      const resource = equipment.find((e) => String(e.id) === String(watchedResourceId));
+      if (!resource) return null;
+      return {
+        name: resource.name,
+        secondary: `${[resource.codeGroup, resource.resourceCode].filter(Boolean).join('-')} • ${resource.category || '-'} • ${formatStatusLabel(resource.status)}`,
+      };
+    }
+    if (watchedResourceType === 'room') {
+      const resource = rooms.find((r) => String(r.id) === String(watchedResourceId));
+      if (!resource) return null;
+      return {
+        name: resource.name,
+        secondary: `${resource.resourceCode || '-'} • Zone: ${resource.zone || '-'} • ${formatStatusLabel(resource.status)}`,
+      };
+    }
+    return null;
+  }, [watchedResourceType, watchedResourceId, equipment, rooms]);
+
   useLayoutEffect(() => {
     const cs = peekConvertFirmSuccess();
     if (cs?.booking) {
@@ -253,24 +276,88 @@ export default function BookingForm() {
       previousResourceType !== watchedResourceType
     ) {
       form.setValue('resourceId', '');
+      setResourceQuery('');
+      setResourceListOpen(true);
     }
     previousResourceTypeRef.current = watchedResourceType;
   }, [watchedResourceType, form]);
 
-  const getResourceOptions = () => {
+  useEffect(() => {
+    if (!watchedResourceId) return;
+    setResourceListOpen(false);
+  }, [watchedResourceId]);
+
+  const groupedResourceOptions = useMemo(() => {
     const isBookable = (status) => ['available', 'in-use'].includes(status);
+    const normalize = (value) => String(value || '').trim().toLowerCase();
+    const getStatusPriority = (status) => {
+      if (status === 'available') return 0;
+      if (status === 'in-use') return 1;
+      return 2;
+    };
+    const query = normalize(resourceQuery);
+    const groupsMap = new Map();
+
     if (watchedResourceType === 'equipment') {
-      return equipment
+      equipment
         .filter((e) => isBookable(e.status) || String(e.id) === String(watchedResourceId))
-        .map((e) => ({ id: e.id.toString(), name: e.name }));
-    }
-    if (watchedResourceType === 'room') {
-      return rooms
+        .filter((e) => {
+          if (!query) return true;
+          const searchable = [
+            e.name,
+            e.codeGroup,
+            e.resourceCode,
+            e.category,
+          ]
+            .map(normalize)
+            .join(' ');
+          return searchable.includes(query);
+        })
+        .forEach((e) => {
+          const groupLabel = e.category || 'Unspecified Category';
+          const row = {
+            id: String(e.id),
+            name: e.name,
+            status: e.status || '-',
+            secondary: `${[e.codeGroup, e.resourceCode].filter(Boolean).join('-')} • ${e.category || '-'} • ${formatStatusLabel(e.status)}`,
+          };
+          if (!groupsMap.has(groupLabel)) groupsMap.set(groupLabel, []);
+          groupsMap.get(groupLabel).push(row);
+        });
+    } else if (watchedResourceType === 'room') {
+      rooms
         .filter((r) => isBookable(r.status) || String(r.id) === String(watchedResourceId))
-        .map((r) => ({ id: r.id.toString(), name: r.name }));
+        .filter((r) => {
+          if (!query) return true;
+          const searchable = [r.name, r.resourceCode, r.zone, r.location]
+            .map(normalize)
+            .join(' ');
+          return searchable.includes(query);
+        })
+        .forEach((r) => {
+          const groupLabel = r.zone || 'Unspecified Zone';
+          const row = {
+            id: String(r.id),
+            name: r.name,
+            status: r.status || '-',
+            secondary: `${r.resourceCode || '-'} • Zone: ${r.zone || '-'} • ${formatStatusLabel(r.status)}`,
+          };
+          if (!groupsMap.has(groupLabel)) groupsMap.set(groupLabel, []);
+          groupsMap.get(groupLabel).push(row);
+        });
     }
-    return [];
-  };
+
+    return [...groupsMap.entries()]
+      .map(([label, items]) => ({
+        label,
+        items: [...items].sort((a, b) => {
+          const p = getStatusPriority(a.status) - getStatusPriority(b.status);
+          if (p !== 0) return p;
+          return String(a.name || '').localeCompare(String(b.name || ''));
+        }),
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [watchedResourceType, watchedResourceId, equipment, rooms, resourceQuery]);
 
   const handleFileChange = (e) => {
     const file = e.target.files?.[0];
@@ -1038,32 +1125,99 @@ export default function BookingForm() {
                       <FormLabel>
                         {watchedResourceType === 'room' ? bf.fields.room() : bf.fields.equipment()}
                       </FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                        disabled={!watchedResourceType || isRebookMode}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue
+                      <FormControl>
+                        <div className="space-y-2">
+                          {(!watchedResourceId || resourceListOpen) && (
+                            <Input
+                              type="search"
                               placeholder={
                                 watchedResourceType
                                   ? watchedResourceType === 'room'
-                                    ? bf.fields.selectRoom
-                                    : bf.fields.selectEquipment
-                                  : bf.fields.selectRoomFirst
+                                    ? 'Search room by name, code, zone, or location...'
+                                    : 'Search equipment by name, code, or category...'
+                                  : 'Select resource type first'
                               }
+                              value={resourceQuery}
+                              onChange={(e) => setResourceQuery(e.target.value)}
+                              onFocus={() => watchedResourceType && setResourceListOpen(true)}
+                              disabled={!watchedResourceType || isRebookMode}
                             />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {getResourceOptions().map((resource) => (
-                            <SelectItem key={resource.id} value={resource.id}>
-                              {resource.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                          )}
+                          {!watchedResourceType ? null : (
+                            <div className="space-y-2">
+                              {watchedResourceId && !resourceListOpen && (
+                                <div className="flex items-center justify-between rounded-md border border-input bg-muted/30 px-3 py-2">
+                                  <div className="min-w-0">
+                                    <p className="truncate text-sm font-medium">
+                                      {selectedResourceSummary?.name || selectedResourceName}
+                                    </p>
+                                    <p className="truncate text-xs text-muted-foreground">
+                                      {selectedResourceSummary?.secondary || ''}
+                                    </p>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={() => setResourceListOpen(true)}
+                                  >
+                                    Change
+                                  </Button>
+                                </div>
+                              )}
+                              {resourceListOpen && (
+                                <div className="max-h-72 overflow-y-auto rounded-md border border-input bg-background">
+                                  {groupedResourceOptions.length === 0 ? (
+                              <p className="px-3 py-2 text-sm text-muted-foreground">
+                                No resources match your search.
+                              </p>
+                                  ) : (
+                                    <div className="divide-y divide-border">
+                                      {groupedResourceOptions.map((group) => (
+                                        <div key={group.label} className="py-1">
+                                          <p className="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                            {group.label}
+                                          </p>
+                                          <div className="space-y-1 px-1 pb-1">
+                                            {group.items.map((resource) => {
+                                              const isSelected = field.value === resource.id;
+                                              return (
+                                                <button
+                                                  key={resource.id}
+                                                  type="button"
+                                                  onClick={() => {
+                                                    field.onChange(resource.id);
+                                                    setResourceListOpen(false);
+                                                  }}
+                                                  disabled={isRebookMode}
+                                                  className={`flex w-full items-start justify-between rounded-md px-2 py-2 text-left text-sm transition-colors ${
+                                                    isSelected
+                                                      ? 'bg-primary/10 text-primary'
+                                                      : 'hover:bg-muted/70'
+                                                  }`}
+                                                >
+                                                  <span className="min-w-0">
+                                                    <span className="block truncate font-medium">{resource.name}</span>
+                                                    <span className="block truncate text-xs text-muted-foreground">
+                                                      {resource.secondary}
+                                                    </span>
+                                                  </span>
+                                                  {isSelected && <Check className="ml-2 h-4 w-4 shrink-0" />}
+                                                </button>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </FormControl>
                       <FormMessage />
                       {isRebookMode && (
                         <p className="text-xs text-muted-foreground">{bf.fields.rebookLockResource()}</p>

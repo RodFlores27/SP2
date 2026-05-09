@@ -3,6 +3,10 @@ const { uploadToCloudinary } = require('../utils/cloudinary');
 const { AUDIT_EVENT_TYPES, recordAuditEvent } = require('../utils/audit-log');
 
 const normalizeCode = (value) => String(value || '').trim().toUpperCase();
+const normalizeEquipmentCode = (value) => String(value || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '');
+const isValidCodeGroup = (value) => /^[A-Z0-9]{2,16}$/.test(value);
+const isValidEquipmentResourceCode = (value) =>
+  /^[A-Z0-9-]{2,64}$/.test(value) && !value.startsWith('-') && !value.endsWith('-') && !value.includes('--');
 
 const getAllEquipment = async (req, res) => {
   try {
@@ -36,11 +40,20 @@ const createEquipment = async (req, res) => {
   try {
     const { name, category, description, status } = req.body;
     const codeGroup = normalizeCode(req.body.codeGroup);
-    const resourceCode = normalizeCode(req.body.resourceCode);
+    const resourceCode = normalizeEquipmentCode(req.body.resourceCode);
 
     if (!name || !category || !description || !codeGroup || !resourceCode) {
       return res.status(400).json({ 
         error: 'Missing required fields: name, category, description, code group, and resource code are required' 
+      });
+    }
+    if (!isValidCodeGroup(codeGroup)) {
+      return res.status(400).json({ error: 'Code group must be 2-16 characters using letters and numbers only' });
+    }
+    if (!isValidEquipmentResourceCode(resourceCode)) {
+      return res.status(400).json({
+        error:
+          'Equipment code must be 2-64 characters using letters, numbers, and hyphen (no leading, trailing, or repeated hyphens)',
       });
     }
 
@@ -76,7 +89,16 @@ const updateEquipment = async (req, res) => {
     const { id } = req.params;
     const { name, category, description, status, removeImage } = req.body;
     const codeGroup = req.body.codeGroup !== undefined ? normalizeCode(req.body.codeGroup) : undefined;
-    const resourceCode = req.body.resourceCode !== undefined ? normalizeCode(req.body.resourceCode) : undefined;
+    const resourceCode = req.body.resourceCode !== undefined ? normalizeEquipmentCode(req.body.resourceCode) : undefined;
+    if (codeGroup !== undefined && !isValidCodeGroup(codeGroup)) {
+      return res.status(400).json({ error: 'Code group must be 2-16 characters using letters and numbers only' });
+    }
+    if (resourceCode !== undefined && !isValidEquipmentResourceCode(resourceCode)) {
+      return res.status(400).json({
+        error:
+          'Equipment code must be 2-64 characters using letters, numbers, and hyphen (no leading, trailing, or repeated hyphens)',
+      });
+    }
 
     const equipment = await Equipment.findByPk(id);
     if (!equipment) {

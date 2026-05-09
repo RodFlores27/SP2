@@ -156,6 +156,14 @@ export default function RoomDetail() {
                 <StatusBadge status={room.status} />
               </div>
             </div>
+            <div>
+              <p className="text-sm text-muted-foreground">Zone</p>
+              <p className="font-medium">{room.zone || '-'}</p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-sm text-muted-foreground">Required PPE</p>
+              <p className="font-medium">{room.ppe || '-'}</p>
+            </div>
           </div>
 
           {user && ['available', 'in-use'].includes(room.status) && (

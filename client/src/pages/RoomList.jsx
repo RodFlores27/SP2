@@ -313,6 +313,11 @@ export default function RoomList() {
                     <CardTitle className="text-xl">{room.name}</CardTitle>
                     <CardDescription className="mt-1">
                       {room.location}
+                      {room.zone && (
+                        <span className="block text-xs font-medium text-muted-foreground">
+                          Zone: {room.zone}
+                        </span>
+                      )}
                       {room.resourceCode && (
                         <span className="block text-xs font-medium text-muted-foreground">
                           {room.resourceCode}
@@ -327,6 +332,11 @@ export default function RoomList() {
                 <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
                   {room.description}
                 </p>
+                {room.ppe && (
+                  <p className="text-xs text-muted-foreground mb-3">
+                    PPE: {room.ppe}
+                  </p>
+                )}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                   <Users className="h-4 w-4" />
                   <span>Capacity: {room.capacity}</span>
