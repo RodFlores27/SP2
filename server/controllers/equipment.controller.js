@@ -77,6 +77,18 @@ const createEquipment = async (req, res) => {
       status: status || 'available',
     });
 
+    await recordAuditEvent({
+      eventType: AUDIT_EVENT_TYPES.RESOURCE_EQUIPMENT_CREATED,
+      actorUserId: req.user.id,
+      resourceType: 'equipment',
+      resourceId: equipment.id,
+      status: equipment.status,
+      payload: {
+        equipmentId: equipment.id,
+        current: equipment.toJSON(),
+      },
+    });
+
     res.status(201).json(equipment);
   } catch (error) {
     console.error('Error creating equipment:', error);
@@ -160,7 +172,22 @@ const deleteEquipment = async (req, res) => {
       return res.status(404).json({ error: 'Equipment not found' });
     }
 
+    const deletedEquipment = equipment.toJSON();
+
     await equipment.destroy();
+
+    await recordAuditEvent({
+      eventType: AUDIT_EVENT_TYPES.RESOURCE_EQUIPMENT_DELETED,
+      actorUserId: req.user.id,
+      resourceType: 'equipment',
+      resourceId: deletedEquipment.id,
+      status: deletedEquipment.status || null,
+      payload: {
+        equipmentId: deletedEquipment.id,
+        previous: deletedEquipment,
+      },
+    });
+
     res.json({ message: 'Equipment deleted successfully' });
   } catch (error) {
     console.error('Error deleting equipment:', error);

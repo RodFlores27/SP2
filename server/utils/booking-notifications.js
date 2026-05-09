@@ -1,4 +1,4 @@
-const { sendEmail } = require('./email');
+const { sendNotificationEmail } = require('./notification-delivery');
 const { email: E } = require('../messages/bookingMessages');
 
 function getFrontendUrl() {
@@ -138,6 +138,8 @@ function contentionResolutionReasonText(resolutionReason, recipientRole) {
       return recipientRole === 'defender'
         ? 'You converted your booking to a firm request before the contention deadline.'
         : 'The other booking holder converted their booking to a firm request before the contention deadline.';
+    case 'unwinnable_defender_firm_overlap':
+      return 'An overlapping firm booking made this contention unwinnable, so both pencil bookings were re-evaluated.';
     default:
       return 'The contention episode reached its resolution.';
   }
@@ -146,7 +148,7 @@ function contentionResolutionReasonText(resolutionReason, recipientRole) {
 /**
  * booking.created — sent to the booking owner after a successful create.
  */
-async function notifyBookingCreated(booking, resourceName) {
+async function notifyBookingCreated(booking, resourceName, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -182,17 +184,20 @@ async function notifyBookingCreated(booking, resourceName) {
     <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${C.viewDashboard}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: C.subject({ bookingLabel: getBookingReference(booking) }),
     html,
+    bookingId: booking.id || null,
+    notificationType: 'booking.created',
+    eventMeta: options.eventMeta || null,
   });
 }
 
 /**
  * booking.approved — sent to the booking owner after staff approves.
  */
-async function notifyBookingApproved(booking, resourceName) {
+async function notifyBookingApproved(booking, resourceName, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -210,17 +215,20 @@ async function notifyBookingApproved(booking, resourceName) {
     <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${A.viewDashboard}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: A.subject({ bookingLabel: getBookingReference(booking) }),
     html,
+    bookingId: booking.id || null,
+    notificationType: 'booking.approved',
+    eventMeta: options.eventMeta || null,
   });
 }
 
 /**
  * booking.denied — sent to the booking owner after staff denies.
  */
-async function notifyBookingDenied(booking, resourceName) {
+async function notifyBookingDenied(booking, resourceName, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -234,17 +242,20 @@ async function notifyBookingDenied(booking, resourceName) {
     <p><a href="${FRONTEND_URL}/bookings/new" style="${LINK_STYLE}">${D.createNew}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: D.subject({ bookingLabel: getBookingReference(booking) }),
     html,
+    bookingId: booking.id || null,
+    notificationType: 'booking.denied',
+    eventMeta: options.eventMeta || null,
   });
 }
 
 /**
  * booking.cancelled — sent to the booking owner after cancellation.
  */
-async function notifyBookingCancelled(booking, resourceName, cancelledBy) {
+async function notifyBookingCancelled(booking, resourceName, cancelledBy, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -266,17 +277,20 @@ async function notifyBookingCancelled(booking, resourceName, cancelledBy) {
     <p><a href="${FRONTEND_URL}/bookings/new" style="${LINK_STYLE}">${X.createNew}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: X.subject({ bookingLabel: getBookingReference(booking) }),
     html,
+    bookingId: booking.id || null,
+    notificationType: 'booking.cancelled',
+    eventMeta: options.eventMeta || null,
   });
 }
 
 /**
  * booking.expired — auto-expired pencil (lifetime) or firm pending (missed staff approval deadline).
  */
-async function notifyBookingExpired(booking, resourceName) {
+async function notifyBookingExpired(booking, resourceName, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -298,10 +312,13 @@ async function notifyBookingExpired(booking, resourceName) {
   const html = baseEmailWrapper(title, `${body}
     <p><a href="${FRONTEND_URL}/bookings/new" style="${LINK_STYLE}">${X.createNew}</a></p>`);
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: X.subject({ bookingLabel: getBookingReference(booking) }),
     html,
+    bookingId: booking.id || null,
+    notificationType: 'booking.expired',
+    eventMeta: options.eventMeta || null,
   });
 }
 
@@ -309,7 +326,7 @@ async function notifyBookingExpired(booking, resourceName) {
  * booking.expiring_soon — sent as a warning before a pencil booking expires.
  * @param {number} hoursLeft - 48 or 24
  */
-async function notifyBookingExpiringSoon(booking, resourceName, hoursLeft) {
+async function notifyBookingExpiringSoon(booking, resourceName, hoursLeft, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -327,17 +344,20 @@ async function notifyBookingExpiringSoon(booking, resourceName, hoursLeft) {
     <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${S.convertCta}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: S.subject({ bookingLabel: getBookingReference(booking), hours: hoursLeft }),
     html,
+    bookingId: booking.id || null,
+    notificationType: `booking.expiring_soon.${hoursLeft}h`,
+    eventMeta: options.eventMeta || null,
   });
 }
 
 /**
  * booking.on_hold — sent when a pencil is newly parked behind a firm blocker.
  */
-async function notifyBookingOnHold(booking, resourceName) {
+async function notifyBookingOnHold(booking, resourceName, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -352,17 +372,20 @@ async function notifyBookingOnHold(booking, resourceName) {
     <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${H.viewDashboard}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: H.subject({ bookingLabel: getBookingReference(booking) }),
     html,
+    bookingId: booking.id || null,
+    notificationType: 'booking.on_hold',
+    eventMeta: options.eventMeta || null,
   });
 }
 
 /**
  * booking.on_hold_released — sent when an on-hold pencil becomes active again.
  */
-async function notifyBookingOnHoldReleased(booking, resourceName) {
+async function notifyBookingOnHoldReleased(booking, resourceName, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -378,17 +401,20 @@ async function notifyBookingOnHoldReleased(booking, resourceName) {
     <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${R.convertCta}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: R.subject({ bookingLabel: getBookingReference(booking) }),
     html,
+    bookingId: booking.id || null,
+    notificationType: 'booking.on_hold_released',
+    eventMeta: options.eventMeta || null,
   });
 }
 
 /**
  * booking.displaced — sent when a pencil loses the slot.
  */
-async function notifyBookingDisplaced(booking, resourceName) {
+async function notifyBookingDisplaced(booking, resourceName, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -404,17 +430,20 @@ async function notifyBookingDisplaced(booking, resourceName) {
     <p><a href="${FRONTEND_URL}/bookings/new" style="${LINK_STYLE}">${D.createNew}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: D.subject({ bookingLabel: getBookingReference(booking) }),
     html,
+    bookingId: booking.id || null,
+    notificationType: 'booking.displaced',
+    eventMeta: options.eventMeta || null,
   });
 }
 
 /**
  * booking.contention_resolved — sent to each participant when a 1v1 episode ends.
  */
-async function notifyContentionResolved(booking, counterpartyBooking, resourceName, payload = {}) {
+async function notifyContentionResolved(booking, counterpartyBooking, resourceName, payload = {}, options = {}) {
   const recipientEmail = booking.user?.email;
   if (!recipientEmail) return;
 
@@ -480,10 +509,13 @@ async function notifyContentionResolved(booking, counterpartyBooking, resourceNa
     <p><a href="${ctaHref}" style="${LINK_STYLE}">${ctaLabel}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: R.subject({ bookingLabel: getBookingReference(booking), outcome }),
     html,
+    bookingId: booking.id || null,
+    notificationType: `booking.contention_resolved.${outcome}`,
+    eventMeta: options.eventMeta || null,
   });
 }
 
@@ -491,7 +523,7 @@ async function notifyContentionResolved(booking, counterpartyBooking, resourceNa
  * Pencil contention started — notify defender and challenger.
  * @param {Object} params - { defender: Booking, challenger: Booking }
  */
-async function notifyContentionStarted({ defender, challenger }, resourceName) {
+async function notifyContentionStarted({ defender, challenger }, resourceName, options = {}) {
   const deadlineStr = formatDateTime(defender.contentionDeadlineAt);
   if (!defender?.user?.email || !challenger?.user?.email) return;
 
@@ -515,22 +547,28 @@ async function notifyContentionStarted({ defender, challenger }, resourceName) {
     <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${C.challengerDashboard}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: defender.user.email,
     subject: C.defenderSubject({ bookingLabel: getBookingReference(defender) }),
-    html: defenderHtml
+    html: defenderHtml,
+    bookingId: defender.id || null,
+    notificationType: 'booking.contention_started.defender',
+    eventMeta: options.eventMeta || null,
   });
-  await sendEmail({
+  await sendNotificationEmail({
     to: challenger.user.email,
     subject: C.challengerSubject({ bookingLabel: getBookingReference(challenger) }),
-    html: challengerHtml
+    html: challengerHtml,
+    bookingId: challenger.id || null,
+    notificationType: 'booking.contention_started.challenger',
+    eventMeta: options.eventMeta || null,
   });
 }
 
 /**
  * An approved firm booking was cancelled — notify users whose pencils were displaced by that firm.
  */
-async function notifyDisplacedUsersSlotReopened(displacedBooking, firmBooking, resourceName) {
+async function notifyDisplacedUsersSlotReopened(displacedBooking, firmBooking, resourceName, options = {}) {
   const recipientEmail = displacedBooking.user?.email;
   if (!recipientEmail) return;
 
@@ -544,10 +582,13 @@ async function notifyDisplacedUsersSlotReopened(displacedBooking, firmBooking, r
     <p><a href="${FRONTEND_URL}/bookings/new" style="${LINK_STYLE}">${R.tryAgain}</a></p>`
   );
 
-  await sendEmail({
+  await sendNotificationEmail({
     to: recipientEmail,
     subject: R.subject({ firmBookingLabel: getBookingReference(firmBooking) }),
-    html
+    html,
+    bookingId: displacedBooking.id || null,
+    notificationType: 'booking.displaced_slot_reopened',
+    eventMeta: options.eventMeta || null,
   });
 }
 

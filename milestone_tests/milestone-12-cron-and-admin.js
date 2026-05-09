@@ -287,6 +287,57 @@ async function testMilestone12() {
     console.log('  ⚠️  Cannot require server module from test — skipping module check');
   }
 
+  // ── Resource audit event coverage ──────────────────────────────────────────
+  console.log('\n--- Resource Audit Event Coverage ---');
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const auditPath = path.join(__dirname, '../server/utils/audit-log.js');
+    const roomControllerPath = path.join(__dirname, '../server/controllers/room.controller.js');
+    const equipmentControllerPath = path.join(__dirname, '../server/controllers/equipment.controller.js');
+
+    const auditContent = fs.readFileSync(auditPath, 'utf8');
+    const roomContent = fs.readFileSync(roomControllerPath, 'utf8');
+    const equipmentContent = fs.readFileSync(equipmentControllerPath, 'utf8');
+
+    const requiredAuditEvents = [
+      'RESOURCE_ROOM_CREATED',
+      'RESOURCE_ROOM_UPDATED',
+      'RESOURCE_ROOM_DELETED',
+      'RESOURCE_EQUIPMENT_CREATED',
+      'RESOURCE_EQUIPMENT_UPDATED',
+      'RESOURCE_EQUIPMENT_DELETED',
+    ];
+    const missingAuditEvents = requiredAuditEvents.filter((key) => !auditContent.includes(key));
+    if (missingAuditEvents.length === 0) {
+      pass('Audit event constants include resource create/update/delete coverage');
+    } else {
+      fail('Missing audit event constants', missingAuditEvents.join(', '));
+    }
+
+    if (
+      roomContent.includes('AUDIT_EVENT_TYPES.RESOURCE_ROOM_CREATED') &&
+      roomContent.includes('AUDIT_EVENT_TYPES.RESOURCE_ROOM_UPDATED') &&
+      roomContent.includes('AUDIT_EVENT_TYPES.RESOURCE_ROOM_DELETED')
+    ) {
+      pass('Room controller emits create/update/delete resource audit events');
+    } else {
+      fail('Room controller resource audit coverage is incomplete');
+    }
+
+    if (
+      equipmentContent.includes('AUDIT_EVENT_TYPES.RESOURCE_EQUIPMENT_CREATED') &&
+      equipmentContent.includes('AUDIT_EVENT_TYPES.RESOURCE_EQUIPMENT_UPDATED') &&
+      equipmentContent.includes('AUDIT_EVENT_TYPES.RESOURCE_EQUIPMENT_DELETED')
+    ) {
+      pass('Equipment controller emits create/update/delete resource audit events');
+    } else {
+      fail('Equipment controller resource audit coverage is incomplete');
+    }
+  } catch (e) {
+    fail('Error checking resource audit event coverage', e.message);
+  }
+
   // ── Cron job file exists ───────────────────────────────────────────────────
   console.log('\n--- Cron Job File ---');
   try {

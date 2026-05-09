@@ -21,6 +21,10 @@ This guide gives one practical sequence of actions that will generate every audi
 
 ## 2) Event Types You Can Generate
 
+Policy note:
+- Booking lifecycle audit trail entries require Kafka event publishing and the audit consumer.
+- When Kafka is disabled/unavailable, booking APIs still work, but booking lifecycle entries are not written to `AuditLogs`.
+
 ### Booking events (from Kafka lifecycle)
 - `booking.created`
 - `booking.approved`
@@ -29,6 +33,7 @@ This guide gives one practical sequence of actions that will generate every audi
 - `booking.expired`
 - `booking.expiring_soon`
 - `booking.on_hold`
+- `booking.on_hold_released`
 - `booking.displaced`
 - `booking.contention_started`
 - `booking.contention_resolved`
@@ -37,8 +42,12 @@ This guide gives one practical sequence of actions that will generate every audi
 ### Admin/resource events (direct app audit writes)
 - `user.role_changed`
 - `user.deleted`
+- `resource.room_created`
 - `resource.room_updated`
+- `resource.room_deleted`
+- `resource.equipment_created`
 - `resource.equipment_updated`
+- `resource.equipment_deleted`
 
 ### Not shown in Admin Audit Trail list
 - `booking.displaced_slot_reopened` is published but intentionally excluded from `/admin/audit-logs`.
@@ -49,9 +58,13 @@ Use this exact order. After each step, open Admin Panel -> Audit Trail and confi
 
 ### Step A - Resource audit events
 1. Login as `sysadmin`.
-2. Edit `roomR1` (change a harmless field, save).
+2. Create a temporary room resource, then delete it.
+   - Expect: `resource.room_created`, `resource.room_deleted`
+3. Create a temporary equipment resource, then delete it.
+   - Expect: `resource.equipment_created`, `resource.equipment_deleted`
+4. Edit `roomR1` (change a harmless field, save).
    - Expect: `resource.room_updated`
-3. Edit `eq1` (change a harmless field, save).
+5. Edit `eq1` (change a harmless field, save).
    - Expect: `resource.equipment_updated`
 
 ### Step B - User admin audit events
@@ -110,13 +123,15 @@ Note:
     - Defender outcome should reflect displacement.
 20. Create another 1v1 where defender expires at boundary and run expiry cron.
     - Expect: `booking.contention_resolved` with `resolutionReason=defender_expired_boundary`
+21. Create/approve a firm that overlaps an active defender/challenger episode so defender conversion becomes unwinnable.
+    - Expect: `booking.contention_resolved` with `resolutionReason=unwinnable_defender_firm_overlap`
 
 ### Step H - Expiring soon + expired
-21. Create pencil booking with `expiryAt` entering 48h warning window; run warning cron.
+22. Create pencil booking with `expiryAt` entering 48h warning window; run warning cron.
     - Expect: `booking.expiring_soon` (48h)
-22. Let same booking enter 24h warning window; run warning cron again.
+23. Let same booking enter 24h warning window; run warning cron again.
     - Expect: `booking.expiring_soon` (24h)
-23. Let eligible pencil/firm hit expiry; run expiry cron.
+24. Let eligible pencil/firm hit expiry; run expiry cron.
     - Expect: `booking.expired`
 
 ## 4) Quick Verification Checklist
@@ -125,6 +140,10 @@ You should see at least one of each in Audit Trail:
 
 - [ ] `resource.room_updated`
 - [ ] `resource.equipment_updated`
+- [ ] `resource.room_created`
+- [ ] `resource.room_deleted`
+- [ ] `resource.equipment_created`
+- [ ] `resource.equipment_deleted`
 - [ ] `user.role_changed`
 - [ ] `user.deleted`
 - [ ] `booking.created`
@@ -135,6 +154,7 @@ You should see at least one of each in Audit Trail:
 - [ ] `booking.contention_resolved`
 - [ ] `booking.converted_to_firm`
 - [ ] `booking.on_hold`
+- [ ] `booking.on_hold_released`
 - [ ] `booking.displaced`
 - [ ] `booking.expiring_soon`
 - [ ] `booking.expired`
@@ -144,6 +164,7 @@ You should see at least one of each in Audit Trail:
 For newer rows, confirm these details in Admin Panel Audit Trail:
 
 - `booking.contention_resolved` is a single entry per contention episode and includes both defender/challenger in payload.
+- `booking.contention_resolved` reason values include defender/challenger deadline/expiry reasons and `unwinnable_defender_firm_overlap` where applicable.
 - `booking.on_hold` includes:
   - `source`
   - `causingBookingId`

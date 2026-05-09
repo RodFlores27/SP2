@@ -1462,7 +1462,7 @@
           "Bookings"
         ],
         "summary": "Create a new booking",
-        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention plus expectedWillBeQueued matching the prior 409 when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Bookings must satisfy request-type lead time rules (equipment in-house: 2 days, equipment loan: 7 days, room: 7 days) and cannot start within 24 hours of now. Firm pending requests must be staff-approved before that same 24-hour cutoff or they expire automatically.",
+        "description": "Creates a booking. Pencils may overlap other pencils and trigger automated contention (requires confirmContention when overlaps exist). Firm bookings cannot overlap other firms; they may overlap pencils (holders are displaced when staff approves the firm). Booking creation rejects when the overlapped slot is already in an active 1v1 contention (`ACTIVE_CONTENTION_LOCKED`), including contention that became active during concurrent create attempts. Bookings must satisfy request-type lead time rules (equipment in-house: 2 days, equipment loan: 7 days, room: 7 days) and cannot start within 24 hours of now. Firm pending requests must be staff-approved before that same 24-hour cutoff or they expire automatically.",
         "operationId": "createBooking",
         "security": [
           {
@@ -1935,7 +1935,7 @@
           "Bookings"
         ],
         "summary": "Convert pencil booking to firm",
-        "description": "Converts a pencil booking to firm. Send a new authorization file to upload, or omit the file when the pencil booking already has an authorization document on file (that document is kept). Optional multipart field `purpose` updates the booking purpose. Re-checks for conflicts before conversion. Sets status to `pending_approval` awaiting staff review.",
+        "description": "Converts a pencil booking to firm. Send a new authorization file to upload, or omit the file when the pencil booking already has an authorization document on file (that document is kept). Optional multipart field `purpose` updates the booking purpose. Re-checks for conflicts before conversion. Challenger bookings cannot convert. Defender bookings can convert only before their contention deadline; once the deadline has elapsed the endpoint returns `CONTENTION_DEADLINE_INVALID` even if the expiry cron has not run yet. Sets status to `pending_approval` awaiting staff review.",
         "operationId": "convertToFirm",
         "security": [
           {
@@ -2052,27 +2052,38 @@
             }
           },
           "409": {
-            "description": "Conflict - Cannot convert due to overlapping bookings",
+            "description": "Conflict - Cannot convert due to overlapping firm bookings or elapsed defender contention deadline (`CONTENTION_DEADLINE_INVALID`).",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/BookingConflictResponse"
                 },
-                "example": {
-                  "error": "Cannot convert to firm booking: time slot overlaps another firm booking",
-                  "conflicts": [
-                    {
-                      "id": 5,
-                      "bookingType": "pencil",
-                      "status": "penciled",
-                      "startTime": "2026-04-10T10:00:00.000Z",
-                      "endTime": "2026-04-10T13:00:00.000Z",
-                      "user": {
-                        "id": 2,
-                        "email": "staff@uplb.edu.ph"
-                      }
+                "examples": {
+                  "overlap": {
+                    "value": {
+                      "error": "Cannot convert to firm booking: time slot overlaps another firm booking",
+                      "conflicts": [
+                        {
+                          "id": 5,
+                          "bookingType": "pencil",
+                          "status": "penciled",
+                          "startTime": "2026-04-10T10:00:00.000Z",
+                          "endTime": "2026-04-10T13:00:00.000Z",
+                          "user": {
+                            "id": 2,
+                            "email": "staff@uplb.edu.ph"
+                          }
+                        }
+                      ]
                     }
-                  ]
+                  },
+                  "deadlineElapsed": {
+                    "value": {
+                      "error": "Contention cannot start: resolution window has already lapsed.",
+                      "code": "CONTENTION_DEADLINE_INVALID",
+                      "conflicts": []
+                    }
+                  }
                 }
               }
             }
@@ -2549,7 +2560,7 @@
           "Admin"
         ],
         "summary": "List recent audit logs (Admin only)",
-        "description": "Returns recent append-only audit entries for booking lifecycle events, user administration changes, and resource updates. Supports filtering by eventType, bookingId, actorUserId, resourceType, resourceId, date range, and limit. Notification-only booking.displaced_slot_reopened events are excluded from the audit trail.",
+        "description": "Returns recent append-only audit entries for booking lifecycle events (Kafka/audit-consumer dependent), user administration changes, and resource create/update/delete events. Supports filtering by eventType, bookingId, actorUserId, resourceType, resourceId, date range, and limit. Notification-only booking.displaced_slot_reopened events are excluded from the audit trail.",
         "operationId": "listAuditLogs",
         "security": [
           {
@@ -4425,7 +4436,7 @@
           },
           "code": {
             "type": "string",
-            "description": "Optional machine code (e.g. ACTIVE_CONTENTION_LOCKED, PENCIL_OVERLAP_CHANGED)"
+            "description": "Optional machine code (e.g. ACTIVE_CONTENTION_LOCKED, CONTENTION_DEADLINE_INVALID)"
           },
           "ownPencilConflicts": {
             "type": "array",

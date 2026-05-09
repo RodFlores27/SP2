@@ -13,7 +13,11 @@ const REQUIRED_EVENT_TYPES = [
   'booking.cancelled',
   'booking.expired',
   'booking.expiring_soon',
+  'booking.on_hold',
+  'booking.on_hold_released',
+  'booking.displaced',
   'booking.contention_started',
+  'booking.contention_resolved',
   'booking.converted_to_firm',
   'booking.displaced_slot_reopened',
 ];
@@ -23,7 +27,11 @@ const CONTROLLER_EVENT_CONSTANTS = [
   'APPROVED',
   'DENIED',
   'CANCELLED',
+  'ON_HOLD',
+  'ON_HOLD_RELEASED',
+  'DISPLACED',
   'CONTENTION_STARTED',
+  'CONTENTION_RESOLVED',
   'CONVERTED_TO_FIRM',
   'DISPLACED_SLOT_REOPENED',
 ];

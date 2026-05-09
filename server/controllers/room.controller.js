@@ -65,6 +65,18 @@ const createRoom = async (req, res) => {
       status: status || 'available',
     });
 
+    await recordAuditEvent({
+      eventType: AUDIT_EVENT_TYPES.RESOURCE_ROOM_CREATED,
+      actorUserId: req.user.id,
+      resourceType: 'room',
+      resourceId: room.id,
+      status: room.status,
+      payload: {
+        roomId: room.id,
+        current: room.toJSON(),
+      },
+    });
+
     res.status(201).json(room);
   } catch (error) {
     console.error('Error creating room:', error);
@@ -140,7 +152,22 @@ const deleteRoom = async (req, res) => {
       return res.status(404).json({ error: 'Room not found' });
     }
 
+    const deletedRoom = room.toJSON();
+
     await room.destroy();
+
+    await recordAuditEvent({
+      eventType: AUDIT_EVENT_TYPES.RESOURCE_ROOM_DELETED,
+      actorUserId: req.user.id,
+      resourceType: 'room',
+      resourceId: deletedRoom.id,
+      status: deletedRoom.status || null,
+      payload: {
+        roomId: deletedRoom.id,
+        previous: deletedRoom,
+      },
+    });
+
     res.json({ message: 'Room deleted successfully' });
   } catch (error) {
     console.error('Error deleting room:', error);

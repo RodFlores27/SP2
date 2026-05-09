@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:contention": "node tests/contention.service.test.js",
     "start": "node index.js",
     "dev": "nodemon index.js",
     "kafka:check": "node scripts/check-kafka.js",

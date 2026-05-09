@@ -420,7 +420,7 @@ node milestone_tests/milestone-{number}-{description}.js
 - Booking event publishing from `server/controllers/booking.controller.js`
 - Expiry/warning event publishing from `server/jobs/booking-expiry.js`
 - Kafka topic `booking-events`
-- Event names: `booking.created`, `booking.approved`, `booking.denied`, `booking.cancelled`, `booking.expired`, `booking.expiring_soon`, `booking.contention_started`, `booking.converted_to_firm`, `booking.displaced_slot_reopened`
+- Event names: `booking.created`, `booking.approved`, `booking.denied`, `booking.cancelled`, `booking.expired`, `booking.expiring_soon`, `booking.on_hold`, `booking.on_hold_released`, `booking.displaced`, `booking.contention_started`, `booking.contention_resolved`, `booking.converted_to_firm`, `booking.displaced_slot_reopened`
 
 ### Milestone 16: Notification Consumer
 **File:** `milestone-16-notification-consumer.js`

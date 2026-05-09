@@ -180,6 +180,24 @@ async function startContention({ defenderBooking, challengerBooking }, { transac
     err.statusCode = 409;
     throw err;
   }
+  if (
+    defender.contentionRole != null ||
+    challenger.contentionRole != null ||
+    defender.challengingBookingId != null ||
+    challenger.challengingBookingId != null
+  ) {
+    const err = new Error(domain.activeContentionLocked);
+    err.code = 'ACTIVE_CONTENTION_LOCKED';
+    err.statusCode = 409;
+    throw err;
+  }
+  const existingChallenger = await findActiveChallengerForDefender(defender.id, { transaction, Booking });
+  if (existingChallenger && existingChallenger.id !== challenger.id) {
+    const err = new Error(domain.activeContentionLocked);
+    err.code = 'ACTIVE_CONTENTION_LOCKED';
+    err.statusCode = 409;
+    throw err;
+  }
 
   defender.contentionRole = 'defender';
   defender.contentionDeadlineAt = deadlineAt;

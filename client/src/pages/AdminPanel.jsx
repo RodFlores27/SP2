@@ -410,6 +410,12 @@ function getAuditDetails(log) {
     return `${formatLabel(payload.targetAccountType)} account deleted`;
   }
   if (String(log.eventType || '').startsWith('resource.')) {
+    if (log.eventType === 'resource.room_created' || log.eventType === 'resource.equipment_created') {
+      return 'Resource created';
+    }
+    if (log.eventType === 'resource.room_deleted' || log.eventType === 'resource.equipment_deleted') {
+      return 'Resource deleted';
+    }
     const changed = getChangedFields(payload.previous, payload.current);
     return changed.length > 0
       ? `${changed.length} field${changed.length === 1 ? '' : 's'} changed: ${changed.slice(0, 3).map(formatLabel).join(', ')}`
@@ -1163,7 +1169,7 @@ export default function AdminPanel() {
                     Audit Trail
                   </CardTitle>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Booking lifecycle events, user administration changes, and resource updates.
+                    Booking lifecycle events (requires Kafka + audit consumer), user administration changes, and resource updates.
                   </p>
                 </div>
                 <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">

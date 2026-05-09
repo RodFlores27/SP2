@@ -37,7 +37,7 @@ const {
   assertCancellationBeforeCutoff,
 } = require('../utils/booking-rules');
 const contention = require('../services/contention.service');
-const { api } = require('../messages/bookingMessages');
+const { api, domain } = require('../messages/bookingMessages');
 
 const getUserAccountType = (req) => req.user?.accountType || req.user?.role;
 const REBOOKABLE_STATUSES = ['cancelled', 'denied', 'expired', 'displaced', 'completed'];
@@ -587,6 +587,11 @@ function normalizeOptionalText(value) {
 
 function hasAuthDoc(url) {
   return Boolean(url && String(url).trim().length > 0);
+}
+
+function isDefenderDeadlineElapsed(booking, now = new Date()) {
+  if (!booking || booking.contentionRole !== 'defender' || !booking.contentionDeadlineAt) return false;
+  return new Date(booking.contentionDeadlineAt).getTime() <= now.getTime();
 }
 
 function buildRebookChangeSummary(sourceBooking, nextValues) {
@@ -1669,6 +1674,12 @@ const convertToFirm = async (req, res) => {
         });
       }
     }
+    if (isDefenderDeadlineElapsed(booking)) {
+      return res.status(409).json({
+        error: domain.contentionDeadlineInvalid,
+        code: 'CONTENTION_DEADLINE_INVALID'
+      });
+    }
 
     const hasExistingAuth = hasAuthDoc(booking.authorizationDocUrl);
     if (!req.file && !hasExistingAuth) {
@@ -1722,6 +1733,12 @@ const convertToFirm = async (req, res) => {
           err.statusCode = 404;
           throw err;
         }
+        if (isDefenderDeadlineElapsed(b)) {
+          const err = new Error(domain.contentionDeadlineInvalid);
+          err.statusCode = 409;
+          err.code = 'CONTENTION_DEADLINE_INVALID';
+          throw err;
+        }
 
         const firmBlockers = await Booking.findFirmBlockers(
           b.resourceType,
@@ -1760,6 +1777,7 @@ const convertToFirm = async (req, res) => {
       if (txnErr.statusCode === 409) {
         return res.status(409).json({
           error: txnErr.message,
+          code: txnErr.code,
           conflicts: txnErr.conflicts || []
         });
       }

@@ -32,17 +32,20 @@ const processSteps = [
   'Track updates in My Bookings and check your registered email for notices.',
 ];
 
-const rules = [
-  'Lead-time rules apply to new bookings: equipment in-house requires at least 2 days, while equipment loan and room bookings require at least 7 days before start time.',
-  'New bookings cannot be created when the schedule starts within 24 hours.',
-  'Pencil bookings expire at the earlier of 3 days after creation or 24 hours before the scheduled start.',
-  'Firm bookings require an authorization document and staff approval.',
-  'Firm bookings are pending until approved by PTCF staff.',
-  'Firm requests still pending inside the 24-hour pre-start window expire automatically.',
-  'Cancellation lead-time cutoffs apply by request type: equipment in-house blocks cancellation within 2 hours before start, while equipment loan and room requests block cancellation within 24 hours before start.',
-  'Firm bookings cannot overlap other active firm bookings on the same resource and time.',
-  'Pencil bookings may overlap other users active pencils only when no active defender or challenger overlap exists; otherwise the new request is blocked.',
-  'A firm request may place overlapping pencil bookings on hold until staff decision, then release or displace them based on outcome.',
+const timingRules = [
+  'Lead time: in-house equipment 2 days; loan equipment and rooms 7 days.',
+  'No new bookings within 24 hours of start.',
+  'Pencil expiry: earlier of 3 days after creation or 24 hours before start.',
+  'Firm bookings need an authorization document and staff approval.',
+  'Firm requests stay pending until approved.',
+  'Pending firm requests auto-expire inside the 24-hour pre-start window.',
+  'Cancellation cutoff: in-house equipment 2 hours; loan equipment and rooms 24 hours.',
+];
+
+const overlapRules = [
+  'Firm bookings cannot overlap other active firm bookings.',
+  'Pencil overlap is allowed only when no active defender/challenger pair exists.',
+  'Firm requests may place overlapping pencils on hold until decision.',
 ];
 
 const statuses = [
@@ -303,15 +306,32 @@ export default function Guidelines() {
           >
             These are the main system rules users should know before submitting a request.
           </SectionHeader>
-          <Card>
-            <CardContent className="pt-6">
-              <ul className="grid gap-3 text-sm text-foreground/90 md:grid-cols-2">
-                {rules.map((rule) => (
-                  <RuleItem key={rule}>{rule}</RuleItem>
-                ))}
-              </ul>
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Timing</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3 text-sm text-foreground/90">
+                  {timingRules.map((rule) => (
+                    <RuleItem key={rule}>{rule}</RuleItem>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg">Overlaps</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ul className="space-y-3 text-sm text-foreground/90">
+                  {overlapRules.map((rule) => (
+                    <RuleItem key={rule}>{rule}</RuleItem>
+                  ))}
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
         </section>
 
         <section>
@@ -320,7 +340,7 @@ export default function Guidelines() {
             eyebrow="Overlaps"
             title="Contention, on-hold, and displaced bookings"
           >
-            Booking conflicts follow strict 1v1 contention and firm-priority rules.
+            Conflicts use strict 1v1 contention and firm priority.
           </SectionHeader>
           <div className="grid gap-4 lg:grid-cols-3">
             <Card>
@@ -328,10 +348,9 @@ export default function Guidelines() {
                 <CardTitle className="text-lg">Contention</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                When two users have overlapping pencil bookings, the existing holder becomes
-                the defender and the new overlapping request becomes the challenger. The
-                defender must convert to firm before the deadline to keep priority. A third
-                overlapping pencil cannot enter while that active defender or challenger pair exists.
+                Two overlapping pencils create a 1v1: existing holder is defender, new one is
+                challenger. The defender must convert to firm before the deadline. A third overlap
+                is blocked while that pair is active.
               </CardContent>
             </Card>
             <Card>
@@ -339,7 +358,8 @@ export default function Guidelines() {
                 <CardTitle className="text-lg">On Hold</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                A pencil booking will become on hold when an overlapping firm request is introduced. It may reactivate if the firm request is denied or cancelled.
+                A pencil becomes on hold when blocked by an overlapping firm request. It can
+                reactivate if that firm request is denied or cancelled.
               </CardContent>
             </Card>
             <Card>
@@ -347,8 +367,8 @@ export default function Guidelines() {
                 <CardTitle className="text-lg">Displaced</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
-                A pencil booking is displaced when another booking takes priority, such as an
-                approved firm booking or losing contention as defender.
+                A pencil is displaced when another booking takes priority, such as an approved
+                firm booking or a defender loss.
               </CardContent>
             </Card>
           </div>

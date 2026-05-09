@@ -145,6 +145,7 @@ Booking lifecycle events use this shape:
 ```
 
 `eventId` is used by audit and analytics persistence for deduplication.
+`eventId` is also used by the notification delivery ledger for per-recipient idempotency.
 
 ## Event Names
 
@@ -188,6 +189,20 @@ notification-consumer -> sends Resend emails through server/utils/booking-notifi
 audit-log-consumer    -> writes append-only AuditLogs rows
 analytics-consumer    -> writes deduplicated BookingAnalyticsEvents rows
 ```
+
+Notification delivery idempotency is persisted in:
+
+```txt
+NotificationDeliveries
+```
+
+The notification path deduplicates by:
+
+```txt
+eventId + notificationType + recipientEmail
+```
+
+and tracks `processing`, `sent`, and `failed` states for delivery observability.
 
 Startup happens after DB authentication in `server/index.js` when `KAFKA_ENABLED=true`. Startup failures are logged, and the server continues running.
 
@@ -262,7 +277,7 @@ The test captures email calls in-process instead of sending real Resend email, s
 - Kafka is an MVP event layer, not a full microservice split.
 - There is no Schema Registry yet.
 - There are no Kafka transactions.
-- There is no dead-letter topic or complex retry infrastructure.
+- There is no dead-letter topic yet.
 - Consumers run inside the backend process.
 - The analytics view is simple event-count reporting, not full utilization analytics.
 - Local KafkaJS runs may print a non-blocking `TimeoutNegativeWarning`; previous tests still passed when this warning appeared.

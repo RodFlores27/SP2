@@ -6,6 +6,7 @@ Use this before demo/release deployments.
 - Ensure backend startup logs contain no `[runtime] Config error`.
 - Resolve any `[runtime] Warning` unless intentionally accepted.
 - Confirm Kafka startup logs show producer and notification consumer connected (or explicitly accepted degraded mode).
+- Confirm latest DB migrations are applied, including `NotificationDeliveries`.
 
 ## 2) Required environment groups
 - Auth: `AUTH_PROVIDER`, Supabase keys/URLs (if using Supabase auth).
@@ -29,8 +30,9 @@ Use this before demo/release deployments.
 ## 4) Notification sanity
 - Approve room booking sends approval email including payment/damage notice.
 - Cancel booking requires reason + probable rebook date and includes them in notification.
+- Duplicate/replay sanity: same Kafka `eventId` should not send duplicate email to the same recipient+notification type.
+- Failure/retry sanity: if provider send fails transiently, notification consumer should fail fast and retry via Kafka; verify eventual `NotificationDeliveries.status=sent`.
 
 ## 5) Data/reset sanity
 - Run migrations before seed/reset.
 - If using demo reset, run `reset:mvp-demo` and verify seeded room/equipment codes follow current format.
-

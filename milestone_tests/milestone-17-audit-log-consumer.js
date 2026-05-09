@@ -98,6 +98,24 @@ async function testMilestone17() {
       } else {
         fail('Audit consumer disabled mode', 'Expected enabled=false, connected=false');
       }
+
+      const disabledEventType = 'booking.audit_disabled_test';
+      const disabledResult = await publishBookingEvent(disabledEventType, {
+        actorUserId: null,
+        bookingId: null,
+        resourceType: 'equipment',
+        resourceId: 1,
+        bookingType: 'pencil',
+        status: 'penciled',
+        payload: {
+          source: 'milestone-17-disabled-test',
+        },
+      });
+      if (disabledResult.published === false && disabledResult.enabled === false) {
+        pass('Kafka-disabled publish result is returned as disabled');
+      } else {
+        fail('Kafka-disabled publish result', 'Expected published=false and enabled=false');
+      }
     } else {
       const startResult = await startAuditConsumer();
       if (!startResult.connected) {
@@ -145,6 +163,45 @@ async function testMilestone17() {
         pass('Published event is persisted to AuditLogs by consumer');
       } else {
         fail('Audit log persistence', 'Published eventId not found in /admin/audit-logs');
+      }
+
+      const excludedEventId = `audit-excluded-${Date.now()}`;
+      const excludedEventType = BOOKING_EVENT_TYPES.DISPLACED_SLOT_REOPENED;
+      const excludedPublishResult = await publishBookingEvent(excludedEventType, {
+        eventId: excludedEventId,
+        actorUserId: null,
+        bookingId: null,
+        resourceType: 'equipment',
+        resourceId: 1,
+        bookingType: 'pencil',
+        status: 'penciled',
+        payload: {
+          source: 'milestone-17-exclusion-test',
+        },
+      });
+
+      if (!excludedPublishResult.published) {
+        fail(
+          'Publish excluded event to Kafka',
+          excludedPublishResult.error || excludedPublishResult.reason
+        );
+      } else {
+        pass('Publish excluded event to Kafka succeeds');
+      }
+
+      await wait(1200);
+      const excludedRes = await axios.get(
+        `${BASE_URL}/admin/audit-logs?eventType=${encodeURIComponent(excludedEventType)}&limit=25`,
+        { headers: adminHeaders }
+      );
+      const excludedRows = Array.isArray(excludedRes.data?.logs) ? excludedRes.data.logs : [];
+      if (excludedRows.length === 0) {
+        pass('Excluded event type is hidden from /admin/audit-logs');
+      } else {
+        fail(
+          'Excluded event type filter',
+          `Expected 0 rows for ${excludedEventType}, got ${excludedRows.length}`
+        );
       }
     }
   } catch (error) {

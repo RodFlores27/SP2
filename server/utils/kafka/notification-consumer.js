@@ -58,55 +58,56 @@ async function processBookingNotificationEvent(event) {
   }
 
   const payload = event.payload || {};
+  const eventMeta = { eventId: event.eventId || null, eventType: event.eventType };
   const booking = await loadBookingForNotification(event.bookingId);
   const resourceName = await resolveResourceName(event.resourceType, event.resourceId);
 
   switch (event.eventType) {
     case BOOKING_EVENT_TYPES.CREATED: {
       if (!booking) return { handled: false, reason: 'Booking not found' };
-      await notifyBookingCreated(booking, resourceName);
+      await notifyBookingCreated(booking, resourceName, { eventMeta });
       return { handled: true, action: 'notifyBookingCreated' };
     }
     case BOOKING_EVENT_TYPES.APPROVED: {
       if (!booking) return { handled: false, reason: 'Booking not found' };
-      await notifyBookingApproved(booking, resourceName);
+      await notifyBookingApproved(booking, resourceName, { eventMeta });
       return { handled: true, action: 'notifyBookingApproved' };
     }
     case BOOKING_EVENT_TYPES.DENIED: {
       if (!booking) return { handled: false, reason: 'Booking not found' };
-      await notifyBookingDenied(booking, resourceName);
+      await notifyBookingDenied(booking, resourceName, { eventMeta });
       return { handled: true, action: 'notifyBookingDenied' };
     }
     case BOOKING_EVENT_TYPES.CANCELLED: {
       if (!booking) return { handled: false, reason: 'Booking not found' };
       const cancelledByUserId = payload.cancelledByUserId || event.actorUserId || null;
-      await notifyBookingCancelled(booking, resourceName, cancelledByUserId);
+      await notifyBookingCancelled(booking, resourceName, cancelledByUserId, { eventMeta });
       return { handled: true, action: 'notifyBookingCancelled' };
     }
     case BOOKING_EVENT_TYPES.EXPIRED: {
       if (!booking) return { handled: false, reason: 'Booking not found' };
-      await notifyBookingExpired(booking, resourceName);
+      await notifyBookingExpired(booking, resourceName, { eventMeta });
       return { handled: true, action: 'notifyBookingExpired' };
     }
     case BOOKING_EVENT_TYPES.EXPIRING_SOON: {
       if (!booking) return { handled: false, reason: 'Booking not found' };
       const hoursLeft = Number(payload.hoursLeft) === 24 ? 24 : 48;
-      await notifyBookingExpiringSoon(booking, resourceName, hoursLeft);
+      await notifyBookingExpiringSoon(booking, resourceName, hoursLeft, { eventMeta });
       return { handled: true, action: 'notifyBookingExpiringSoon' };
     }
     case BOOKING_EVENT_TYPES.ON_HOLD: {
       if (!booking) return { handled: false, reason: 'Booking not found' };
-      await notifyBookingOnHold(booking, resourceName);
+      await notifyBookingOnHold(booking, resourceName, { eventMeta });
       return { handled: true, action: 'notifyBookingOnHold' };
     }
     case BOOKING_EVENT_TYPES.ON_HOLD_RELEASED: {
       if (!booking) return { handled: false, reason: 'Booking not found' };
-      await notifyBookingOnHoldReleased(booking, resourceName);
+      await notifyBookingOnHoldReleased(booking, resourceName, { eventMeta });
       return { handled: true, action: 'notifyBookingOnHoldReleased' };
     }
     case BOOKING_EVENT_TYPES.DISPLACED: {
       if (!booking) return { handled: false, reason: 'Booking not found' };
-      await notifyBookingDisplaced(booking, resourceName);
+      await notifyBookingDisplaced(booking, resourceName, { eventMeta });
       return { handled: true, action: 'notifyBookingDisplaced' };
     }
     case BOOKING_EVENT_TYPES.CONTENTION_RESOLVED: {
@@ -114,7 +115,7 @@ async function processBookingNotificationEvent(event) {
       if (payload.recipientOutcome != null) {
         if (!booking) return { handled: false, reason: 'Booking not found' };
         const counterpartyBooking = await loadBookingForNotification(payload.counterpartyBookingId || null);
-        await notifyContentionResolved(booking, counterpartyBooking, resourceName, payload);
+        await notifyContentionResolved(booking, counterpartyBooking, resourceName, payload, { eventMeta });
         return { handled: true, action: 'notifyContentionResolvedLegacy' };
       }
 
@@ -134,7 +135,7 @@ async function processBookingNotificationEvent(event) {
             resolutionReason: payload.resolutionReason || null,
             resolvedByBookingId: payload.resolvedByBookingId || null,
             recipientContentionRole: 'defender',
-          })
+          }, { eventMeta })
         );
       }
       if (challengerBooking) {
@@ -144,7 +145,7 @@ async function processBookingNotificationEvent(event) {
             resolutionReason: payload.resolutionReason || null,
             resolvedByBookingId: payload.resolvedByBookingId || null,
             recipientContentionRole: 'challenger',
-          })
+          }, { eventMeta })
         );
       }
       if (notifications.length === 0) {
@@ -163,7 +164,7 @@ async function processBookingNotificationEvent(event) {
       if (!defender || !challenger) {
         return { handled: false, reason: 'Defender or challenger not found' };
       }
-      await notifyContentionStarted({ defender, challenger }, resourceName);
+      await notifyContentionStarted({ defender, challenger }, resourceName, { eventMeta });
       return { handled: true, action: 'notifyContentionStarted' };
     }
     case BOOKING_EVENT_TYPES.DISPLACED_SLOT_REOPENED: {
@@ -173,7 +174,7 @@ async function processBookingNotificationEvent(event) {
       if (!displacedBooking || !firmBooking) {
         return { handled: false, reason: 'Displaced or firm booking not found' };
       }
-      await notifyDisplacedUsersSlotReopened(displacedBooking, firmBooking, resourceName);
+      await notifyDisplacedUsersSlotReopened(displacedBooking, firmBooking, resourceName, { eventMeta });
       return { handled: true, action: 'notifyDisplacedUsersSlotReopened' };
     }
     default:
@@ -224,6 +225,7 @@ async function startNotificationConsumer() {
             console.error(
               `[kafka:notification] Failed handling ${event.eventType}: ${error.message}`
             );
+            throw error;
           }
         },
       });
