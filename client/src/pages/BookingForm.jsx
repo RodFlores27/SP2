@@ -1148,10 +1148,10 @@ export default function BookingForm() {
                               {watchedResourceId && !resourceListOpen && (
                                 <div className="flex items-center justify-between rounded-md border border-input bg-muted/30 px-3 py-2">
                                   <div className="min-w-0">
-                                    <p className="truncate text-sm font-medium">
+                                    <p className="break-words text-sm font-medium">
                                       {selectedResourceSummary?.name || selectedResourceName}
                                     </p>
-                                    <p className="truncate text-xs text-muted-foreground">
+                                    <p className="break-words text-xs text-muted-foreground">
                                       {selectedResourceSummary?.secondary || ''}
                                     </p>
                                   </div>
@@ -1159,7 +1159,7 @@ export default function BookingForm() {
                                     type="button"
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 px-2 text-xs"
+                                    className="h-9 px-3 text-sm"
                                     onClick={() => setResourceListOpen(true)}
                                   >
                                     Change
@@ -1167,7 +1167,7 @@ export default function BookingForm() {
                                 </div>
                               )}
                               {resourceListOpen && (
-                                <div className="max-h-72 overflow-y-auto rounded-md border border-input bg-background">
+                                <div className="max-h-[40vh] overflow-y-auto rounded-md border border-input bg-background sm:max-h-72">
                                   {groupedResourceOptions.length === 0 ? (
                               <p className="px-3 py-2 text-sm text-muted-foreground">
                                 No resources match your search.

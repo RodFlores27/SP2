@@ -333,7 +333,7 @@ export default function RoomList() {
                   {room.description}
                 </p>
                 {room.ppe && (
-                  <p className="text-xs text-muted-foreground mb-3">
+                  <p className="mb-3 line-clamp-2 text-xs text-muted-foreground">
                     PPE: {room.ppe}
                   </p>
                 )}
@@ -352,6 +352,7 @@ export default function RoomList() {
                       <Button
                         variant="outline"
                         size="icon"
+                        className="h-9 w-9"
                         onClick={() => handleEdit(room)}
                       >
                         <Edit className="h-4 w-4" />
@@ -359,6 +360,7 @@ export default function RoomList() {
                       <Button
                         variant="outline"
                         size="icon"
+                        className="h-9 w-9"
                         onClick={() => handleDeleteClick(room.id)}
                       >
                         <Trash2 className="h-4 w-4" />

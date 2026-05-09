@@ -138,7 +138,7 @@ export default function RoomDetail() {
             <p className="text-muted-foreground whitespace-pre-wrap">{room.description}</p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+          <div className="grid grid-cols-1 gap-4 pt-4 border-t sm:grid-cols-2">
             <div>
               <p className="text-sm text-muted-foreground">Location</p>
               <p className="font-medium">{room.location}</p>
@@ -160,7 +160,7 @@ export default function RoomDetail() {
               <p className="text-sm text-muted-foreground">Zone</p>
               <p className="font-medium">{room.zone || '-'}</p>
             </div>
-            <div className="col-span-2">
+            <div className="sm:col-span-2">
               <p className="text-sm text-muted-foreground">Required PPE</p>
               <p className="font-medium">{room.ppe || '-'}</p>
             </div>
@@ -178,7 +178,7 @@ export default function RoomDetail() {
           )}
 
           {isStaff && (
-            <div className="flex gap-3 pt-6 border-t">
+            <div className="flex flex-col gap-3 pt-6 border-t sm:flex-row">
               <Button onClick={handleEdit} className="flex-1">
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Room

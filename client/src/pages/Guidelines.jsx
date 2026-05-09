@@ -26,21 +26,23 @@ const processSteps = [
   'Log in or register for a regular user account.',
   'Choose Equipment or Rooms, then review the resource details and availability calendar.',
   'Open the booking form from a resource page, the calendar, or Book Now.',
-  'Select the resource, booking type, start time, end time, and purpose.',
+  'Select the resource, request type (in-house, loan, or room use), start time, end time, and purpose.',
   'Upload an authorization document when creating or converting to a firm booking.',
   'Submit the booking and respond to any overlap or contention notice shown by the system.',
   'Track updates in My Bookings and check your registered email for notices.',
 ];
 
 const rules = [
+  'Lead-time rules apply to new bookings: equipment in-house requires at least 2 days, while equipment loan and room bookings require at least 7 days before start time.',
   'New bookings cannot be created when the schedule starts within 24 hours.',
   'Pencil bookings expire at the earlier of 3 days after creation or 24 hours before the scheduled start.',
   'Firm bookings require an authorization document and staff approval.',
   'Firm bookings are pending until approved by PTCF staff.',
   'Firm requests still pending inside the 24-hour pre-start window expire automatically.',
+  'Cancellation lead-time cutoffs apply by request type: equipment in-house blocks cancellation within 2 hours before start, while equipment loan and room requests block cancellation within 24 hours before start.',
   'Firm bookings cannot overlap other active firm bookings on the same resource and time.',
-  'Pencil bookings may overlap other users pencil bookings, but this will start contention.',
-  'A firm request may place overlapping pencil bookings on hold until staff decision.',
+  'Pencil bookings may overlap other users active pencils only when no active defender or challenger overlap exists; otherwise the new request is blocked.',
+  'A firm request may place overlapping pencil bookings on hold until staff decision, then release or displace them based on outcome.',
 ];
 
 const statuses = [
@@ -62,7 +64,11 @@ const faqs = [
   ],
   [
     'Why can I not book within 24 hours?',
-    'The system enforces a 24-hour lock window for new bookings, firm conversion, and staff approval.',
+    'The system enforces a 24-hour lock window for new booking creation and staff approval, and requests must also satisfy request-type lead time rules.',
+  ],
+  [
+    'What lead time should I follow?',
+    'Equipment in-house requests need at least 2 days lead time, while equipment loan and room requests need at least 7 days before the start time.',
   ],
   [
     'What endorsement letter do I need?',
@@ -314,7 +320,7 @@ export default function Guidelines() {
             eyebrow="Overlaps"
             title="Contention, on-hold, and displaced bookings"
           >
-            Some booking conflicts are resolved automatically by the system.
+            Booking conflicts follow strict 1v1 contention and firm-priority rules.
           </SectionHeader>
           <div className="grid gap-4 lg:grid-cols-3">
             <Card>
@@ -324,7 +330,8 @@ export default function Guidelines() {
               <CardContent className="text-sm text-muted-foreground">
                 When two users have overlapping pencil bookings, the existing holder becomes
                 the defender and the new overlapping request becomes the challenger. The
-                defender must convert to firm before the deadline to keep priority.
+                defender must convert to firm before the deadline to keep priority. A third
+                overlapping pencil cannot enter while that active defender or challenger pair exists.
               </CardContent>
             </Card>
             <Card>

@@ -1225,58 +1225,98 @@ export default function AdminPanel() {
                     : 'No audit events match the current filters.'}
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <div className="min-w-[920px]">
-                    <div className="grid grid-cols-[130px_190px_170px_170px_1fr_150px_36px] gap-3 border-y border-border bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
-                      <div>Time</div>
-                      <div>Event</div>
-                      <div>Actor</div>
-                      <div>Target</div>
-                      <div>Details</div>
-                      <div>Status/Resource</div>
-                      <div />
-                    </div>
-                    <div className="divide-y divide-border">
-                      {filteredAuditLogs.map((log) => {
-                        const isExpanded = expandedAuditId === log.id;
-                        return (
-                          <div key={log.id}>
-                            <button
-                              type="button"
-                              onClick={() => setExpandedAuditId(isExpanded ? null : log.id)}
-                              className="grid w-full grid-cols-[130px_190px_170px_170px_1fr_150px_36px] gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/30"
-                            >
+                <>
+                  <div className="divide-y divide-border md:hidden">
+                    {filteredAuditLogs.map((log) => {
+                      const isExpanded = expandedAuditId === log.id;
+                      return (
+                        <div key={log.id} className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedAuditId(isExpanded ? null : log.id)}
+                            className="w-full text-left"
+                          >
+                            <div className="flex items-start justify-between gap-2">
                               <div className="text-xs text-muted-foreground">
                                 {formatAuditTime(log.occurredAt)}
                               </div>
-                              <div>
-                                <AuditEventBadge eventType={log.eventType} />
+                              <div className="text-muted-foreground">
+                                {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
                               </div>
-                              <div className="min-w-0 truncate">{getAuditActor(log)}</div>
-                              <div className="min-w-0 truncate font-medium">{getAuditTarget(log)}</div>
-                              <div className="min-w-0 truncate text-muted-foreground">{getAuditDetails(log)}</div>
-                              <div className="min-w-0 truncate text-xs text-muted-foreground">
-                                {getAuditStatusResource(log)}
-                              </div>
-                              <div className="flex justify-end text-muted-foreground">
-                                {isExpanded ? (
-                                  <ChevronDown className="h-4 w-4" />
-                                ) : (
-                                  <ChevronRight className="h-4 w-4" />
-                                )}
-                              </div>
-                            </button>
-                            {isExpanded && (
-                              <div className="px-4 pb-4">
-                                <AuditExpandedDetails log={log} />
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                            </div>
+                            <div className="mt-2">
+                              <AuditEventBadge eventType={log.eventType} />
+                            </div>
+                            <div className="mt-2 space-y-1">
+                              <p className="truncate text-sm font-medium">{getAuditTarget(log)}</p>
+                              <p className="truncate text-xs text-muted-foreground">Actor: {getAuditActor(log)}</p>
+                              <p className="truncate text-xs text-muted-foreground">{getAuditDetails(log)}</p>
+                              <p className="truncate text-xs text-muted-foreground">{getAuditStatusResource(log)}</p>
+                            </div>
+                          </button>
+                          {isExpanded && (
+                            <div className="pt-3">
+                              <AuditExpandedDetails log={log} />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="hidden overflow-x-auto md:block">
+                    <div className="min-w-[920px]">
+                      <div className="grid grid-cols-[130px_190px_170px_170px_1fr_150px_36px] gap-3 border-y border-border bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground">
+                        <div>Time</div>
+                        <div>Event</div>
+                        <div>Actor</div>
+                        <div>Target</div>
+                        <div>Details</div>
+                        <div>Status/Resource</div>
+                        <div />
+                      </div>
+                      <div className="divide-y divide-border">
+                        {filteredAuditLogs.map((log) => {
+                          const isExpanded = expandedAuditId === log.id;
+                          return (
+                            <div key={log.id}>
+                              <button
+                                type="button"
+                                onClick={() => setExpandedAuditId(isExpanded ? null : log.id)}
+                                className="grid w-full grid-cols-[130px_190px_170px_170px_1fr_150px_36px] gap-3 px-4 py-3 text-left text-sm transition-colors hover:bg-muted/30"
+                              >
+                                <div className="text-xs text-muted-foreground">
+                                  {formatAuditTime(log.occurredAt)}
+                                </div>
+                                <div>
+                                  <AuditEventBadge eventType={log.eventType} />
+                                </div>
+                                <div className="min-w-0 truncate">{getAuditActor(log)}</div>
+                                <div className="min-w-0 truncate font-medium">{getAuditTarget(log)}</div>
+                                <div className="min-w-0 truncate text-muted-foreground">{getAuditDetails(log)}</div>
+                                <div className="min-w-0 truncate text-xs text-muted-foreground">
+                                  {getAuditStatusResource(log)}
+                                </div>
+                                <div className="flex justify-end text-muted-foreground">
+                                  {isExpanded ? (
+                                    <ChevronDown className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronRight className="h-4 w-4" />
+                                  )}
+                                </div>
+                              </button>
+                              {isExpanded && (
+                                <div className="px-4 pb-4">
+                                  <AuditExpandedDetails log={log} />
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
-                </div>
+                </>
               )}
             </CardContent>
           </Card>

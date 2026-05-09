@@ -110,6 +110,7 @@ For any frontend UI, app-owned email template, or visible product naming change:
 - Keep brand colors centralized through `client/src/index.css` HSL tokens and Tailwind v4 `@theme`; prefer tokenized classes such as `bg-primary`, `text-primary`, `bg-card`, `border-border`, `text-muted-foreground`, and the `up-*` utilities.
 - Do not scatter raw brand hex values through React components. App-owned email templates may use inline hex values where email-client compatibility requires it.
 - Keep booking/status colors distinguishable; do not collapse all statuses into maroon/green/gold if that hurts scanning or accessibility.
+- For substantial frontend UI changes (new layouts, major tab/table updates, booking flow UX), always perform a mobile UI/UX pass and verify usability at small-screen breakpoints before finalizing.
 - After frontend visual changes, run `npm run lint` and `npm run build` from `client`.
 - After app-owned email template changes, run `node --check` on changed server files.
 
