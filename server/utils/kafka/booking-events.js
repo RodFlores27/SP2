@@ -8,6 +8,7 @@ const BOOKING_EVENT_TYPES = Object.freeze({
   EXPIRED: 'booking.expired',
   EXPIRING_SOON: 'booking.expiring_soon',
   ON_HOLD: 'booking.on_hold',
+  ON_HOLD_RELEASED: 'booking.on_hold_released',
   DISPLACED: 'booking.displaced',
   CONTENTION_STARTED: 'booking.contention_started',
   CONTENTION_RESOLVED: 'booking.contention_resolved',

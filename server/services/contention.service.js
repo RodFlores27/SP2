@@ -521,12 +521,18 @@ async function onFirmDeniedOrCancelled(firmBooking, { transaction, Booking }) {
     { transaction, Booking }
   );
 
+  const releasedBookingIds = [];
   for (const row of onHoldOverlaps) {
     const b = await Booking.findByPk(row.id, { transaction, lock: transaction.LOCK.UPDATE });
     if (!b || b.status !== 'on_hold') continue;
 
-    await rebuildPencilAfterEpisode(b.id, { transaction, Booking });
+    const rebuildResult = await rebuildPencilAfterEpisode(b.id, { transaction, Booking });
+    if (rebuildResult?.action !== 'on_hold') {
+      releasedBookingIds.push(b.id);
+    }
   }
+
+  return { releasedBookingIds };
 }
 
 /**

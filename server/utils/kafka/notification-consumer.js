@@ -8,6 +8,7 @@ const {
   notifyBookingExpired,
   notifyBookingExpiringSoon,
   notifyBookingOnHold,
+  notifyBookingOnHoldReleased,
   notifyBookingDisplaced,
   notifyContentionResolved,
   notifyContentionStarted,
@@ -97,6 +98,11 @@ async function processBookingNotificationEvent(event) {
       if (!booking) return { handled: false, reason: 'Booking not found' };
       await notifyBookingOnHold(booking, resourceName);
       return { handled: true, action: 'notifyBookingOnHold' };
+    }
+    case BOOKING_EVENT_TYPES.ON_HOLD_RELEASED: {
+      if (!booking) return { handled: false, reason: 'Booking not found' };
+      await notifyBookingOnHoldReleased(booking, resourceName);
+      return { handled: true, action: 'notifyBookingOnHoldReleased' };
     }
     case BOOKING_EVENT_TYPES.DISPLACED: {
       if (!booking) return { handled: false, reason: 'Booking not found' };

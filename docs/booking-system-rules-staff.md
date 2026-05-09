@@ -93,6 +93,7 @@ Non-cancel loser outcomes in contention:
 - If the blocking firm disappears (denied/cancelled), `on_hold` pencils are rebuilt:
   - remain `on_hold` if still blocked by another firm, or
   - return to `penciled` and may re-enter 1v1 contention.
+- If an `on_hold` pencil returns to active `penciled`, the user now receives an **on-hold released** notification.
 
 Important nuance:
 
@@ -132,6 +133,13 @@ Displacement happens only when staff approves the firm.
 - Valid only for `firm + pending_approval`.
 - Does not displace pencils.
 - Triggers rebuild pass for overlapping `on_hold` pencils (same post-firm cleanup path used by cancel).
+- Any released `on_hold -> penciled` rows are notified.
+
+### Pending firm auto-expiry at lock window
+
+- If a firm request stays `pending_approval` into the 24-hour lock window, cron marks it `expired`.
+- During that auto-expiry, overlapping `on_hold` pencils are now always rebuilt (same cleanup path as deny/cancel).
+- Any released `on_hold -> penciled` rows are notified.
 
 ---
 

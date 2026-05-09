@@ -15,11 +15,26 @@ import { guessFileType } from './bookingDashboardUtils';
  * - Images / PDFs: preview in-app via a modal (with open-in-new-tab fallback).
  * - DOC/DOCX or unknown: open in new tab only.
  */
-export function AuthorizationDocButton({ url }) {
+function normalizeFileType(fileType) {
+  if (!fileType) return null;
+  const lower = String(fileType).toLowerCase();
+  if (lower === 'pdf' || lower === 'image' || lower === 'doc') return lower;
+  if (lower === 'application/pdf') return 'pdf';
+  if (lower.startsWith('image/')) return 'image';
+  if (
+    lower === 'application/msword' ||
+    lower === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) {
+    return 'doc';
+  }
+  return null;
+}
+
+export function AuthorizationDocButton({ url, fileType }) {
   const [open, setOpen] = useState(false);
   if (!url) return null;
 
-  const type = guessFileType(url);
+  const type = normalizeFileType(fileType) || guessFileType(url);
   const canPreview = type === 'image' || type === 'pdf';
 
   const openInTab = () => window.open(url, '_blank', 'noopener,noreferrer');

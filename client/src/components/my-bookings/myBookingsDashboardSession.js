@@ -44,6 +44,7 @@ const VALID_SORTS_PAST = new Set([
 ]);
 const VALID_STATUS_FILTER_ACTIVE = new Set([
   '',
+  'under_contention',
   'contested',
   'pending_approval',
   'on_hold',
@@ -122,8 +123,11 @@ function normalizeFilters(tab, raw) {
 
   const validStatuses =
     tab === 'past' ? VALID_STATUS_FILTER_PAST : VALID_STATUS_FILTER_ACTIVE;
-  const rawStatus =
+  let rawStatus =
     typeof raw.statusFilter === 'string' ? raw.statusFilter : defaults.statusFilter;
+  if (tab === 'active' && rawStatus === 'contested') {
+    rawStatus = 'under_contention';
+  }
   const statusFilter = validStatuses.has(rawStatus) ? rawStatus : defaults.statusFilter;
 
   return {

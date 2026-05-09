@@ -11,6 +11,7 @@ const {
   notifyBookingExpired,
   notifyBookingExpiringSoon,
   notifyBookingOnHold,
+  notifyBookingOnHoldReleased,
   notifyBookingDisplaced,
   notifyContentionResolved
 } = require('../utils/booking-notifications');
@@ -328,6 +329,7 @@ cron.schedule(expiryCronExpression, async () => {
     }
 
     for (const booking of firmPendingPastApprovalDeadline) {
+      const releasedBookingIds = [];
       await sequelize.transaction(async (t) => {
         const b = await Booking.findByPk(booking.id, {
           transaction: t,
@@ -336,9 +338,8 @@ cron.schedule(expiryCronExpression, async () => {
         if (!b || b.bookingType !== 'firm' || b.status !== 'pending_approval') return;
         if (!isWithinLockHours(b.startTime, now)) return;
 
-        if (b.contentionRole === 'defender') {
-          await contention.onFirmDeniedOrCancelled(b, { transaction: t, Booking });
-        }
+        const firmResult = await contention.onFirmDeniedOrCancelled(b, { transaction: t, Booking });
+        releasedBookingIds.push(...(firmResult?.releasedBookingIds || []));
 
         b.status = 'expired';
         b.staffRemark =
@@ -351,6 +352,19 @@ cron.schedule(expiryCronExpression, async () => {
         include: [{ model: User, as: 'user', attributes: ['id', 'email'] }]
       });
       if (forNotify?.status === 'expired') {
+        await emitTransitionNotifications({
+          bookingIds: releasedBookingIds,
+          eventType: BOOKING_EVENT_TYPES.ON_HOLD_RELEASED,
+          payload: {
+            source: 'cron:expire',
+            reason: 'firm_pending_approval_lock_window',
+            triggerBookingId: forNotify.id,
+            releasedByBookingId: forNotify.id,
+            releasedByReferenceCode: forNotify.referenceCode || null,
+          },
+          directNotifier: notifyBookingOnHoldReleased,
+        });
+
         const resourceName = await resolveResourceName(forNotify.resourceType, forNotify.resourceId);
         publishBookingLifecycleEvent(BOOKING_EVENT_TYPES.EXPIRED, forNotify, {
           resourceName,

@@ -360,6 +360,32 @@ async function notifyBookingOnHold(booking, resourceName) {
 }
 
 /**
+ * booking.on_hold_released — sent when an on-hold pencil becomes active again.
+ */
+async function notifyBookingOnHoldReleased(booking, resourceName) {
+  const recipientEmail = booking.user?.email;
+  if (!recipientEmail) return;
+
+  const R = E.onHoldReleased;
+  const html = baseEmailWrapper(
+    R.title,
+    `<p>${R.body}</p>
+    ${bookingDetailsBlock(booking, resourceName)}
+    <p style="${calloutStyle('green')}">
+      ${R.callout}
+    </p>
+    <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${R.viewDashboard}</a></p>
+    <p><a href="${FRONTEND_URL}/dashboard" style="${LINK_STYLE}">${R.convertCta}</a></p>`
+  );
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: R.subject({ bookingLabel: getBookingReference(booking) }),
+    html,
+  });
+}
+
+/**
  * booking.displaced — sent when a pencil loses the slot.
  */
 async function notifyBookingDisplaced(booking, resourceName) {
@@ -533,6 +559,7 @@ module.exports = {
   notifyBookingExpired,
   notifyBookingExpiringSoon,
   notifyBookingOnHold,
+  notifyBookingOnHoldReleased,
   notifyBookingDisplaced,
   notifyContentionResolved,
   notifyContentionStarted,

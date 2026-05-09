@@ -16,6 +16,7 @@ const {
   notifyBookingDenied,
   notifyBookingCancelled,
   notifyBookingOnHold,
+  notifyBookingOnHoldReleased,
   notifyBookingDisplaced,
   notifyContentionResolved,
   notifyContentionStarted,
@@ -1517,6 +1518,7 @@ const cancelBooking = async (req, res) => {
     }
 
     const contentionNotifications = [];
+    const onHoldReleasedBookingIds = new Set();
     await sequelize.transaction(async (t) => {
       const b = await Booking.findByPk(booking.id, { transaction: t, lock: t.LOCK.UPDATE });
       if (!b) return;
@@ -1542,7 +1544,8 @@ const cancelBooking = async (req, res) => {
         contentionNotifications.push(...(contentionResult?.notifications || []));
       } else if (b.bookingType === 'firm') {
         // Firm booking cancellation: clear any residual contention metadata.
-        await contention.onFirmDeniedOrCancelled(b, { transaction: t, Booking });
+        const firmResult = await contention.onFirmDeniedOrCancelled(b, { transaction: t, Booking });
+        firmResult?.releasedBookingIds?.forEach((releasedId) => onHoldReleasedBookingIds.add(releasedId));
       }
     });
 
@@ -1573,6 +1576,19 @@ const cancelBooking = async (req, res) => {
       notifications: contentionNotifications,
       resourceName,
       actorUserId: cancelledById,
+    });
+    await emitBookingTransitionNotifications({
+      bookingIds: Array.from(onHoldReleasedBookingIds),
+      eventType: BOOKING_EVENT_TYPES.ON_HOLD_RELEASED,
+      resourceName,
+      actorUserId: cancelledById,
+      payload: {
+        source: 'booking.cancel',
+        triggerBookingId: updated.id,
+        releasedByBookingId: updated.id,
+        releasedByReferenceCode: updated.referenceCode || null,
+      },
+      directNotifier: notifyBookingOnHoldReleased,
     });
 
     for (const d of displacedNotifyList) {
@@ -1681,6 +1697,7 @@ const convertToFirm = async (req, res) => {
     });
 
     const contentionNotifications = [];
+    const onHoldReleasedBookingIds = new Set();
     try {
       await sequelize.transaction(async (t) => {
         const b = await Booking.findByPk(id, {
@@ -1955,10 +1972,11 @@ const denyBooking = async (req, res) => {
           lock: t.LOCK.UPDATE
         });
 
-        await contention.onFirmDeniedOrCancelled(deniedRow, {
+        const firmResult = await contention.onFirmDeniedOrCancelled(deniedRow, {
           transaction: t,
           Booking
         });
+        firmResult?.releasedBookingIds?.forEach((releasedId) => onHoldReleasedBookingIds.add(releasedId));
       });
     } catch (txnErr) {
       if (txnErr.statusCode === 409) {
@@ -1987,6 +2005,19 @@ const denyBooking = async (req, res) => {
       if (!isKafkaEnabled()) {
         notifyBookingDenied(updatedBooking, resourceName).catch(() => {});
       }
+      emitBookingTransitionNotifications({
+        bookingIds: Array.from(onHoldReleasedBookingIds),
+        eventType: BOOKING_EVENT_TYPES.ON_HOLD_RELEASED,
+        resourceName,
+        actorUserId: deniedByUserId,
+        payload: {
+          source: 'booking.deny',
+          triggerBookingId: updatedBooking.id,
+          releasedByBookingId: updatedBooking.id,
+          releasedByReferenceCode: updatedBooking.referenceCode || null,
+        },
+        directNotifier: notifyBookingOnHoldReleased,
+      }).catch(() => {});
     });
   } catch (error) {
     console.error('Error denying booking:', error);

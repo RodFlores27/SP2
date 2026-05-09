@@ -161,6 +161,10 @@ export default function BookingForm() {
   const watchedResourceId = form.watch('resourceId');
   const watchedBookingType = form.watch('bookingType');
   const watchedEquipmentRequestType = form.watch('equipmentRequestType');
+  const docPreviewUrl = useMemo(
+    () => (docFile ? URL.createObjectURL(docFile) : ''),
+    [docFile]
+  );
 
   useEffect(() => {
     if (watchedBookingType !== 'firm') {
@@ -170,6 +174,13 @@ export default function BookingForm() {
       }
     }
   }, [watchedBookingType, docError]);
+
+  useEffect(
+    () => () => {
+      if (docPreviewUrl) URL.revokeObjectURL(docPreviewUrl);
+    },
+    [docPreviewUrl]
+  );
 
   const selectedResourceName = useMemo(() => {
     if (!watchedResourceId) return bf.fields.resourceFallback;
@@ -1361,7 +1372,6 @@ export default function BookingForm() {
                   {!docFile ? (
                     existingDocUrl ? (
                       <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                        <p className="text-sm text-muted-foreground">{bf.fields.authRebookNote()}</p>
                         <div className="flex items-center justify-between gap-2">
                           <AuthorizationDocButton url={existingDocUrl} />
                           <label className="cursor-pointer">
@@ -1403,6 +1413,9 @@ export default function BookingForm() {
                           {(docFile.size / 1024).toFixed(1)} KB
                         </p>
                       </div>
+                      {docPreviewUrl && (
+                        <AuthorizationDocButton url={docPreviewUrl} fileType={docFile?.type} />
+                      )}
                       <Button
                         type="button"
                         variant="ghost"

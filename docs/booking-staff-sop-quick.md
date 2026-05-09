@@ -41,6 +41,13 @@ A firm booking can be approved only when all of these are true:
 - The booking becomes denied.
 - No pencil bookings are displaced.
 - Any on-hold pencil bookings are checked again by the system.
+- If an on-hold pencil becomes active again, the user is notified.
+
+### If a pending firm auto-expires (24-hour cutoff reached)
+
+- The booking becomes expired automatically.
+- Overlapping on-hold pencils are re-checked using the same cleanup logic as deny/cancel.
+- If an on-hold pencil becomes active again, the user is notified.
 
 ---
 
@@ -70,6 +77,7 @@ A firm booking can be approved only when all of these are true:
 - This can happen when someone creates a firm booking over an existing pencil booking.
 - It can also happen when a challenger loses because the defender converts to firm.
 - If the blocking booking is cancelled or denied, the system checks again and may restore the pencil booking or enter contention with existing pencils.
+- The same re-check now also happens when a pending firm auto-expires at the 24-hour cutoff.
 
 ---
 

@@ -80,3 +80,13 @@ The project currently supports two authentication modes:
 - Event-driven side effects: Apache Kafka via KafkaJS
 - Architecture style: modular monolith
 
+## Recent Updates (May 2026)
+
+- My Bookings active filter updated from `Contested` to role-based `Under Contention` (challenger/defender participants).
+- Authorization document preview is now available immediately after file selection in:
+  - New Booking form
+  - My Bookings Convert-to-Firm panel (replace-file flow)
+- Added booking lifecycle event `booking.on_hold_released`:
+  - Triggered when an `on_hold` pencil becomes active (`penciled`) after firm blocker removal.
+  - Notification wired through Kafka consumer and direct fallback notifier.
+- Firm `pending_approval` auto-expiry path now always re-evaluates overlapping on-hold pencils and emits release notifications when applicable.

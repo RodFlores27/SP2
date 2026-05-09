@@ -258,6 +258,17 @@ const email = {
     subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Is On Hold`,
   },
 
+  onHoldReleased: {
+    title: 'Pencil Booking Active Again',
+    body:
+      'Your pencil booking is no longer on hold and is now <strong>active</strong> again.',
+    callout:
+      'The overlapping firm blocker was removed (for example: cancelled, denied, or expired pending approval).',
+    viewDashboard: 'View your bookings →',
+    convertCta: 'Convert to Firm Booking →',
+    subject: ({ bookingLabel }) => `[PTCF] Booking ${bookingLabel} Is Active Again`,
+  },
+
   displaced: {
     title: 'Pencil Booking Displaced',
     body:

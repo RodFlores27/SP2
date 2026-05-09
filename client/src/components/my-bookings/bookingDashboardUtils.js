@@ -163,7 +163,15 @@ export function filterBookings(bookings, { query, statusFilter, resourceTypeFilt
   let result = bookings;
 
   if (statusFilter) {
-    result = result.filter((b) => b.status === statusFilter);
+    if (statusFilter === 'under_contention' || statusFilter === 'contested') {
+      result = result.filter(
+        (b) =>
+          b?.contentionChallenger === true ||
+          b?.contentionRole === 'defender'
+      );
+    } else {
+      result = result.filter((b) => b.status === statusFilter);
+    }
   }
 
   if (resourceTypeFilter) {

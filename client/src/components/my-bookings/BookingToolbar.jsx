@@ -3,7 +3,7 @@ import { Input } from '@/components/ui/input';
 
 const ACTIVE_STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
-  { value: 'contested', label: 'Contested' },
+  { value: 'under_contention', label: 'Under Contention' },
   { value: 'pending_approval', label: 'Pending Approval' },
   { value: 'on_hold', label: 'On hold' },
   { value: 'penciled', label: 'Penciled' },

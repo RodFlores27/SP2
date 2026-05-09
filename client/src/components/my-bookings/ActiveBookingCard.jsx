@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { formatBookingDateRange } from '@/lib/formatBookingDateRange';
 import { getBookingReference } from '@/lib/bookingReference';
@@ -167,6 +167,10 @@ export function ActiveBookingCard({
   const [showFirmPendingDetail, setShowFirmPendingDetail] = useState(false);
   const [showOnHoldDetail, setShowOnHoldDetail] = useState(false);
   const [showCardDetails, setShowCardDetails] = useState(false);
+  const convertPreviewUrl = useMemo(
+    () => (convertFile ? URL.createObjectURL(convertFile) : ''),
+    [convertFile]
+  );
   const hasExistingAuthDoc = Boolean(
     booking.authorizationDocUrl && String(booking.authorizationDocUrl).trim().length > 0
   );
@@ -189,6 +193,13 @@ export function ActiveBookingCard({
     detail?.deadlineAt ?? booking.contentionDeadlineAt,
     booking.startTime,
     booking.expiryAt
+  );
+
+  useEffect(
+    () => () => {
+      if (convertPreviewUrl) URL.revokeObjectURL(convertPreviewUrl);
+    },
+    [convertPreviewUrl]
   );
 
   return (
@@ -806,7 +817,6 @@ export function ActiveBookingCard({
               {!convertFile ? (
                 hasExistingAuthDoc ? (
                   <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                    <p className="text-sm text-muted-foreground">{ac.convertPanel.convertUsingPreviousDoc()}</p>
                     <div className="flex items-center justify-between gap-2">
                       <AuthorizationDocButton url={booking.authorizationDocUrl} />
                       <label className="cursor-pointer shrink-0">
@@ -848,6 +858,9 @@ export function ActiveBookingCard({
                       {(convertFile.size / 1024).toFixed(1)} KB
                     </p>
                   </div>
+                  {convertPreviewUrl && (
+                    <AuthorizationDocButton url={convertPreviewUrl} fileType={convertFile?.type} />
+                  )}
                   <Button
                     type="button"
                     variant="ghost"
