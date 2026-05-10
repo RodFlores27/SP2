@@ -23,6 +23,7 @@ const DEFAULT_FILTERS = {
   query: '',
   status: '',
   category: '',
+  codeGroup: '',
   sort: 'newest',
 };
 
@@ -133,8 +134,18 @@ export default function EquipmentList() {
     const rows = equipment.filter((item) => {
       if (filters.status && item.status !== filters.status) return false;
       if (filters.category && item.category !== filters.category) return false;
+      if (filters.codeGroup && item.codeGroup !== filters.codeGroup) return false;
       if (query) {
-        const searchable = [item.name, item.category, item.description].map(normalizeText).join(' ');
+        const searchable = [
+          item.name,
+          item.category,
+          item.description,
+          item.codeGroup,
+          item.resourceCode,
+          item.status,
+        ]
+          .map(normalizeText)
+          .join(' ');
         if (!searchable.includes(query)) return false;
       }
       return true;
@@ -192,7 +203,7 @@ export default function EquipmentList() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <input
                   type="search"
-                  placeholder="Search by name, category, description..."
+                  placeholder="Search by name, code, category, description..."
                   value={filters.query}
                   onChange={(e) => setFilter('query', e.target.value)}
                   className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -243,6 +254,19 @@ export default function EquipmentList() {
                     {categoryOptions.map((category) => (
                       <option key={category} value={category}>
                         {category}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={filters.codeGroup}
+                    onChange={(e) => setFilter('codeGroup', e.target.value)}
+                    className={selectClass}
+                    aria-label="Filter by code group"
+                  >
+                    <option value="">All Code Groups</option>
+                    {codeGroupOptions.map((codeGroup) => (
+                      <option key={codeGroup} value={codeGroup}>
+                        {codeGroup}
                       </option>
                     ))}
                   </select>

@@ -24,6 +24,7 @@ const DEFAULT_FILTERS = {
   query: '',
   status: '',
   location: '',
+  zone: '',
   sort: 'newest',
 };
 
@@ -39,6 +40,8 @@ const SORT_OPTIONS = [
   { value: 'newest', label: 'Newest First' },
   { value: 'name-asc', label: 'Name A-Z' },
   { value: 'name-desc', label: 'Name Z-A' },
+  { value: 'capacity-desc', label: 'Capacity: Highest' },
+  { value: 'capacity-asc', label: 'Capacity: Lowest' },
 ];
 
 const selectClass =
@@ -121,13 +124,33 @@ export default function RoomList() {
     return [...new Set(locations)];
   }, [rooms]);
 
+  const zoneOptions = useMemo(() => {
+    const zones = rooms
+      .map((room) => room.zone)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    return [...new Set(zones)];
+  }, [rooms]);
+
   const filteredRooms = useMemo(() => {
     const query = normalizeText(filters.query);
     const rows = rooms.filter((room) => {
       if (filters.status && room.status !== filters.status) return false;
       if (filters.location && room.location !== filters.location) return false;
+      if (filters.zone && room.zone !== filters.zone) return false;
       if (query) {
-        const searchable = [room.name, room.location, room.description].map(normalizeText).join(' ');
+        const searchable = [
+          room.name,
+          room.location,
+          room.zone,
+          room.resourceCode,
+          room.ppe,
+          room.capacity,
+          room.description,
+          room.status,
+        ]
+          .map(normalizeText)
+          .join(' ');
         if (!searchable.includes(query)) return false;
       }
       return true;
@@ -136,6 +159,8 @@ export default function RoomList() {
     return [...rows].sort((a, b) => {
       if (filters.sort === 'name-asc') return a.name.localeCompare(b.name);
       if (filters.sort === 'name-desc') return b.name.localeCompare(a.name);
+      if (filters.sort === 'capacity-desc') return Number(b.capacity || 0) - Number(a.capacity || 0);
+      if (filters.sort === 'capacity-asc') return Number(a.capacity || 0) - Number(b.capacity || 0);
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
   }, [rooms, filters]);
@@ -185,7 +210,7 @@ export default function RoomList() {
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                 <input
                   type="search"
-                  placeholder="Search by name, location, description..."
+                  placeholder="Search by name, code, location, zone, PPE..."
                   value={filters.query}
                   onChange={(e) => setFilter('query', e.target.value)}
                   className="h-9 w-full rounded-md border border-input bg-background pl-8 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
@@ -236,6 +261,19 @@ export default function RoomList() {
                     {locationOptions.map((location) => (
                       <option key={location} value={location}>
                         {location}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={filters.zone}
+                    onChange={(e) => setFilter('zone', e.target.value)}
+                    className={selectClass}
+                    aria-label="Filter by zone"
+                  >
+                    <option value="">All Zones</option>
+                    {zoneOptions.map((zone) => (
+                      <option key={zone} value={zone}>
+                        {zone}
                       </option>
                     ))}
                   </select>

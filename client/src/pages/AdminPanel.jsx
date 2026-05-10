@@ -525,11 +525,30 @@ function DetailRow({ label, value }) {
 
 function AuditExpandedDetails({ log }) {
   const payload = log.payload || {};
+  const isResourceEvent = String(log.eventType || '').startsWith('resource.');
+  const hasPreviousSnapshot =
+    payload.previous &&
+    typeof payload.previous === 'object' &&
+    Object.keys(payload.previous).length > 0;
+  const hasCurrentSnapshot =
+    payload.current &&
+    typeof payload.current === 'object' &&
+    Object.keys(payload.current).length > 0;
+  const isResourceCreateEvent =
+    isResourceEvent &&
+    (String(log.eventType || '').endsWith('_created') ||
+      String(log.eventType || '').endsWith('.created') ||
+      !hasPreviousSnapshot);
+  const isResourceDeleteEvent =
+    isResourceEvent &&
+    (String(log.eventType || '').endsWith('_deleted') ||
+      String(log.eventType || '').endsWith('.deleted') ||
+      !hasCurrentSnapshot);
   const requestType = inferRequestType(log);
   const isRoomRequest = requestType === 'room';
   const isEquipmentLoanRequest = requestType === 'equipment_loan';
   const changedFields =
-    String(log.eventType || '').startsWith('resource.')
+    isResourceEvent
       ? getChangedFields(payload.previous, payload.current)
       : [];
 
@@ -553,7 +572,49 @@ function AuditExpandedDetails({ log }) {
         </div>
       )}
 
-      {changedFields.length > 0 && (
+      {isResourceCreateEvent && hasCurrentSnapshot && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-left text-sm">
+            <thead className="text-xs text-muted-foreground">
+              <tr className="border-b border-border">
+                <th className="py-2 pr-3 font-medium">Field</th>
+                <th className="py-2 font-medium">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(payload.current).map((field) => (
+                <tr key={field} className="border-b border-border/60 last:border-0">
+                  <td className="py-2 pr-3 font-medium">{formatLabel(field)}</td>
+                  <td className="py-2">{formatJsonValue(payload.current?.[field])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {isResourceDeleteEvent && hasPreviousSnapshot && (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-left text-sm">
+            <thead className="text-xs text-muted-foreground">
+              <tr className="border-b border-border">
+                <th className="py-2 pr-3 font-medium">Field</th>
+                <th className="py-2 font-medium">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(payload.previous).map((field) => (
+                <tr key={field} className="border-b border-border/60 last:border-0">
+                  <td className="py-2 pr-3 font-medium">{formatLabel(field)}</td>
+                  <td className="py-2">{formatJsonValue(payload.previous?.[field])}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {!isResourceCreateEvent && !isResourceDeleteEvent && changedFields.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-left text-sm">
             <thead className="text-xs text-muted-foreground">
@@ -1169,7 +1230,7 @@ export default function AdminPanel() {
                     Audit Trail
                   </CardTitle>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Booking lifecycle events (requires Kafka + audit consumer), user administration changes, and resource updates.
+                    Booking activity, user account changes, and resource updates.
                   </p>
                 </div>
                 <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
