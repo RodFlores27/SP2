@@ -136,12 +136,16 @@ export default function EquipmentList() {
       if (filters.category && item.category !== filters.category) return false;
       if (filters.codeGroup && item.codeGroup !== filters.codeGroup) return false;
       if (query) {
+        const combinedCode = [item.codeGroup, item.resourceCode].filter(Boolean).join('-');
+        const combinedCodeCompact = [item.codeGroup, item.resourceCode].filter(Boolean).join('');
         const searchable = [
           item.name,
           item.category,
           item.description,
           item.codeGroup,
           item.resourceCode,
+          combinedCode,
+          combinedCodeCompact,
           item.status,
         ]
           .map(normalizeText)

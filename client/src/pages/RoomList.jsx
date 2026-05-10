@@ -139,11 +139,15 @@ export default function RoomList() {
       if (filters.location && room.location !== filters.location) return false;
       if (filters.zone && room.zone !== filters.zone) return false;
       if (query) {
+        const combinedCode = [room.zone, room.resourceCode].filter(Boolean).join('-');
+        const combinedCodeCompact = [room.zone, room.resourceCode].filter(Boolean).join('');
         const searchable = [
           room.name,
           room.location,
           room.zone,
           room.resourceCode,
+          combinedCode,
+          combinedCodeCompact,
           room.ppe,
           room.capacity,
           room.description,

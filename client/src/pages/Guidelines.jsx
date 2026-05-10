@@ -29,17 +29,17 @@ const processSteps = [
   'Select the resource, request type (in-house, loan, or room use), start time, end time, and purpose.',
   'Upload an authorization document when creating or converting to a firm booking.',
   'Submit the booking and respond to any overlap or contention notice shown by the system.',
-  'Track updates in My Bookings and check your registered email for notices.',
+  'Track updates in My Bookings and check your email for notices.',
 ];
 
 const timingRules = [
   'Lead time: in-house equipment 2 days; loan equipment and rooms 7 days.',
   'No new bookings within 24 hours of start.',
   'Pencil expiry: earlier of 3 days after creation or 24 hours before start.',
-  'Firm bookings need an authorization document and staff approval.',
+  'Firm bookings need an authorization document.',
   'Firm requests stay pending until approved.',
-  'Pending firm requests auto-expire inside the 24-hour pre-start window.',
-  'Cancellation cutoff: in-house equipment 2 hours; loan equipment and rooms 24 hours.',
+  'Pending firm requests auto-expire inside the 24-hour pre-schedule window.',
+  'Cancellation cutoff: in-house equipment 2 hours; loan equipment and rooms 24 hours before schedule start.',
 ];
 
 const overlapRules = [
