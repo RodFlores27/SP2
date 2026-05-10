@@ -25,32 +25,52 @@ module.exports = {
       { type: queryInterface.sequelize.QueryTypes.SELECT }
     );
 
-    const studentId = users.find((u) => u.email === 'student@uplb.edu.ph')?.id;
-    const staffId = users.find((u) => u.email === 'staff@uplb.edu.ph')?.id;
-    const adminId = users.find((u) => u.email === 'admin@uplb.edu.ph')?.id;
-    const researcher1Id = users.find((u) => u.email === 'researcher1@uplb.edu.ph')?.id;
-    const researcher2Id = users.find((u) => u.email === 'researcher2@uplb.edu.ph')?.id;
+    const pickUserByEmail = (email) => users.find((u) => u.email === email)?.id || null;
+    const fallbackUserByKeyword = (keyword) =>
+      users.find((u) => String(u.email || '').toLowerCase().includes(keyword))?.id || null;
 
-    const laminarId = equipment.find((e) => e.name === 'Laminar Flow Hood')?.id;
-    const autoclaveId = equipment.find((e) => e.name === 'Autoclave')?.id;
-    const growthId = equipment.find((e) => e.name === 'Growth Chamber')?.id;
-    const cultureAId = rooms.find((r) => r.name === 'Culture Room A')?.id;
-    const prepRoomId = rooms.find((r) => r.name === 'Preparation Room')?.id;
+    const studentId =
+      pickUserByEmail('student@uplb.edu.ph') ||
+      fallbackUserByKeyword('student') ||
+      users[0]?.id ||
+      null;
+    const staffId =
+      pickUserByEmail('staff@uplb.edu.ph') ||
+      fallbackUserByKeyword('staff') ||
+      users[1]?.id ||
+      users[0]?.id ||
+      null;
+    const adminId =
+      pickUserByEmail('admin@uplb.edu.ph') ||
+      fallbackUserByKeyword('admin') ||
+      users[2]?.id ||
+      users[0]?.id ||
+      null;
+    const researcher1Id =
+      pickUserByEmail('researcher1@uplb.edu.ph') ||
+      fallbackUserByKeyword('researcher1') ||
+      users[3]?.id ||
+      users[0]?.id ||
+      null;
+    const researcher2Id =
+      pickUserByEmail('researcher2@uplb.edu.ph') ||
+      fallbackUserByKeyword('researcher2') ||
+      users[4]?.id ||
+      users[0]?.id ||
+      null;
 
-    if (
-      !studentId ||
-      !staffId ||
-      !adminId ||
-      !researcher1Id ||
-      !researcher2Id ||
-      !laminarId ||
-      !autoclaveId ||
-      !growthId ||
-      !cultureAId ||
-      !prepRoomId
-    ) {
+    const pickEquipmentByName = (name) => equipment.find((e) => e.name === name)?.id || null;
+    const pickRoomByName = (name) => rooms.find((r) => r.name === name)?.id || null;
+
+    const laminarId = pickEquipmentByName('Laminar Flow Hood') || equipment[0]?.id || null;
+    const autoclaveId = pickEquipmentByName('Autoclave') || equipment[1]?.id || equipment[0]?.id || null;
+    const growthId = pickEquipmentByName('Growth Chamber') || equipment[2]?.id || equipment[0]?.id || null;
+    const cultureAId = pickRoomByName('Culture Room A') || rooms[0]?.id || null;
+    const prepRoomId = pickRoomByName('Preparation Room') || rooms[1]?.id || rooms[0]?.id || null;
+
+    if (!users.length || !equipment.length || !rooms.length) {
       throw new Error(
-        'SHOWCASE: need users, equipment, and rooms. Run: npm run seed:foundation:local (or 20260330100000-seed-initial-data).'
+        'SHOWCASE: requires at least 1 user, 1 equipment, and 1 room in the database before seeding.'
       );
     }
 
@@ -147,12 +167,16 @@ module.exports = {
         `INSERT INTO "Bookings" (
           "userId", "resourceType", "resourceId", "bookingType", "status",
           "startTime", "endTime", "purpose", "authorizationDocUrl",
+          "equipmentRequestType", "loanReason", "loanWorkflowNote", "loanTransportPlan",
+          "roomParticipantCount", "roomEquipmentNeeds", "roomSetupRequirements", "roomProgramDetails",
           "approvedByUserId", "approvedAt", "expiryAt",
           "contentionRole", "contentionDeadlineAt", "challengingBookingId",
           "createdAt", "updatedAt", "bookingThreadId", "referenceCode"
         ) VALUES (
           :userId, :resourceType, :resourceId, :bookingType, :status,
           :startTime, :endTime, :purpose, :authorizationDocUrl,
+          :equipmentRequestType, :loanReason, :loanWorkflowNote, :loanTransportPlan,
+          :roomParticipantCount, :roomEquipmentNeeds, :roomSetupRequirements, :roomProgramDetails,
           :approvedByUserId, :approvedAt, :expiryAt,
           :contentionRole, :contentionDeadlineAt, :challengingBookingId,
           :createdAt, :updatedAt, 0, :referenceCode
@@ -164,6 +188,17 @@ module.exports = {
             contentionRole: row.contentionRole ?? null,
             contentionDeadlineAt: row.contentionDeadlineAt ?? null,
             challengingBookingId: row.challengingBookingId ?? null,
+            equipmentRequestType:
+              row.resourceType === 'equipment' ? row.equipmentRequestType ?? 'in_house' : null,
+            loanReason: row.resourceType === 'equipment' ? row.loanReason ?? null : null,
+            loanWorkflowNote: row.resourceType === 'equipment' ? row.loanWorkflowNote ?? null : null,
+            loanTransportPlan: row.resourceType === 'equipment' ? row.loanTransportPlan ?? null : null,
+            roomParticipantCount:
+              row.resourceType === 'room' ? row.roomParticipantCount ?? null : null,
+            roomEquipmentNeeds: row.resourceType === 'room' ? row.roomEquipmentNeeds ?? null : null,
+            roomSetupRequirements:
+              row.resourceType === 'room' ? row.roomSetupRequirements ?? null : null,
+            roomProgramDetails: row.resourceType === 'room' ? row.roomProgramDetails ?? null : null,
           },
           type: Sequelize.QueryTypes.SELECT,
         }
@@ -228,6 +263,10 @@ module.exports = {
       endTime: lamFirmPendEnd,
       purpose: 'SHOWCASE: firm pending (amber dashed)',
       authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      equipmentRequestType: 'loan',
+      loanReason: 'SHOWCASE: urgent sterilization support outside PTCF',
+      loanWorkflowNote: 'SHOWCASE: pre-run setup + post-run return checklist',
+      loanTransportPlan: 'SHOWCASE: padded transport crate with sign-out log',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: null,
@@ -265,6 +304,7 @@ module.exports = {
       endTime: aDef1e,
       purpose: 'SHOWCASE: 1v1 pair A defender',
       authorizationDocUrl: null,
+      equipmentRequestType: 'in_house',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: exp1,
@@ -284,6 +324,7 @@ module.exports = {
       endTime: aCh1e,
       purpose: 'SHOWCASE: 1v1 pair A challenger',
       authorizationDocUrl: null,
+      equipmentRequestType: 'in_house',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: computePencilExpiryAt(t2, aCh1s),
@@ -304,6 +345,7 @@ module.exports = {
       endTime: aDef2e,
       purpose: 'SHOWCASE: 1v1 pair B defender',
       authorizationDocUrl: null,
+      equipmentRequestType: 'in_house',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: exp2,
@@ -323,6 +365,7 @@ module.exports = {
       endTime: aCh2e,
       purpose: 'SHOWCASE: 1v1 pair B challenger',
       authorizationDocUrl: null,
+      equipmentRequestType: 'in_house',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: computePencilExpiryAt(t4, aCh2s),
@@ -346,6 +389,10 @@ module.exports = {
       endTime: grFirmE,
       purpose: 'SHOWCASE: firm pending (blocks on-hold demo below)',
       authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      equipmentRequestType: 'loan',
+      loanReason: 'SHOWCASE: off-site growth condition comparison',
+      loanWorkflowNote: 'SHOWCASE: daily temp/humidity logging protocol',
+      loanTransportPlan: 'SHOWCASE: controlled van transport with shock monitor',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: null,
@@ -363,6 +410,7 @@ module.exports = {
       endTime: grFirmE,
       purpose: 'SHOWCASE: on-hold pencil (dashed amber)',
       authorizationDocUrl: null,
+      equipmentRequestType: 'in_house',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: computePencilExpiryAt(grHoldIssued, grFirmS),
@@ -383,6 +431,10 @@ module.exports = {
       endTime: cuApprE,
       purpose: 'SHOWCASE: room — firm approved',
       authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      roomParticipantCount: 18,
+      roomEquipmentNeeds: 'Projector, extension cords, marker set',
+      roomSetupRequirements: 'U-shape seating, front demo table, drinking water',
+      roomProgramDetails: 'SHOWCASE: tissue culture orientation session',
       approvedByUserId: adminId,
       approvedAt: new Date(now.getTime() - 1 * 60 * 60 * 1000),
       expiryAt: null,
@@ -402,6 +454,10 @@ module.exports = {
       endTime: cuFreeE,
       purpose: 'SHOWCASE: room — free pencil (evening, no overlap with firm above)',
       authorizationDocUrl: null,
+      roomParticipantCount: 6,
+      roomEquipmentNeeds: 'Whiteboard only',
+      roomSetupRequirements: 'Standard classroom layout',
+      roomProgramDetails: 'SHOWCASE: evening prep huddle',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: computePencilExpiryAt(cuPencilIssued, cuFreeS),
@@ -422,6 +478,10 @@ module.exports = {
       endTime: prFirmE,
       purpose: 'SHOWCASE: prep room — firm pending',
       authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      roomParticipantCount: 10,
+      roomEquipmentNeeds: 'Two prep benches, sink access, ice bucket',
+      roomSetupRequirements: 'Bench labels + waste bins ready',
+      roomProgramDetails: 'SHOWCASE: media preparation workshop',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: null,
@@ -439,6 +499,10 @@ module.exports = {
       endTime: at(dayOffset, 9, 0),
       purpose: 'SHOWCASE: prep room — on-hold (subset of firm window)',
       authorizationDocUrl: null,
+      roomParticipantCount: 4,
+      roomEquipmentNeeds: 'Bench access only',
+      roomSetupRequirements: 'Minimal setup',
+      roomProgramDetails: 'SHOWCASE: quick reagent prep',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: computePencilExpiryAt(prHoldIssued, prFirmS),
@@ -458,6 +522,10 @@ module.exports = {
       endTime: prFreeE,
       purpose: 'SHOWCASE: prep room — free pencil (late)',
       authorizationDocUrl: null,
+      roomParticipantCount: 3,
+      roomEquipmentNeeds: 'Storage rack check',
+      roomSetupRequirements: 'No special setup',
+      roomProgramDetails: 'SHOWCASE: end-of-day inventory',
       approvedByUserId: null,
       approvedAt: null,
       expiryAt: computePencilExpiryAt(prFreeIssued, prFreeS),
