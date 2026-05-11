@@ -99,8 +99,8 @@ Participants should:
 
 Before conducting UAT:
 
-1. The frontend is deployed or running locally.
-2. The backend API is deployed or running locally.
+1. The frontend is deployed and reachable online from participant devices.
+2. The backend API is deployed and reachable online from participant devices.
 3. The database contains at least two rooms and two equipment records with statuses `available` or `in-use`.
 4. Test accounts exist for `regular_user`, `ptcf_staff`, and `system_admin`.
 5. At least one test authorization document is prepared in PDF, DOC, DOCX, JPG, or PNG format and is below 5 MB.
@@ -109,20 +109,24 @@ Before conducting UAT:
 8. At least two requester accounts are available for overlap/contention scenarios.
 9. Participants are told not to use confidential real reservation data during testing.
 10. The evaluator has a blank issue log and result recording sheet.
+11. A dedicated production UAT window is announced to participants (date, start/end time, and support contact).
+12. A production-safe reset/cleanup method is prepared for test data created during UAT.
+13. Each participant receives a unique test account or a controlled shared account schedule to avoid session overlap.
+14. A fallback communication channel (Messenger, SMS, or email) is prepared for remote troubleshooting.
 
 ## 7. Testing Environment
 
 | Item | Target Environment |
 | --- | --- |
-| Frontend | React + Vite application, deployed on Vercel or local `http://localhost:5173` |
-| Backend | Express API, deployed on Render or local `http://localhost:4000/api` |
+| Frontend | React + Vite application on hosted production URL (Vercel) |
+| Backend | Express API on hosted production URL (Render) |
 | Database | Supabase PostgreSQL |
-| Authentication | Supabase Auth mode where configured; local legacy auth may be used in development |
+| Authentication | Supabase Auth mode with production redirect URLs and test accounts |
 | File storage | Cloudinary for room/equipment images and authorization document uploads |
 | Email delivery | Resend, with Kafka notification consumer when Kafka is enabled |
 | Event processing | Kafka/Aiven or local Docker Kafka when enabled; safe degraded behavior when disabled |
 | Browser | Latest Chrome, Edge, or Firefox |
-| Device | Prefer laptop/desktop for staff/admin; include at least one mobile-sized screen for requester browsing if feasible |
+| Device | Participant-owned devices (desktop/laptop/mobile) with stable internet connection |
 
 Record the actual environment used:
 
@@ -137,17 +141,71 @@ Record the actual environment used:
 | Email enabled? |  |
 | Browser/device |  |
 | Facilitator |  |
+| Support contact during test |  |
+| UAT window (start-end) |  |
+
+### 7.1 Remote Production UAT Session Setup
+
+Use this setup for remote execution:
+
+1. Share one UAT packet link to participants containing: UAT task sheet, test account credentials, and submission form.
+2. Require participants to confirm their role and account before starting.
+3. Instruct participants to execute only UAT test bookings and avoid real confidential booking data.
+4. Keep a live support channel open for login/password/reset or connectivity blockers.
+5. Capture all timestamps in one timezone (recommended: `Asia/Manila`) for consistent evidence.
+
+### 7.2 Production Test Account Matrix
+
+Use a prepared matrix and rotate accounts by role if needed:
+
+| Participant ID | Role | Test Account Email | Assigned Window | Status |
+| --- | --- | --- | --- | --- |
+| P01 |  |  |  |  |
+| P02 |  |  |  |  |
+| P03 |  |  |  |  |
 
 ## 8. UAT Procedure
 
-1. Brief the participant on the purpose of UAT.
-2. Assign the participant role and test account.
+1. Brief the participant on the purpose of UAT and confirm they are using the production UAT links.
+2. Assign the participant role and test account from the account matrix.
 3. Ask the participant to perform each task scenario without step-by-step coaching.
-4. The observer records task result, errors, hesitations, questions, and comments.
+4. The observer records task result, errors, hesitations, timestamps, questions, and comments.
 5. If the participant is blocked for more than 3 minutes, the observer may provide minimal help and mark the task as Partial or Fail depending on the outcome.
-6. After all tasks, ask the participant feedback questions.
-7. After all participants finish, calculate task completion rates and classify issues by severity.
-8. Decide whether the system passes UAT based on the criteria in Section 9.
+6. Capture evidence while remote: screenshots, short screen recordings, or logs for key pass/fail moments.
+7. After all tasks, ask the participant feedback questions.
+8. After all participants finish, calculate task completion rates and classify issues by severity.
+9. Run post-session production cleanup/reset for UAT-created test records.
+10. Decide whether the system passes UAT based on the criteria in Section 9.
+
+### 8.1 Post-Session Production Cleanup Checklist
+
+After each remote UAT batch:
+
+1. Archive collected evidence and responses before data cleanup.
+2. Cancel or close test bookings that should not remain active in production.
+3. Remove disposable test users if they were created for UAT only.
+4. Reset seeded demo data only if your reset procedure is approved for the current environment.
+5. Re-run a smoke check on login, booking creation, and staff approval paths after cleanup.
+
+### 8.2 Hybrid Execution Model (Recommended)
+
+To reduce facilitator load while keeping reliable results:
+
+1. Run 1 to 2 live pilot sessions first to validate task wording, account readiness, and evidence format.
+2. After pilot fixes, run most participants asynchronously using the same production UAT packet.
+3. Keep the facilitator on-call only for blocker support, not full-time observation.
+4. Require each async participant to submit evidence for critical checkpoints before a task can be marked Pass.
+
+### 8.3 Async Participant Submission Rules
+
+For asynchronous runs, each participant must submit:
+
+1. Start time and end time per task block.
+2. Screenshot evidence for each critical milestone step.
+3. Exact error text (or screenshot) for each failed/partial step.
+4. Final summary comments for clarity and usability concerns.
+
+If required evidence is missing, mark the task as `Partial` or `Not Tested` until clarified.
 
 ## 9. Pass, Fail, And Partial Criteria
 
@@ -186,22 +244,26 @@ The system passes UAT when:
 | Scenario ID | Scenario |
 | --- | --- |
 | ST-S01 | Register or log in as a requester |
-| ST-S02 | Browse equipment and rooms, then locate a suitable resource |
-| ST-S03 | Open a resource detail page and inspect availability |
-| ST-S04 | Use the facility calendar to start a booking |
-| ST-S05 | Create a pencil booking |
-| ST-S06 | Create a firm booking with an authorization document |
-| ST-S07 | Respond to overlap/contention confirmation prompts |
-| ST-S08 | Track booking status in My Bookings |
-| ST-S09 | Cancel an eligible booking |
-| ST-S10 | Convert an eligible pencil booking to a firm booking |
-| ST-S11 | Rebook from an eligible past booking |
-| ST-S12 | Select equipment request type and complete required request details |
-| ST-S13 | Validate required loan metadata for equipment loan requests |
-| ST-S14 | Validate required room request details for room requests |
-| ST-S15 | Validate cancellation requires a probable rebook date |
-| ST-S16 | Read guidelines and identify the meaning of key statuses |
-| ST-S17 | Verify that staff/admin pages are inaccessible |
+| ST-S02 | Browse equipment and rooms, use search/filter options, then choose one resource |
+| ST-S03 | Open the selected equipment/room detail page and check availability |
+| ST-S04 | Start a booking from the facility calendar or from the "Book Now" action |
+| ST-S05 | Create a pencil booking with complete request details for the selected resource type |
+| ST-S06 | Create a firm booking with the provided authorization document sample. Make sure it does not overlap your previously created pencil booking. |
+| ST-S07 | Verify that your new firm booking appears as `pending_approval` in My Bookings |
+| ST-S08 | Check the already prepared approved firm booking in My Bookings |
+| ST-S09 | Contest another user's pencil booking by creating a pencil booking with a schedule that overlaps theirs |
+| ST-S10 | Check your new booking in My Bookings and confirm it is tagged as challenger |
+| ST-S11 | Check the already prepared defender booking state in My Bookings to understand the defender side of contention |
+| ST-S12 | End contention by converting the defender pencil to firm and verify the result |
+| ST-S13 | Track booking status updates in My Bookings and use search/filter options to locate specific bookings |
+| ST-S14 | Cancel an eligible booking |
+| ST-S15 | Find the cancelled booking in My Bookings (Past) and rebook it |
+| ST-S16 | Check your email inbox for booking notifications and verify subject, timestamp, and action match |
+
+
+For `ST-S09`, `ST-S10`, `ST-S11`, and `ST-S12`, use either setup option:
+1. Participants select an existing pencil booking that is not theirs, then create a pencil booking with a schedule that overlaps that booking to trigger contention.
+2. Facilitator pre-seeds defender bookings per user, then assigns challengers to create pencil bookings with schedules that overlap those bookings.
 
 ### 11.2 PTCF Staff Scenarios
 
@@ -211,29 +273,28 @@ The system passes UAT when:
 | STF-S02 | Review pending firm booking requests |
 | STF-S03 | Approve a valid firm booking with optional staff remark |
 | STF-S04 | Deny a firm booking with staff remark |
-| STF-S05 | Verify approval cutoff behavior for bookings inside 24 hours |
+| STF-S05 | Use Staff Dashboard filters/search options to find targeted requests in Pending, Resubmissions, and Approved views |
 | STF-S06 | Review denied-source resubmissions |
-| STF-S07 | Review active conflicts/contention without manually deciding winners |
-| STF-S08 | Review approved bookings using filters |
-| STF-S09 | Verify room/loan request details are visible in review surfaces |
+| STF-S07 | Review active conflicts/contentions (no manual decision action expected) |
+| STF-S08 | Review approved bookings and open booking details |
+| STF-S09 | Inspect room/loan request details in Pending, Resubmissions, and Approved views |
 | STF-S10 | Create, edit, and delete room/equipment records |
-| STF-S11 | Verify that admin-only user management is inaccessible |
+| STF-S11 | Check email evidence related to your approval/denial actions |
 
 ### 11.3 System Administrator Scenarios
 
 | Scenario ID | Scenario |
 | --- | --- |
 | ADM-S01 | Log in and access Admin Panel |
-| ADM-S02 | View booking event analytics |
-| ADM-S03 | Verify Admin Panel tabs: Analytics, Audit Trail, and Users |
-| ADM-S04 | Apply analytics date range filters |
-| ADM-S05 | Export analytics CSV and verify report structure |
-| ADM-S06 | View Audit Trail entries with category/search/expand behaviors |
-| ADM-S07 | Search users and inspect role counts |
-| ADM-S08 | Change a user role |
-| ADM-S09 | Attempt self-protected role/delete actions |
-| ADM-S10 | Delete a non-self test user |
-| ADM-S11 | Confirm admin can access staff-level functions |
+| ADM-S02 | Open Analytics and review booking event summaries |
+| ADM-S03 | Apply analytics date range filters and see resulting data counts |
+| ADM-S04 | Under Analytics, choose a non-`all` date range, export CSV, open it in any spreadsheet application and check the results inside the file. |
+| ADM-S05 | Under Audit Trail, use category/search filters and expand selected entries |
+| ADM-S06 | Under Users tab, review role summaries and use search/filter features |
+| ADM-S07 | Change a user role and confirm the change is reflected after refresh or re-login |
+| ADM-S08 | Confirm that recent admin actions appear in Audit Trail with matching actor, action, time, and target details |
+| ADM-S09 | Under Manage tab, access some staff-level functions from an admin account under staff dashboard. Just explore. |
+| ADM-S10 | In Equipment and Rooms pages, confirm create/edit/delete features are visible for admin access (execution optional) |
 
 ## 12. Detailed UAT Test Cases
 
@@ -249,19 +310,15 @@ The system passes UAT when:
 | ST-06 | Inspect resource detail and availability | User is logged in; resource is available or in-use | Open one equipment or room detail; inspect description/status; view embedded calendar; click Book this Equipment/Room | Detail data is clear; calendar loads availability; booking form opens with resource prefilled |  |  |
 | ST-07 | Use facility calendar to start booking | User is logged in; calendar has resource data | Open Calendar; select resource type and specific resource; click/drag an available schedule | Booking form opens with selected date/time and resource query parameters prefilled |  |  |
 | ST-08 | Create a pencil booking | Resource is available/in-use; schedule starts more than 24 hours later | On Booking Form, select resource, Pencil, start/end time, purpose; submit | Booking is created with `penciled` status; success message shows booking reference/status; booking appears in My Bookings Active |  |  |
-| ST-09 | Create a firm booking with document | Resource is available/in-use; valid auth document is ready; schedule starts more than 24 hours later | On Booking Form, select Firm; upload document; set start/end time and purpose; submit | Booking is created with `pending_approval` status; document is accepted; booking appears in My Bookings Active |  |  |
-| ST-10 | Validate firm document requirement | User is on Booking Form | Select Firm; do not upload or reuse an authorization document; submit | System blocks submission and shows that authorization document is required |  |  |
-| ST-11 | Validate 24-hour lock window | Prepared schedule starts within 24 hours | Attempt to create pencil or firm booking inside lock window | System rejects creation with clear lock-window message |  |  |
-| ST-12 | Validate equipment request type selection | Requester is creating an equipment booking | Select resource type `equipment`; toggle `in_house` and `loan`; observe conditional fields | `in_house` and `loan` are selectable; loan-only fields appear only when `loan` is selected |  |  |
-| ST-13 | Validate required loan metadata | Requester is creating `equipment` + `loan` booking | Leave one or more loan fields empty and submit; then complete all loan fields and submit | Incomplete `loan` submission is rejected with validation message; complete metadata submission succeeds |  |  |
-| ST-14 | Validate required room request details | Requester is creating `room` booking | Leave one or more required room fields empty and submit; then complete all and submit | Incomplete room request is rejected; complete room request submits successfully |  |  |
+| ST-09 | Create a firm booking with complete details | Resource is available/in-use; valid authorization document is ready; schedule starts more than 24 hours later | On Booking Form, select Firm; upload authorization document; set start/end time and purpose; submit | Firm booking is submitted successfully with `pending_approval` status and appears in My Bookings Active |  |  |
+| ST-11 | Submit equipment booking using in-house and loan request types | Requester is creating an equipment booking | Create one booking with `in_house`; create another with `loan` and complete loan details; submit each | Both request types can be submitted successfully; selected request type and details are preserved in booking records |  |  |
+| ST-12 | Submit room booking with complete room request details | Requester is creating a room booking | Complete participant count, equipment needs, setup requirements, and program details; submit | Room booking is submitted successfully and room request details are visible in booking review/history |  |  |
 | ST-15 | Handle own pencil overlap confirmation | User already has an active pencil booking for same resource/time | Create a firm booking overlapping own active pencil; read confirmation; confirm | System explains own overlap; on confirmation, firm request is created and own overlapping pencil is cancelled when applicable |  |  |
 | ST-16 | Handle foreign pencil overlap/contention | Two requester accounts and overlapping pencil data are prepared | As second requester, create overlapping pencil booking; read contention notice; confirm or cancel | System explains defender/challenger contention; confirmed booking reflects contention role/status; cancel returns user to form |  |  |
 | ST-17 | View My Bookings filters and status groups | Requester has active and/or past bookings | Open My Bookings; switch Active/Past tabs; search; filter by status/resource type; change sort | Correct bookings appear under expected status groups; no unrelated user bookings are visible |  |  |
-| ST-18 | Validate cancel requires probable rebook date | Requester owns active booking that has not started | From My Bookings, open Cancel; submit without probable rebook date; submit with invalid date; then submit with valid date | Missing/invalid probable rebook date is rejected; valid date allows cancellation and moves booking to Past |  |  |
+| ST-18 | Cancel an eligible booking with complete details | Requester owns active booking that has not started | From My Bookings, open Cancel; set probable rebook date; submit | Cancellation succeeds and booking moves to Past with cancellation metadata shown |  |  |
 | ST-19 | Convert eligible pencil to firm | Requester owns eligible pencil; auth document is ready or already attached | Open Convert panel; enter/update purpose; upload document if needed; submit | Pencil becomes firm request with `pending_approval`; requester receives success message; challenger conversion is blocked if applicable |  |  |
 | ST-20 | Rebook eligible past booking | Requester has cancelled, denied, expired, displaced, or completed booking with `canRebook` eligibility | Open Past tab; click Rebook; adjust schedule/purpose if needed; submit | Booking form is prefilled from source booking; new booking is created; previous attempt relationship/change summary appears for staff review |  |  |
-| ST-21 | Read guidelines | Guidelines page is available | Open Guidelines; find booking types, authorization document rules, and status guide | Participant can correctly explain Pencil, Firm, Pending Approval, Approved, Denied, On Hold, Displaced |  |  |
 | ST-22 | Verify restricted access | User is logged in as regular requester | Attempt to open `/staff` and `/admin` directly | User is redirected away from restricted pages; no staff/admin data is exposed |  |  |
 
 ### 12.2 PTCF Staff Test Cases
@@ -308,11 +365,11 @@ The system passes UAT when:
 
 Use one row per participant per test case.
 
-| Participant ID | Role | Test Case ID | Result (Pass/Partial/Fail/Not Tested) | Time Taken | Assistance Given? | Issue ID | Notes/Observed Behavior |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| P01 |  |  |  |  |  |  |  |
-| P02 |  |  |  |  |  |  |  |
-| P03 |  |  |  |  |  |  |  |
+| Participant ID | Role | Test Case ID | Session Mode (Live/Async) | Result (Pass/Partial/Fail/Not Tested) | Time Taken | Assistance Given? | Evidence Link/Screenshot Ref | Issue ID | Notes/Observed Behavior |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| P01 |  |  |  |  |  |  |  |  |  |
+| P02 |  |  |  |  |  |  |  |  |  |
+| P03 |  |  |  |  |  |  |  |  |  |
 
 ## 14. Issue Log
 
@@ -426,6 +483,8 @@ Attach or reference the following evidence in the capstone appendix or evaluatio
 6. Admin analytics/user management screenshots.
 7. Email or event-log evidence for booking lifecycle notifications where available.
 8. Final UAT summary and decision.
+9. Remote participant submission form exports (or equivalent response sheets).
+10. Production cleanup log (what was reset, by whom, and when).
 
 ## 18. Notes For Academic Write-Up
 
