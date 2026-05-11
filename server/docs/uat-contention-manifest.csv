@@ -1,0 +1,11 @@
+entry_type,participant_email,defender_reference,challenger_reference,resource_type,resource_id,resource_name,start_time_iso,end_time_iso,purpose
+approved_firm_existing,compangit28@gmail.com,TCU-LFH-001-030-26,,equipment,326,,2026-06-10T10:00:00.000Z,2026-06-10T11:30:00.000Z,Plant tissue culture briefing for Compangit28
+staff_dashboard_seeded,staff@uplb.edu.ph,,,,,,,,"pending x2, resubmission x1, active conflict x1, approved loan+room"
+staff_my_bookings_seeded,staff@uplb.edu.ph,,,,,,,,staff owned approved firm + defender contention pair
+staff_dashboard_seeded,rodolfopfloresiii27@gmail.com,,,,,,,,"pending x2, resubmission x1, active conflict x1, approved loan+room"
+staff_my_bookings_seeded,rodolfopfloresiii27@gmail.com,,,,,,,,staff owned approved firm + defender contention pair
+admin_dashboard_seeded,admin@uplb.edu.ph,,,,,,,,"pending x2, resubmission x1, active conflict x1, approved loan+room"
+admin_my_bookings_seeded,admin@uplb.edu.ph,,,,,,,,admin owned approved firm + defender contention pair
+admin_dashboard_seeded,compangit27@gmail.com,,,,,,,,"pending x2, resubmission x1, active conflict x1, approved loan+room"
+admin_my_bookings_seeded,compangit27@gmail.com,,,,,,,,admin owned approved firm + defender contention pair
+defender_pair_existing,compangit28@gmail.com,GEN-DAP-001-009-26,GEN-DAP-001-010-26,equipment,331,,2026-06-26T09:00:00.000Z,2026-06-26T11:00:00.000Z,(purpose left empty by design)

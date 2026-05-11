@@ -1,0 +1,7 @@
+email,role,user_category,seed_defender,seed_global_target
+student@uplb.edu.ph,regular_user,student,no,yes
+staff@uplb.edu.ph,ptcf_staff,lab_technician,no,no
+admin@uplb.edu.ph,system_admin,,no,no
+compangit28@gmail.com,regular_user,student,yes,no
+rodolfopfloresiii27@gmail.com,ptcf_staff,student,yes,no
+compangit27@gmail.com,system_admin,yes,no

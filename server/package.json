@@ -32,7 +32,11 @@
     "seed:showcase:all:prod": "npm run seed:showcase:calendar:prod && npm run seed:showcase:mybookings:admin:prod",
     "seed:showcase:undo:calendar:prod": "sequelize-cli db:seed:undo --seed 20260425130000-seed-calendar-showcase-day.js --env production",
     "seed:showcase:undo:mybookings:admin:prod": "sequelize-cli db:seed:undo --seed 20260510130000-seed-my-bookings-showcase-admin.js --env production",
-    "seed:showcase:undo:all:prod": "npm run seed:showcase:undo:mybookings:admin:prod && npm run seed:showcase:undo:calendar:prod"
+    "seed:showcase:undo:all:prod": "npm run seed:showcase:undo:mybookings:admin:prod && npm run seed:showcase:undo:calendar:prod",
+    "seed:uat:accounts": "node scripts/seed-uat-accounts.js",
+    "seed:uat:contention": "node scripts/seed-uat-contention.js",
+    "seed:uat:refresh": "node scripts/seed-uat-contention.js --mode refresh && node scripts/seed-uat-admin-showcase.js",
+    "seed:uat:admin-showcase": "node scripts/seed-uat-admin-showcase.js"
   },
   "keywords": [],
   "author": "",

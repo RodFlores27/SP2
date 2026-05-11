@@ -243,18 +243,18 @@ The system passes UAT when:
 
 | Scenario ID | Scenario |
 | --- | --- |
-| ST-S01 | Register or log in as a requester |
+| ST-S01 | Register or log in as a requester using the provided account to you |
 | ST-S02 | Browse equipment and rooms, use search/filter options, then choose one resource |
 | ST-S03 | Open the selected equipment/room detail page and check availability |
 | ST-S04 | Start a booking from the facility calendar or from the "Book Now" action |
 | ST-S05 | Create a pencil booking with complete request details for the selected resource type |
 | ST-S06 | Create a firm booking with the provided authorization document sample. Make sure it does not overlap your previously created pencil booking. |
-| ST-S07 | Verify that your new firm booking appears as `pending_approval` in My Bookings |
-| ST-S08 | Check the already prepared approved firm booking in My Bookings |
-| ST-S09 | Contest another user's pencil booking by creating a pencil booking with a schedule that overlaps theirs |
-| ST-S10 | Check your new booking in My Bookings and confirm it is tagged as challenger |
+| ST-S07 | Verify that your new firm booking appears in "Pending Approval" in My Bookings |
+| ST-S08 | An already approved firm booking example is provided in your account. Check it in My Bookings |
+| ST-S09 | Create a pencil booking with a schedule that overlaps another user's pencil booking. This will start a contention episode |
+| ST-S10 | Check your new booking in My Bookings and see it that is tagged as challenger |
 | ST-S11 | Check the already prepared defender booking state in My Bookings to understand the defender side of contention |
-| ST-S12 | End contention by converting the defender pencil to firm and verify the result |
+| ST-S12 | End contention by converting your defender pencil to firm and verify the result |
 | ST-S13 | Track booking status updates in My Bookings and use search/filter options to locate specific bookings |
 | ST-S14 | Cancel an eligible booking |
 | ST-S15 | Find the cancelled booking in My Bookings (Past) and rebook it |
@@ -269,32 +269,31 @@ For `ST-S09`, `ST-S10`, `ST-S11`, and `ST-S12`, use either setup option:
 
 | Scenario ID | Scenario |
 | --- | --- |
-| STF-S01 | Log in and access the Staff Dashboard |
-| STF-S02 | Review pending firm booking requests |
-| STF-S03 | Approve a valid firm booking with optional staff remark |
+| STF-S01 | Log in and access the Staff Dashboard using the provided account to you |
+| STF-S02 | Review pending firm booking requests under "Pending Approvals"|
+| STF-S03 | Approve a valid firm booking with optional staff remark. Find the approved booking under "Approved Bookings". You can use the filters to help you find it. |
 | STF-S04 | Deny a firm booking with staff remark |
-| STF-S05 | Use Staff Dashboard filters/search options to find targeted requests in Pending, Resubmissions, and Approved views |
-| STF-S06 | Review denied-source resubmissions |
-| STF-S07 | Review active conflicts/contentions (no manual decision action expected) |
-| STF-S08 | Review approved bookings and open booking details |
-| STF-S09 | Inspect room/loan request details in Pending, Resubmissions, and Approved views |
-| STF-S10 | Create, edit, and delete room/equipment records |
-| STF-S11 | Check email evidence related to your approval/denial actions |
+| STF-S05 | Review bookings under "Resubmissions" |
+| STF-S06 | Explore the Staff Dashboard filters/search options in Pending, Resubmissions, and Approved views |
+| STF-S07 | Review "Active Conflicts" (no manual decision action expected). Check how they are displayed in the calendar. |
+| STF-S08 | Review approved bookings and view booking details |
+| STF-S09 | Open Calendar, switch to Agenda view, and check Agenda filter options and resulting entries |
+| STF-S10 | Go to "Equipment" or "Room". Create, edit, or delete room/equipment records |
 
 ### 11.3 System Administrator Scenarios
 
 | Scenario ID | Scenario |
 | --- | --- |
-| ADM-S01 | Log in and access Admin Panel |
+| ADM-S01 | Log in and access Admin Panel using the provided account to you |
 | ADM-S02 | Open Analytics and review booking event summaries |
 | ADM-S03 | Apply analytics date range filters and see resulting data counts |
-| ADM-S04 | Under Analytics, choose a non-`all` date range, export CSV, open it in any spreadsheet application and check the results inside the file. |
+| ADM-S04 | Under Analytics, choose a non-all date range, export CSV, open it in any spreadsheet application and check the results inside the file. |
 | ADM-S05 | Under Audit Trail, use category/search filters and expand selected entries |
 | ADM-S06 | Under Users tab, review role summaries and use search/filter features |
 | ADM-S07 | Change a user role and confirm the change is reflected after refresh or re-login |
-| ADM-S08 | Confirm that recent admin actions appear in Audit Trail with matching actor, action, time, and target details |
-| ADM-S09 | Under Manage tab, access some staff-level functions from an admin account under staff dashboard. Just explore. |
-| ADM-S10 | In Equipment and Rooms pages, confirm create/edit/delete features are visible for admin access (execution optional) |
+| ADM-S08 | Confirm that recent admin actions (e.g. "User Role Changed") appear in Audit Trail with matching actor, action, time, and target details |
+| ADM-S09 | Under Manage tab, access some staff-level functions under staff dashboard. Just explore. |
+| ADM-S10 | In Equipments/Rooms pages, confirm create/edit/delete features are visible for admin access (execution optional) |
 
 ## 12. Detailed UAT Test Cases
 

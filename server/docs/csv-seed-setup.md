@@ -124,3 +124,54 @@ npm run seed:foundation:replace:local
 - Equipment appears with correct category and code.
 - No duplicate prefix formatting on equipment codes.
 - No legacy sample bookings are inserted by the main seed.
+
+## 8) UAT Account + Contention Seeding
+
+For UAT participants, use:
+
+- `C:\BSCS\SP\SP2\PTCF Project\server\docs\uat-respondents.csv`
+
+Expected header:
+
+```csv
+email,role,user_category,seed_defender,seed_global_target
+```
+
+Role values:
+
+- `regular_user`
+- `ptcf_staff`
+- `system_admin`
+
+Flag values:
+
+- `yes` / `no`
+
+Run from `C:\BSCS\SP\SP2\PTCF Project\server`:
+
+```bash
+# 1) Create/update users + role assignment + temporary passwords
+npm run seed:uat:accounts
+
+# 2) Seed student@uplb.edu.ph global challenge targets + defender/challenger pairs
+npm run seed:uat:contention
+
+# 3) Refresh all UAT seed layers during live UAT
+#    - student/staff/admin contention + My Bookings + dashboard datasets
+#    - shared admin analytics/audit showcase dataset
+npm run seed:uat:refresh
+
+# 4) Seed one shared Admin showcase dataset (analytics + audit trail)
+npm run seed:uat:admin-showcase
+```
+
+Default outputs:
+
+- Account credentials: `server/docs/uat-account-passwords.csv`
+- Contention manifest: `server/docs/uat-contention-manifest.csv`
+
+Notes:
+
+- `seed:uat:refresh` is idempotent for seeded contention/dashboard data.
+- Admin showcase audit/analytics rows are also idempotent using fixed `eventId` values.
+- Global challenge targets are identified with an internal marker and are refreshed without touching non-UAT user-created bookings.
