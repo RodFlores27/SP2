@@ -243,7 +243,7 @@ The system passes UAT when:
 
 | Scenario ID | Scenario |
 | --- | --- |
-| ST-S01 | Register or log in as a requester using the provided account to you |
+| ST-S01 | Log in as a requester using the account provided to you |
 | ST-S02 | Browse equipment and rooms, use search/filter options, then choose one resource |
 | ST-S03 | Open the selected equipment/room detail page and check availability |
 | ST-S04 | Start a booking from the facility calendar or from the "Book Now" action |
@@ -269,7 +269,7 @@ For `ST-S09`, `ST-S10`, `ST-S11`, and `ST-S12`, use either setup option:
 
 | Scenario ID | Scenario |
 | --- | --- |
-| STF-S01 | Log in and access the Staff Dashboard using the provided account to you |
+| STF-S01 | Log in using the account provided to you and access the Staff Dashboard under "Manage" Tab |
 | STF-S02 | Review pending firm booking requests under "Pending Approvals"|
 | STF-S03 | Approve a valid firm booking with optional staff remark. Find the approved booking under "Approved Bookings". You can use the filters to help you find it. |
 | STF-S04 | Deny a firm booking with staff remark |
@@ -284,7 +284,7 @@ For `ST-S09`, `ST-S10`, `ST-S11`, and `ST-S12`, use either setup option:
 
 | Scenario ID | Scenario |
 | --- | --- |
-| ADM-S01 | Log in and access Admin Panel using the provided account to you |
+| ADM-S01 | Log in using the account provided to you and access Admin Panel under the "Manage" Tab  |
 | ADM-S02 | Open Analytics and review booking event summaries |
 | ADM-S03 | Apply analytics date range filters and see resulting data counts |
 | ADM-S04 | Under Analytics, choose a non-all date range, export CSV, open it in any spreadsheet application and check the results inside the file. |

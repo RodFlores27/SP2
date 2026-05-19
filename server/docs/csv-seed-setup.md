@@ -112,10 +112,10 @@ Foundation script options:
 
 ```bash
 # Idempotent insert/update behavior (keeps existing rows)
-npm run seed:foundation:local
+npm run seed:foundation
 
 # Replace mode (clears Bookings + Equipment + Rooms, then re-seeds from CSV)
-npm run seed:foundation:replace:local
+npm run seed:foundation:replace
 ```
 
 ## 7) Quick Validation Checklist

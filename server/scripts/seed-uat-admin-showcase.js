@@ -19,6 +19,7 @@ const kafkaConfig = require('../config/kafka');
 
 const MARKER = '[Admin Showcase]';
 const TOPIC = kafkaConfig.topics?.bookingEvents || 'booking-events';
+const UAT_AUTH_DOC_URL = process.env.UAT_AUTH_DOC_URL || 'https://res.cloudinary.com/demo/sample.pdf';
 
 function addDays(base, days) {
   const d = new Date(base);
@@ -118,7 +119,12 @@ async function createBookingIfMissing({
     where: { purpose },
     transaction,
   });
-  if (existing) return existing;
+  if (existing) {
+    if (existing.bookingType === 'firm' && existing.authorizationDocUrl !== UAT_AUTH_DOC_URL) {
+      await existing.update({ authorizationDocUrl: UAT_AUTH_DOC_URL }, { transaction });
+    }
+    return existing;
+  }
 
   const createdAt = new Date();
   const referenceCode = await generateBookingReferenceCode({
@@ -148,7 +154,7 @@ async function createBookingIfMissing({
     roomEquipmentNeeds: resource.type === 'room' ? (extras.roomEquipmentNeeds || 'Projector and whiteboard') : null,
     roomSetupRequirements: resource.type === 'room' ? (extras.roomSetupRequirements || 'Classroom setup') : null,
     roomProgramDetails: resource.type === 'room' ? (extras.roomProgramDetails || 'Program details prepared') : null,
-    authorizationDocUrl: bookingType === 'firm' ? 'https://res.cloudinary.com/demo/sample.pdf' : null,
+    authorizationDocUrl: bookingType === 'firm' ? UAT_AUTH_DOC_URL : null,
     approvedByUserId: status === 'approved' ? extras.approvedByUserId || null : null,
     approvedAt: status === 'approved' ? new Date() : null,
     deniedByUserId: status === 'denied' ? extras.deniedByUserId || null : null,
@@ -167,16 +173,36 @@ async function createBookingIfMissing({
 
 async function createAuditIfMissing(AuditLog, row) {
   const exists = await AuditLog.findOne({ where: { eventId: row.eventId } });
-  if (exists) return false;
+  if (exists) {
+    await AuditLog.sequelize.getQueryInterface().bulkUpdate(
+      'AuditLogs',
+      {
+        ...row,
+        updatedAt: new Date(),
+      },
+      { eventId: row.eventId }
+    );
+    return 'updated';
+  }
   await AuditLog.create(row);
-  return true;
+  return 'created';
 }
 
 async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
   const exists = await BookingAnalyticsEvent.findOne({ where: { eventId: row.eventId } });
-  if (exists) return false;
+  if (exists) {
+    await BookingAnalyticsEvent.sequelize.getQueryInterface().bulkUpdate(
+      'BookingAnalyticsEvents',
+      {
+        ...row,
+        updatedAt: new Date(),
+      },
+      { eventId: row.eventId }
+    );
+    return 'updated';
+  }
   await BookingAnalyticsEvent.create(row);
-  return true;
+  return 'created';
 }
 
 (async () => {
@@ -222,11 +248,16 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
     const rm = { type: 'room', id: roomRows[0].id, row: roomRows[0] };
 
     const day = addDays(now, 22);
+    let pendingEquipment = null;
+    let approvedRoom = null;
+    let deniedEquipment = null;
+    let cancelledRoom = null;
+    let onHoldEquipment = null;
     let defender = null;
     let challenger = null;
 
     await sequelize.transaction(async (transaction) => {
-      await createBookingIfMissing({
+      pendingEquipment = await createBookingIfMissing({
         Booking,
         BookingReferenceSequence,
         transaction,
@@ -245,7 +276,7 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         },
       });
 
-      await createBookingIfMissing({
+      approvedRoom = await createBookingIfMissing({
         Booking,
         BookingReferenceSequence,
         transaction,
@@ -265,7 +296,7 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         },
       });
 
-      await createBookingIfMissing({
+      deniedEquipment = await createBookingIfMissing({
         Booking,
         BookingReferenceSequence,
         transaction,
@@ -282,7 +313,7 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         },
       });
 
-      await createBookingIfMissing({
+      cancelledRoom = await createBookingIfMissing({
         Booking,
         BookingReferenceSequence,
         transaction,
@@ -299,7 +330,7 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         },
       });
 
-      await createBookingIfMissing({
+      onHoldEquipment = await createBookingIfMissing({
         Booking,
         BookingReferenceSequence,
         transaction,
@@ -361,7 +392,15 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         resourceId: eq.id,
         bookingType: 'pencil',
         status: 'penciled',
-        payload: { note: 'Showcase created event for audit trail testing.' },
+        payload: {
+          referenceCode: defender.referenceCode,
+          userId: requester.id,
+          requestType: 'equipment_inhouse',
+          startTime: defender.startTime,
+          endTime: defender.endTime,
+          purpose: defender.purpose,
+          note: 'Showcase created event for audit trail testing.',
+        },
       },
       {
         eventId: 'uat-admin-showcase-audit-booking-converted',
@@ -371,15 +410,21 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         partition: 0,
         offset: '1001b',
         actorUserId: requester.id,
-        bookingId: defender.id,
+        bookingId: pendingEquipment.id,
         resourceType: 'equipment',
         resourceId: eq.id,
         bookingType: 'firm',
         status: 'pending_approval',
         payload: {
-          requestType: 'equipment_inhouse',
+          referenceCode: pendingEquipment.referenceCode,
+          userId: requester.id,
+          requestType: 'equipment_loan',
           previousBookingType: 'pencil',
           previousStatus: 'penciled',
+          startTime: pendingEquipment.startTime,
+          endTime: pendingEquipment.endTime,
+          purpose: pendingEquipment.purpose,
+          authorizationDocUrl: UAT_AUTH_DOC_URL,
           note: 'Requester converted a penciled booking to firm after uploading requirements.',
         },
       },
@@ -391,14 +436,19 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         partition: 0,
         offset: '1001c',
         actorUserId: staff.id,
-        bookingId: defender.id,
-        resourceType: 'equipment',
-        resourceId: eq.id,
+        bookingId: approvedRoom.id,
+        resourceType: 'room',
+        resourceId: rm.id,
         bookingType: 'firm',
         status: 'approved',
         payload: {
-          requestType: 'equipment_loan',
+          referenceCode: approvedRoom.referenceCode,
+          userId: requester.id,
+          requestType: 'room',
           approvedByUserId: staff.id,
+          startTime: approvedRoom.startTime,
+          endTime: approvedRoom.endTime,
+          purpose: approvedRoom.purpose,
           note: 'Staff approved a complete request after checking submitted details.',
         },
       },
@@ -416,8 +466,23 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         bookingType: 'pencil',
         status: 'penciled',
         payload: {
-          defender: { bookingId: defender.id, email: requester.email },
-          challenger: { bookingId: challenger.id, email: staff.email },
+          referenceCode: challenger.referenceCode,
+          requestType: 'equipment_inhouse',
+          startTime: challenger.startTime,
+          endTime: challenger.endTime,
+          contentionDeadlineAt: defender.contentionDeadlineAt,
+          defender: {
+            bookingId: defender.id,
+            referenceCode: defender.referenceCode,
+            userId: requester.id,
+            email: requester.email,
+          },
+          challenger: {
+            bookingId: challenger.id,
+            referenceCode: challenger.referenceCode,
+            userId: staff.id,
+            email: staff.email,
+          },
           note: 'Sample contention start for dashboard audit checks.',
         },
       },
@@ -435,7 +500,25 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         bookingType: 'pencil',
         status: 'displaced',
         payload: {
+          referenceCode: defender.referenceCode,
+          requestType: 'equipment_inhouse',
+          startTime: defender.startTime,
+          endTime: defender.endTime,
           resolutionReason: 'defender_missed_deadline',
+          defender: {
+            bookingId: defender.id,
+            referenceCode: defender.referenceCode,
+            userId: requester.id,
+            email: requester.email,
+            outcome: 'displaced',
+          },
+          challenger: {
+            bookingId: challenger.id,
+            referenceCode: challenger.referenceCode,
+            userId: staff.id,
+            email: staff.email,
+            outcome: 'penciled',
+          },
           note: 'Sample contention resolution event.',
         },
       },
@@ -453,9 +536,13 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         bookingType: 'pencil',
         status: 'on_hold',
         payload: {
+          referenceCode: onHoldEquipment.referenceCode,
+          userId: requester.id,
           requestType: 'equipment_inhouse',
-          causingBookingId: defender.id,
-          causingReferenceCode: defender.referenceCode || null,
+          startTime: onHoldEquipment.startTime,
+          endTime: onHoldEquipment.endTime,
+          causingBookingId: pendingEquipment.id,
+          causingReferenceCode: pendingEquipment.referenceCode || null,
           source: 'booking.convert_to_firm',
           note: 'Penciled request moved to on-hold while a firm request is under review.',
         },
@@ -474,9 +561,13 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         bookingType: 'pencil',
         status: 'penciled',
         payload: {
+          referenceCode: onHoldEquipment.referenceCode,
+          userId: requester.id,
           requestType: 'equipment_inhouse',
-          causingBookingId: defender.id,
-          causingReferenceCode: defender.referenceCode || null,
+          startTime: onHoldEquipment.startTime,
+          endTime: onHoldEquipment.endTime,
+          causingBookingId: pendingEquipment.id,
+          causingReferenceCode: pendingEquipment.referenceCode || null,
           releaseReason: 'firm_denied',
           note: 'On-hold booking was released after the blocking firm request was denied.',
         },
@@ -495,9 +586,13 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         bookingType: 'pencil',
         status: 'displaced',
         payload: {
+          referenceCode: challenger.referenceCode,
+          userId: staff.id,
           requestType: 'equipment_inhouse',
-          displacingBookingId: defender.id,
-          displacingReferenceCode: defender.referenceCode || null,
+          startTime: challenger.startTime,
+          endTime: challenger.endTime,
+          displacingBookingId: pendingEquipment.id,
+          displacingReferenceCode: pendingEquipment.referenceCode || null,
           displacementReason: 'firm_approved_overlap',
           note: 'Penciled slot was displaced because an overlapping firm request was approved.',
         },
@@ -510,13 +605,18 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         partition: 0,
         offset: '1003e',
         actorUserId: staff.id,
-        bookingId: defender.id,
+        bookingId: deniedEquipment.id,
         resourceType: 'equipment',
         resourceId: eq.id,
         bookingType: 'firm',
         status: 'denied',
         payload: {
+          referenceCode: deniedEquipment.referenceCode,
+          userId: requester.id,
           requestType: 'equipment_loan',
+          startTime: deniedEquipment.startTime,
+          endTime: deniedEquipment.endTime,
+          staffRemark: deniedEquipment.staffRemark,
           note: 'Firm request was denied because supporting details were incomplete.',
         },
       },
@@ -528,13 +628,17 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         partition: 0,
         offset: '1003f',
         actorUserId: requester.id,
-        bookingId: defender.id,
+        bookingId: cancelledRoom.id,
         resourceType: 'room',
         resourceId: rm.id,
         bookingType: 'firm',
         status: 'cancelled',
         payload: {
+          referenceCode: cancelledRoom.referenceCode,
+          userId: requester.id,
           requestType: 'room',
+          startTime: cancelledRoom.startTime,
+          endTime: cancelledRoom.endTime,
           cancellationReason: 'Requester had an unavoidable class conflict.',
           probableRebookDate: setTime(addDays(now, 3), 10, 0).toISOString(),
           note: 'Requester cancelled and indicated intent to rebook.',
@@ -554,7 +658,11 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         bookingType: 'pencil',
         status: 'penciled',
         payload: {
+          referenceCode: challenger.referenceCode,
+          userId: staff.id,
           requestType: 'equipment_inhouse',
+          startTime: challenger.startTime,
+          endTime: challenger.endTime,
           hoursLeft: 24,
           note: 'System reminder: penciled booking is approaching expiry.',
         },
@@ -573,7 +681,11 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         bookingType: 'pencil',
         status: 'expired',
         payload: {
+          referenceCode: challenger.referenceCode,
+          userId: staff.id,
           requestType: 'equipment_inhouse',
+          startTime: challenger.startTime,
+          endTime: challenger.endTime,
           note: 'System marked this penciled booking as expired after the allowable window.',
         },
       },
@@ -636,8 +748,11 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
           current: {
             name: `${eq.row.name} (demo copy)`,
             category: eq.row.category || 'Laboratory Equipment',
+            codeGroup: eq.row.codeGroup || 'GEN',
+            resourceCode: eq.row.resourceCode || 'DEMO-EQ',
             status: 'available',
             description: 'Added for UAT showcase demonstration.',
+            imageUrl: eq.row.imageUrl || null,
           },
           note: 'Showcase equipment-create event.',
         },
@@ -657,7 +772,22 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         status: null,
         payload: {
           resourceName: eq.row.name,
-          changes: { status: ['in-use', 'available'] },
+          previous: {
+            name: eq.row.name,
+            category: eq.row.category || 'Laboratory Equipment',
+            codeGroup: eq.row.codeGroup || 'GEN',
+            resourceCode: eq.row.resourceCode || 'DEMO-EQ',
+            status: 'in-use',
+            description: 'Older description before staff cleanup.',
+          },
+          current: {
+            name: eq.row.name,
+            category: eq.row.category || 'Laboratory Equipment',
+            codeGroup: eq.row.codeGroup || 'GEN',
+            resourceCode: eq.row.resourceCode || 'DEMO-EQ',
+            status: 'available',
+            description: 'Updated description after staff cleanup.',
+          },
           note: 'Showcase equipment update audit event.',
         },
       },
@@ -677,6 +807,9 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         payload: {
           previous: {
             name: `${eq.row.name} (retired unit)`,
+            category: eq.row.category || 'Laboratory Equipment',
+            codeGroup: eq.row.codeGroup || 'GEN',
+            resourceCode: eq.row.resourceCode || 'RETIRED-EQ',
             status: 'in-use',
             description: 'Unit removed after lifecycle replacement.',
           },
@@ -700,7 +833,10 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
           current: {
             name: `${rm.row.name} (orientation setup)`,
             location: rm.row.location || 'PTCF Main Building',
+            zone: rm.row.zone || 'Grey',
+            requiredPpe: rm.row.requiredPpe || 'Lab gown',
             capacity: rm.row.capacity || 12,
+            resourceCode: rm.row.resourceCode || 'PTCF-DEMO-ROOM',
             status: 'available',
           },
           note: 'Showcase room-create event.',
@@ -722,11 +858,17 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
         payload: {
           previous: {
             name: rm.row.name,
+            location: rm.row.location || 'PTCF Main Building',
+            zone: rm.row.zone || 'Grey',
+            requiredPpe: rm.row.requiredPpe || 'Lab gown',
             capacity: rm.row.capacity || 10,
             status: 'available',
           },
           current: {
             name: rm.row.name,
+            location: rm.row.location || 'PTCF Main Building',
+            zone: rm.row.zone || 'Grey',
+            requiredPpe: rm.row.requiredPpe || 'Lab gown and gloves',
             capacity: (rm.row.capacity || 10) + 2,
             status: 'in-use',
           },
@@ -750,7 +892,10 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
           previous: {
             name: `${rm.row.name} (temporary overflow)`,
             location: rm.row.location || 'PTCF Main Building',
+            zone: rm.row.zone || 'Grey',
+            requiredPpe: rm.row.requiredPpe || 'Lab gown',
             capacity: rm.row.capacity || 10,
+            resourceCode: rm.row.resourceCode || 'PTCF-TEMP-ROOM',
           },
           note: 'Showcase room-delete event.',
         },
@@ -786,21 +931,27 @@ async function createAnalyticsIfMissing(BookingAnalyticsEvent, row) {
     }));
 
     let auditCreated = 0;
+    let auditUpdated = 0;
     for (const row of auditRows) {
-      const created = await createAuditIfMissing(AuditLog, row);
-      if (created) auditCreated += 1;
+      const result = await createAuditIfMissing(AuditLog, row);
+      if (result === 'created') auditCreated += 1;
+      if (result === 'updated') auditUpdated += 1;
     }
 
     let analyticsCreated = 0;
+    let analyticsUpdated = 0;
     for (const row of analyticsRows) {
-      const created = await createAnalyticsIfMissing(BookingAnalyticsEvent, row);
-      if (created) analyticsCreated += 1;
+      const result = await createAnalyticsIfMissing(BookingAnalyticsEvent, row);
+      if (result === 'created') analyticsCreated += 1;
+      if (result === 'updated') analyticsUpdated += 1;
     }
 
     console.log(
-      'Admin showcase seed complete. audit created: %d, analytics created: %d (shared dataset).',
+      'Admin showcase seed complete. audit created: %d, audit updated: %d, analytics created: %d, analytics updated: %d (shared dataset).',
       auditCreated,
-      analyticsCreated
+      auditUpdated,
+      analyticsCreated,
+      analyticsUpdated
     );
   } catch (error) {
     console.error('Admin showcase seed failed:', error.message);

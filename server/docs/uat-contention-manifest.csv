@@ -1,11 +1,31 @@
 entry_type,participant_email,defender_reference,challenger_reference,resource_type,resource_id,resource_name,start_time_iso,end_time_iso,purpose
-approved_firm_existing,compangit28@gmail.com,TCU-LFH-001-030-26,,equipment,326,,2026-06-10T10:00:00.000Z,2026-06-10T11:30:00.000Z,Plant tissue culture briefing for Compangit28
+global_target,,,MIC-SHK-001-048-26,equipment,341,Shaker,2026-05-24T00:00:00.000Z,2026-05-24T01:30:00.000Z,Equipment calibration session (2026-05-24-0800) [UAT Global Target]
+global_target,,,TCU-LFH-001-062-26,equipment,342,Laminar Flow Hood,2026-05-24T01:30:00.000Z,2026-05-24T03:00:00.000Z,Room preparation block (2026-05-24-0930) [UAT Global Target]
+global_target,,,MOB-SPM-001-016-26,equipment,343,Spectrophotometer,2026-05-24T03:00:00.000Z,2026-05-24T04:30:00.000Z,Tissue culture materials setup (2026-05-24-1100) [UAT Global Target]
+global_target,,,TCU-GRC-001-024-26,equipment,344,Growth Chamber,2026-05-24T05:00:00.000Z,2026-05-24T06:30:00.000Z,Short protocol run (2026-05-24-1300) [UAT Global Target]
+global_target,,,GEN-VST-001-007-26,equipment,345,Vertical Sterilizer,2026-05-24T06:30:00.000Z,2026-05-24T08:00:00.000Z,Lab workflow practice (2026-05-24-1430) [UAT Global Target]
+global_target,,,GEN-OVN-001-012-26,equipment,346,Oven,2026-05-24T08:00:00.000Z,2026-05-24T09:30:00.000Z,Sample handling dry run (2026-05-24-1600) [UAT Global Target]
+global_target,,,GEN-DAP-001-017-26,equipment,347,Distilling Apparatus,2026-05-25T00:00:00.000Z,2026-05-25T01:30:00.000Z,Equipment calibration session (2026-05-25-0800) [UAT Global Target]
+global_target,,,TCU-GBS-001-008-26,equipment,348,Glass Bead Sterilizer,2026-05-25T01:30:00.000Z,2026-05-25T03:00:00.000Z,Room preparation block (2026-05-25-0930) [UAT Global Target]
+global_target,,,TCU-LMT-001-004-26,equipment,349,Light Meter,2026-05-25T03:00:00.000Z,2026-05-25T04:30:00.000Z,Tissue culture materials setup (2026-05-25-1100) [UAT Global Target]
+global_target,,,MIC-MSC-001-004-26,equipment,350,Microscope,2026-05-25T05:00:00.000Z,2026-05-25T06:30:00.000Z,Short protocol run (2026-05-25-1300) [UAT Global Target]
+global_target,,,MOB-PIP-001-004-26,equipment,351,Pipettor,2026-05-25T06:30:00.000Z,2026-05-25T08:00:00.000Z,Lab workflow practice (2026-05-25-1430) [UAT Global Target]
+global_target,,,GEN-PHM-001-004-26,equipment,352,pH Meter,2026-05-25T08:00:00.000Z,2026-05-25T09:30:00.000Z,Sample handling dry run (2026-05-25-1600) [UAT Global Target]
+global_target,,,GEN-STR-001-004-26,equipment,353,Stirrer,2026-05-26T00:00:00.000Z,2026-05-26T01:30:00.000Z,Equipment calibration session (2026-05-26-0800) [UAT Global Target]
+global_target,,,GEN-PRB-001-012-26,equipment,355,Precision Balance,2026-05-26T01:30:00.000Z,2026-05-26T03:00:00.000Z,Room preparation block (2026-05-26-0930) [UAT Global Target]
+global_target,,,GEN-HPL-001-070-26,equipment,356,Hot Plate,2026-05-26T03:00:00.000Z,2026-05-26T04:30:00.000Z,Tissue culture materials setup (2026-05-26-1100) [UAT Global Target]
+global_target,,,PTCF-1-ASEP-01-RA-034-26,room,237,Inoculation Room 1,2026-05-26T05:00:00.000Z,2026-05-26T06:30:00.000Z,Short protocol run (2026-05-26-1300) [UAT Global Target]
+global_target,,,PTCF-1-ASEP-02-RA-024-26,room,238,Inoculation Room 2,2026-05-26T06:30:00.000Z,2026-05-26T08:00:00.000Z,Lab workflow practice (2026-05-26-1430) [UAT Global Target]
+global_target,,,PTCF-1-GR-01-RA-017-26,room,239,Growth Room 1,2026-05-26T08:00:00.000Z,2026-05-26T09:30:00.000Z,Sample handling dry run (2026-05-26-1600) [UAT Global Target]
+global_target,,,PTCF-1-GR-02-RA-004-26,room,240,Growth Room 2,2026-05-27T00:00:00.000Z,2026-05-27T01:30:00.000Z,Equipment calibration session (2026-05-27-0800) [UAT Global Target]
+global_target,,,PTCF-2-BSL2-01-RA-004-26,room,241,BSL-2 Laboratory,2026-05-27T01:30:00.000Z,2026-05-27T03:00:00.000Z,Room preparation block (2026-05-27-0930) [UAT Global Target]
+global_target,,,PTCF-1-STR-01-RA-004-26,room,242,Sterilization Area,2026-05-27T03:00:00.000Z,2026-05-27T04:30:00.000Z,Tissue culture materials setup (2026-05-27-1100) [UAT Global Target]
+global_target,,,PTCF-A-DEC-01-RA-004-26,room,243,Decontamination Area,2026-05-27T05:00:00.000Z,2026-05-27T06:30:00.000Z,Short protocol run (2026-05-27-1300) [UAT Global Target]
+global_target,,,PTCF-2-TLAB-01-CA-004-26,room,244,Teaching Laboratory,2026-05-27T06:30:00.000Z,2026-05-27T08:00:00.000Z,Lab workflow practice (2026-05-27-1430) [UAT Global Target]
+global_target,,,PTCF-1-MED-01-CA-001-26,room,245,Media Preparation Room,2026-05-27T08:00:00.000Z,2026-05-27T09:30:00.000Z,Sample handling dry run (2026-05-27-1600) [UAT Global Target]
 staff_dashboard_seeded,staff@uplb.edu.ph,,,,,,,,"pending x2, resubmission x1, active conflict x1, approved loan+room"
 staff_my_bookings_seeded,staff@uplb.edu.ph,,,,,,,,staff owned approved firm + defender contention pair
-staff_dashboard_seeded,rodolfopfloresiii27@gmail.com,,,,,,,,"pending x2, resubmission x1, active conflict x1, approved loan+room"
-staff_my_bookings_seeded,rodolfopfloresiii27@gmail.com,,,,,,,,staff owned approved firm + defender contention pair
 admin_dashboard_seeded,admin@uplb.edu.ph,,,,,,,,"pending x2, resubmission x1, active conflict x1, approved loan+room"
 admin_my_bookings_seeded,admin@uplb.edu.ph,,,,,,,,admin owned approved firm + defender contention pair
-admin_dashboard_seeded,compangit27@gmail.com,,,,,,,,"pending x2, resubmission x1, active conflict x1, approved loan+room"
-admin_my_bookings_seeded,compangit27@gmail.com,,,,,,,,admin owned approved firm + defender contention pair
-defender_pair_existing,compangit28@gmail.com,GEN-DAP-001-009-26,GEN-DAP-001-010-26,equipment,331,,2026-06-26T09:00:00.000Z,2026-06-26T11:00:00.000Z,(purpose left empty by design)
+admin_dashboard_seeded,rodolfopfloresiii27@gmail.com,,,,,,,,"pending x2, resubmission x1, active conflict x1, approved loan+room"
+admin_my_bookings_seeded,rodolfopfloresiii27@gmail.com,,,,,,,,admin owned approved firm + defender contention pair

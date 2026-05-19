@@ -12,6 +12,7 @@ Before running any UAT seed command:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
+   - `UAT_AUTH_DOC_URL` (public URL of your updated sample authorization PDF, e.g. uploaded `example_auth_doc.pdf`)
 3. Confirm `student@uplb.edu.ph` exists and is reserved for UAT seeding behavior.
 4. Confirm respondent CSV is final and contains only UAT participant emails:
    - `server/docs/uat-respondents.csv`
@@ -25,6 +26,30 @@ From `PTCF Project/server`:
 npm run seed:uat:accounts
 npm run seed:uat:refresh
 ```
+
+### 2.1 If Production Host Has No Shell Access (Render Free Tier)
+
+If your production host does not provide shell access, run the seed commands locally against production services.
+
+From PowerShell in `PTCF Project/server`:
+
+```powershell
+$env:NODE_ENV="production"
+npm run seed:uat:accounts
+npm run seed:uat:refresh
+Remove-Item Env:\NODE_ENV
+```
+
+Requirements for local execution:
+
+1. Local `server/.env.production` contains production-equivalent values for required keys.
+2. `NODE_ENV=production` is set before running commands so scripts resolve production config.
+3. You are intentionally targeting production resources and have a backup snapshot.
+4. `UAT_AUTH_DOC_URL` points to a publicly reachable copy of your current authorization sample PDF.
+
+Security note:
+
+- Treat local execution as privileged production access. Avoid exposing env files/keys in screenshots or recordings.
 
 Expected generated artifacts:
 

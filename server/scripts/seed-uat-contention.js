@@ -28,6 +28,7 @@ const { computeContentionDeadline, computePencilExpiryAt } = require('../utils/b
 
 const DEFAULT_CSV = path.resolve(__dirname, '..', 'docs', 'uat-respondents.csv');
 const DEFAULT_MANIFEST_OUT = path.resolve(__dirname, '..', 'docs', 'uat-contention-manifest.csv');
+const UAT_AUTH_DOC_URL = process.env.UAT_AUTH_DOC_URL || 'https://res.cloudinary.com/demo/sample.pdf';
 const CHALLENGER_EMAIL = 'student@uplb.edu.ph';
 const GLOBAL_PURPOSE_PREFIX = 'UAT:GLOBAL_TARGET:';
 const GLOBAL_TARGET_MARKER = '[UAT Global Target]';
@@ -368,7 +369,7 @@ async function createApprovedFirmBooking({
     endTime,
     purpose,
     referenceCode,
-    authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+    authorizationDocUrl: UAT_AUTH_DOC_URL,
     equipmentRequestType: resourceType === 'equipment' ? 'in_house' : null,
     roomParticipantCount: resourceType === 'room' ? 10 : null,
     roomEquipmentNeeds: resourceType === 'room' ? 'Projector, audio' : null,
@@ -407,6 +408,7 @@ async function createFirmBooking({
   roomProgramDetails = null,
   rebookedFromBookingId = null,
   rebookedFromStatus = null,
+  rebookChangeSummary = null,
   bookingThreadId = null,
   staffRemark = null,
 }) {
@@ -430,7 +432,7 @@ async function createFirmBooking({
     endTime,
     purpose,
     referenceCode,
-    authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+    authorizationDocUrl: UAT_AUTH_DOC_URL,
     equipmentRequestType: resourceType === 'equipment' ? (equipmentRequestType || 'in_house') : null,
     loanReason: resourceType === 'equipment' ? loanReason : null,
     loanWorkflowNote: resourceType === 'equipment' ? loanWorkflowNote : null,
@@ -445,6 +447,7 @@ async function createFirmBooking({
     staffRemark: staffRemark || null,
     rebookedFromBookingId,
     rebookedFromStatus,
+    rebookChangeSummary,
   }, { transaction });
 
   if (!bookingThreadId) {
@@ -668,9 +671,12 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
             startTime: safeStart,
             endTime: safeEnd,
             purpose: approvedPurpose,
+            authorizationDocUrl: UAT_AUTH_DOC_URL,
           });
         } else if (existingApproved.purpose !== approvedPurpose) {
-          await existingApproved.update({ purpose: approvedPurpose });
+          await existingApproved.update({ purpose: approvedPurpose, authorizationDocUrl: UAT_AUTH_DOC_URL });
+        } else if (existingApproved.authorizationDocUrl !== UAT_AUTH_DOC_URL) {
+          await existingApproved.update({ authorizationDocUrl: UAT_AUTH_DOC_URL });
         }
         summary.approvedFirmExisting += 1;
         manifestRows.push([
@@ -814,6 +820,31 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
         if (nextPurpose && row.purpose !== nextPurpose) {
           await row.update({ purpose: nextPurpose });
         }
+        if (row.bookingType === 'firm' && row.authorizationDocUrl !== UAT_AUTH_DOC_URL) {
+          await row.update({ authorizationDocUrl: UAT_AUTH_DOC_URL });
+        }
+        if (
+          [pendingAPurpose, pendingBPurpose].includes(nextPurpose || row.purpose) &&
+          row.resourceType === 'equipment' &&
+          row.status === 'pending_approval'
+        ) {
+          await row.update({
+            equipmentRequestType: 'loan',
+            loanReason: row.loanReason || 'Loan requested for a short supervised activity outside the original room.',
+            loanWorkflowNote: row.loanWorkflowNote || 'Requester will complete checkout and return condition notes.',
+            loanTransportPlan: row.loanTransportPlan || 'Transport using padded case/cart and return to PTCF desk.',
+          });
+        }
+        if (
+          (nextPurpose || row.purpose) === resubPendingPurpose &&
+          row.status === 'pending_approval' &&
+          row.rebookedFromStatus === 'denied' &&
+          !row.rebookChangeSummary
+        ) {
+          await row.update({
+            rebookChangeSummary: 'Added clearer handling instructions, updated transport plan, and attached missing authorization details.',
+          });
+        }
       }
       const existingStaffPurposes = new Set(existingStaffSet.map((b) => b.purpose));
 
@@ -827,7 +858,9 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
         },
       });
       if (existingMyApproved && String(existingMyApproved.purpose || '').startsWith(STAFF_MY_APPROVED_PREFIX)) {
-        await existingMyApproved.update({ purpose: myApprovedPurpose });
+        await existingMyApproved.update({ purpose: myApprovedPurpose, authorizationDocUrl: UAT_AUTH_DOC_URL });
+      } else if (existingMyApproved && existingMyApproved.authorizationDocUrl !== UAT_AUTH_DOC_URL) {
+        await existingMyApproved.update({ authorizationDocUrl: UAT_AUTH_DOC_URL });
       }
       const existingMyDefender = await Booking.findOne({
         where: {
@@ -883,6 +916,10 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
               endTime: pendingAEnd,
               purpose: pendingAPurpose,
               status: 'pending_approval',
+              equipmentRequestType: 'loan',
+              loanReason: 'Need to borrow the unit for a short documentation activity in another room.',
+              loanWorkflowNote: 'Will complete checkout notes before pickup and return after use.',
+              loanTransportPlan: 'Carry in padded case and return to PTCF front desk after session.',
             });
           }
 
@@ -899,6 +936,10 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
               endTime: pendingBEnd,
               purpose: pendingBPurpose,
               status: 'pending_approval',
+              equipmentRequestType: 'loan',
+              loanReason: 'Equipment is needed outside the lab for a supervised class demonstration.',
+              loanWorkflowNote: 'Requester will log the transfer and confirm condition on return.',
+              loanTransportPlan: 'Transport via cart with spotter and place in secure room immediately.',
             });
           }
 
@@ -940,6 +981,7 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
               rebookedFromBookingId: sourceDeniedBooking?.id || null,
               rebookedFromStatus: 'denied',
               bookingThreadId: sourceDeniedBooking?.id || null,
+              rebookChangeSummary: 'Revised request with clearer handling steps and complete authorization details.',
             });
           }
 
@@ -1203,6 +1245,31 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
         else if (String(row.purpose || '').startsWith(ADMIN_APPROVED_LOAN_PREFIX)) nextPurpose = approvedLoanPurpose;
         else if (String(row.purpose || '').startsWith(ADMIN_APPROVED_ROOM_PREFIX)) nextPurpose = approvedRoomPurpose;
         if (nextPurpose && row.purpose !== nextPurpose) await row.update({ purpose: nextPurpose });
+        if (row.bookingType === 'firm' && row.authorizationDocUrl !== UAT_AUTH_DOC_URL) {
+          await row.update({ authorizationDocUrl: UAT_AUTH_DOC_URL });
+        }
+        if (
+          [pendingAPurpose, pendingBPurpose].includes(nextPurpose || row.purpose) &&
+          row.resourceType === 'equipment' &&
+          row.status === 'pending_approval'
+        ) {
+          await row.update({
+            equipmentRequestType: 'loan',
+            loanReason: row.loanReason || 'Loan requested for a supervised activity outside the original room.',
+            loanWorkflowNote: row.loanWorkflowNote || 'Requester will follow checkout workflow and report condition on return.',
+            loanTransportPlan: row.loanTransportPlan || 'Transport via padded case/cart with proper handoff.',
+          });
+        }
+        if (
+          (nextPurpose || row.purpose) === resubPendingPurpose &&
+          row.status === 'pending_approval' &&
+          row.rebookedFromStatus === 'denied' &&
+          !row.rebookChangeSummary
+        ) {
+          await row.update({
+            rebookChangeSummary: 'Updated prior denied request with corrected workflow note, transport plan, and missing supporting details.',
+          });
+        }
       }
       const existingAdminDashPurposes = new Set(existingAdminDashSet.map((b) => b.purpose));
       const needsAdminDashSet = [
@@ -1223,6 +1290,10 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
               Booking, BookingReferenceSequence, transaction,
               userId: requesterA.id, resourceType: resourceEqA.type, resourceId: resourceEqA.id, resourceRow: resourceEqA.row,
               startTime: pendingAStart, endTime: pendingAEnd, purpose: pendingAPurpose, status: 'pending_approval',
+              equipmentRequestType: 'loan',
+              loanReason: 'Need the device for an off-room protocol validation run.',
+              loanWorkflowNote: 'Requester will follow checkout checklist and report return condition.',
+              loanTransportPlan: 'Move in padded case with labeled checkout tag.',
             });
           }
           if (!existingAdminDashPurposes.has(pendingBPurpose)) {
@@ -1230,6 +1301,10 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
               Booking, BookingReferenceSequence, transaction,
               userId: requesterB.id, resourceType: resourceEqB.type, resourceId: resourceEqB.id, resourceRow: resourceEqB.row,
               startTime: pendingBStart, endTime: pendingBEnd, purpose: pendingBPurpose, status: 'pending_approval',
+              equipmentRequestType: 'loan',
+              loanReason: 'Borrowing equipment for a supervised training activity in another venue.',
+              loanWorkflowNote: 'Will record handoff details and return before end of day.',
+              loanTransportPlan: 'Transport using cart and secure the unit during transfer.',
             });
           }
 
@@ -1250,6 +1325,7 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
               resourceType: resourceEqA.type, resourceId: resourceEqA.id, resourceRow: resourceEqA.row,
               startTime: resubPendingStart, endTime: resubPendingEnd, purpose: resubPendingPurpose, status: 'pending_approval',
               rebookedFromBookingId: sourceDeniedBooking?.id || null, rebookedFromStatus: 'denied', bookingThreadId: sourceDeniedBooking?.id || null,
+              rebookChangeSummary: 'Second submission now includes corrected handling workflow and complete transport/authorization details.',
             });
           }
 
@@ -1307,6 +1383,9 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
           startTime: { [Op.gt]: now },
         },
       });
+      if (existingMyApproved && existingMyApproved.authorizationDocUrl !== UAT_AUTH_DOC_URL) {
+        await existingMyApproved.update({ authorizationDocUrl: UAT_AUTH_DOC_URL });
+      }
       const existingMyDefender = await Booking.findOne({
         where: {
           userId: adminUser.id,
