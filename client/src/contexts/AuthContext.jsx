@@ -157,7 +157,7 @@ export const AuthProvider = ({ children }) => {
         return { success: false, error: 'OAuth URL was not returned by the server' };
       }
       window.location.assign(url);
-      return { success: true, user: newUser };
+      return { success: true };
     } catch (error) {
       return {
         success: false,

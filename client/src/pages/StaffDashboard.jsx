@@ -849,6 +849,7 @@ export default function StaffDashboard() {
   const [resubmissionsFilters, setResubmissionsFilters] = useState(() => ({ ...RESUBMISSIONS_FILTER_DEFAULTS }));
   const [contentionFilters, setContentionFilters] = useState(() => ({ ...CONTENTION_FILTER_DEFAULTS }));
   const [approvedFilters, setApprovedFilters] = useState(() => ({ ...APPROVED_FILTER_DEFAULTS }));
+  const [currentTimeMs, setCurrentTimeMs] = useState(null);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -893,6 +894,13 @@ export default function StaffDashboard() {
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    const updateCurrentTime = () => setCurrentTimeMs(Date.now());
+    updateCurrentTime();
+    const intervalId = window.setInterval(updateCurrentTime, 60 * 1000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   const handleAction = async (bookingId, action) => {
     setActionLoading(bookingId + action);
@@ -1255,6 +1263,7 @@ export default function StaffDashboard() {
                 <ActiveConflictGroupCard
                   key={group.id}
                   group={group}
+                  nowMs={currentTimeMs}
                 />
               ))}
             </div>
@@ -1572,14 +1581,13 @@ function ApprovedBookingCard({ booking, resourceName }) {
   );
 }
 
-function ActiveConflictGroupCard({ group }) {
+function ActiveConflictGroupCard({ group, nowMs }) {
   const { defenderBooking, challengerBooking } = getConflictParticipants(group);
   const defenderDeadline = group.urgencyAt ? format(new Date(group.urgencyAt), 'MMM d, yyyy h:mm a') : 'No active deadline';
   const deadlineMs = group.urgencyAt ? new Date(group.urgencyAt).getTime() : null;
-  const nowMs = Date.now();
-  const hoursToDeadline = deadlineMs != null ? (deadlineMs - nowMs) / (1000 * 60 * 60) : null;
+  const hoursToDeadline = deadlineMs != null && nowMs != null ? (deadlineMs - nowMs) / (1000 * 60 * 60) : null;
   const deadlineSeverity =
-    deadlineMs == null
+    deadlineMs == null || nowMs == null
       ? 'none'
       : hoursToDeadline <= 0
         ? 'overdue'

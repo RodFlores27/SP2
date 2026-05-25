@@ -3,7 +3,7 @@
 const { computePencilExpiryAt, computeContentionDeadline } = require('../utils/booking-rules');
 
 /**
- * Seeds a full My Bookings showcase focused on admin@uplb.edu.ph.
+ * Seeds a full My Bookings showcase focused on admin@uplb.edu.ph and student@uplb.edu.ph.
  * Includes active + past entries and thread history examples.
  *
  * All rows use purpose prefix "SHOWCASE:MYBOOKINGS:" so down() can cleanly remove them.
@@ -505,6 +505,332 @@ module.exports = {
     await queryInterface.sequelize.query(
       `UPDATE "Bookings" SET "bookingThreadId" = :threadId WHERE id = :id`,
       { replacements: { threadId: threadDeniedId, id: threadPendingIdRows[0].id } }
+    );
+
+    // STUDENT SHOWCASE: mirror the active/past My Bookings coverage for requester demo filming.
+    const studentDayOffset = dayOffset + 2;
+    const sat = (daysFromNow, h, m = 0) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + daysFromNow);
+      d.setHours(h, m, 0, 0);
+      return d;
+    };
+    const studentPurpose = (label) => `SHOWCASE:MYBOOKINGS:STUDENT: ${label}`;
+
+    const s1Created = new Date(now.getTime() - 5.75 * 60 * 60 * 1000);
+    const s1Start = sat(studentDayOffset, 8, 0);
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: eqB,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: s1Start,
+      endTime: sat(studentDayOffset, 9, 30),
+      purpose: studentPurpose('active free pencil in-house'),
+      equipmentRequestType: 'in_house',
+      createdAt: s1Created,
+      updatedAt: s1Created,
+      expiryAt: computePencilExpiryAt(s1Created, s1Start),
+    });
+
+    const studentChDefCreated = new Date(now.getTime() - 5.5 * 60 * 60 * 1000);
+    const studentChDefStart = sat(studentDayOffset, 10, 0);
+    const studentChDefEnd = sat(studentDayOffset, 12, 0);
+    const studentChDefExpiry = computePencilExpiryAt(studentChDefCreated, studentChDefStart);
+    const studentChDefDeadline = computeContentionDeadline(
+      studentChDefCreated,
+      studentChDefStart,
+      studentChDefExpiry
+    );
+    const studentHelperDefenderId = await insertBooking({
+      userId: researcher1Id,
+      resourceType: 'equipment',
+      resourceId: eqA,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: studentChDefStart,
+      endTime: studentChDefEnd,
+      purpose: studentPurpose('helper defender other user'),
+      equipmentRequestType: 'in_house',
+      contentionRole: 'defender',
+      contentionDeadlineAt: studentChDefDeadline,
+      createdAt: studentChDefCreated,
+      updatedAt: studentChDefCreated,
+      expiryAt: studentChDefExpiry,
+    });
+    const studentChCreated = new Date(now.getTime() - 5.25 * 60 * 60 * 1000);
+    const studentChStart = sat(studentDayOffset, 10, 30);
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: eqA,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: studentChStart,
+      endTime: sat(studentDayOffset, 11, 30),
+      purpose: studentPurpose('active challenger pencil'),
+      equipmentRequestType: 'in_house',
+      contentionRole: 'challenger',
+      challengingBookingId: studentHelperDefenderId,
+      createdAt: studentChCreated,
+      updatedAt: studentChCreated,
+      expiryAt: computePencilExpiryAt(studentChCreated, studentChStart),
+    });
+
+    const studentDefCreated = new Date(now.getTime() - 5 * 60 * 60 * 1000);
+    const studentDefStart = sat(studentDayOffset, 12, 30);
+    const studentDefEnd = sat(studentDayOffset, 14, 0);
+    const studentDefExpiry = computePencilExpiryAt(studentDefCreated, studentDefStart);
+    const studentDefDeadline = computeContentionDeadline(studentDefCreated, studentDefStart, studentDefExpiry);
+    const studentDefenderId = await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: eqB,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: studentDefStart,
+      endTime: studentDefEnd,
+      purpose: studentPurpose('active defender pencil'),
+      equipmentRequestType: 'in_house',
+      contentionRole: 'defender',
+      contentionDeadlineAt: studentDefDeadline,
+      createdAt: studentDefCreated,
+      updatedAt: studentDefCreated,
+      expiryAt: studentDefExpiry,
+    });
+    const studentHelperChCreated = new Date(now.getTime() - 4.75 * 60 * 60 * 1000);
+    const studentHelperChStart = sat(studentDayOffset, 13, 0);
+    await insertBooking({
+      userId: adminId,
+      resourceType: 'equipment',
+      resourceId: eqB,
+      bookingType: 'pencil',
+      status: 'penciled',
+      startTime: studentHelperChStart,
+      endTime: sat(studentDayOffset, 13, 30),
+      purpose: studentPurpose('helper challenger other user'),
+      equipmentRequestType: 'in_house',
+      contentionRole: 'challenger',
+      challengingBookingId: studentDefenderId,
+      createdAt: studentHelperChCreated,
+      updatedAt: studentHelperChCreated,
+      expiryAt: computePencilExpiryAt(studentHelperChCreated, studentHelperChStart),
+    });
+
+    const studentHoldCreated = new Date(now.getTime() - 4.5 * 60 * 60 * 1000);
+    const studentHoldStart = sat(studentDayOffset, 14, 30);
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'room',
+      resourceId: roomA,
+      bookingType: 'pencil',
+      status: 'on_hold',
+      startTime: studentHoldStart,
+      endTime: sat(studentDayOffset, 15, 30),
+      purpose: studentPurpose('active on-hold room pencil'),
+      roomParticipantCount: 6,
+      roomEquipmentNeeds: 'Whiteboard and extension cord',
+      roomSetupRequirements: 'Standard setup',
+      roomProgramDetails: 'Student planning session',
+      createdAt: studentHoldCreated,
+      updatedAt: studentHoldCreated,
+      expiryAt: computePencilExpiryAt(studentHoldCreated, studentHoldStart),
+    });
+
+    const studentPendingCreated = new Date(now.getTime() - 4.25 * 60 * 60 * 1000);
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: eqA,
+      bookingType: 'firm',
+      status: 'pending_approval',
+      startTime: sat(studentDayOffset, 16, 0),
+      endTime: sat(studentDayOffset, 17, 0),
+      purpose: studentPurpose('active pending firm loan'),
+      authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      equipmentRequestType: 'loan',
+      loanReason: 'Off-site student research activity',
+      loanWorkflowNote: 'Follow the submitted handling checklist',
+      loanTransportPlan: 'Secured transport case with staff acknowledgment',
+      createdAt: studentPendingCreated,
+      updatedAt: studentPendingCreated,
+    });
+
+    const studentApprovedCreated = new Date(now.getTime() - 4 * 60 * 60 * 1000);
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'room',
+      resourceId: roomB,
+      bookingType: 'firm',
+      status: 'approved',
+      startTime: sat(studentDayOffset, 17, 30),
+      endTime: sat(studentDayOffset, 19, 0),
+      purpose: studentPurpose('active approved room firm'),
+      authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      roomParticipantCount: 12,
+      roomEquipmentNeeds: 'Projector',
+      roomSetupRequirements: 'Rows',
+      roomProgramDetails: 'Approved student training session',
+      approvedByUserId: staffId,
+      approvedAt: new Date(now.getTime() - 3.5 * 60 * 60 * 1000),
+      staffRemark: 'Approved for student training session.',
+      createdAt: studentApprovedCreated,
+      updatedAt: studentApprovedCreated,
+    });
+
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: eqA,
+      bookingType: 'firm',
+      status: 'cancelled',
+      startTime: sat(studentDayOffset - 1, 8, 0),
+      endTime: sat(studentDayOffset - 1, 9, 0),
+      purpose: studentPurpose('past cancelled'),
+      equipmentRequestType: 'in_house',
+      cancellationReason: 'Class schedule changed',
+      probableRebookDate: sat(studentDayOffset + 1, 9, 0),
+      createdAt: new Date(now.getTime() - 48 * 60 * 60 * 1000),
+      updatedAt: new Date(now.getTime() - 12 * 60 * 60 * 1000),
+    });
+
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: eqB,
+      bookingType: 'firm',
+      status: 'denied',
+      startTime: sat(studentDayOffset - 1, 10, 0),
+      endTime: sat(studentDayOffset - 1, 11, 0),
+      purpose: studentPurpose('past denied'),
+      authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      equipmentRequestType: 'loan',
+      loanReason: 'Field validation',
+      loanWorkflowNote: 'Draft workflow',
+      loanTransportPlan: 'Personal vehicle',
+      staffRemark: 'Please provide a clearer workflow and transport plan.',
+      deniedByUserId: staffId,
+      createdAt: new Date(now.getTime() - 50 * 60 * 60 * 1000),
+      updatedAt: new Date(now.getTime() - 20 * 60 * 60 * 1000),
+    });
+
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'room',
+      resourceId: roomA,
+      bookingType: 'pencil',
+      status: 'expired',
+      startTime: sat(studentDayOffset - 1, 12, 0),
+      endTime: sat(studentDayOffset - 1, 13, 0),
+      purpose: studentPurpose('past expired'),
+      roomParticipantCount: 3,
+      roomEquipmentNeeds: 'None',
+      roomSetupRequirements: 'None',
+      roomProgramDetails: 'Expired student demo',
+      staffRemark: 'Expired: pencil booking lifetime ended',
+      createdAt: new Date(now.getTime() - 72 * 60 * 60 * 1000),
+      updatedAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+      expiryAt: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+    });
+
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: eqA,
+      bookingType: 'pencil',
+      status: 'displaced',
+      startTime: sat(studentDayOffset - 1, 14, 0),
+      endTime: sat(studentDayOffset - 1, 15, 0),
+      purpose: studentPurpose('past displaced'),
+      equipmentRequestType: 'in_house',
+      staffRemark: 'Displaced: slot was taken by a finalized firm booking',
+      createdAt: new Date(now.getTime() - 80 * 60 * 60 * 1000),
+      updatedAt: new Date(now.getTime() - 18 * 60 * 60 * 1000),
+    });
+
+    await insertBooking({
+      userId: studentId,
+      resourceType: 'room',
+      resourceId: roomB,
+      bookingType: 'firm',
+      status: 'completed',
+      startTime: sat(studentDayOffset - 1, 16, 0),
+      endTime: sat(studentDayOffset - 1, 17, 0),
+      purpose: studentPurpose('past completed'),
+      authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      roomParticipantCount: 8,
+      roomEquipmentNeeds: 'Speaker',
+      roomSetupRequirements: 'Rows',
+      roomProgramDetails: 'Completed student session',
+      approvedByUserId: staffId,
+      approvedAt: new Date(now.getTime() - 36 * 60 * 60 * 1000),
+      createdAt: new Date(now.getTime() - 60 * 60 * 60 * 1000),
+      updatedAt: new Date(now.getTime() - 6 * 60 * 60 * 1000),
+    });
+
+    const studentThreadDeniedId = await insertBooking({
+      userId: studentId,
+      resourceType: 'equipment',
+      resourceId: eqB,
+      bookingType: 'firm',
+      status: 'denied',
+      startTime: sat(studentDayOffset - 1, 18, 0),
+      endTime: sat(studentDayOffset - 1, 19, 0),
+      purpose: studentPurpose('thread denied source'),
+      authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+      equipmentRequestType: 'loan',
+      loanReason: 'Initial student request',
+      loanWorkflowNote: 'Initial workflow',
+      loanTransportPlan: 'Initial transport',
+      staffRemark: 'Please revise transport and workflow details.',
+      deniedByUserId: staffId,
+      createdAt: new Date(now.getTime() - 30 * 60 * 60 * 1000),
+      updatedAt: new Date(now.getTime() - 28 * 60 * 60 * 1000),
+    });
+
+    const studentThreadPendingRows = await queryInterface.sequelize.query(
+      `INSERT INTO "Bookings" (
+        "userId", "resourceType", "resourceId", "bookingType", "status",
+        "startTime", "endTime", "purpose", "authorizationDocUrl",
+        "equipmentRequestType", "loanReason", "loanWorkflowNote", "loanTransportPlan",
+        "staffRemark", "rebookedFromBookingId", "rebookedFromStatus", "bookingThreadId",
+        "createdAt", "updatedAt", "referenceCode"
+      ) VALUES (
+        :userId, 'equipment', :resourceId, 'firm', 'pending_approval',
+        :startTime, :endTime, :purpose, :authorizationDocUrl,
+        'loan', :loanReason, :loanWorkflowNote, :loanTransportPlan,
+        NULL, :rebookedFromBookingId, 'denied', :bookingThreadId,
+        :createdAt, :updatedAt, :referenceCode
+      ) RETURNING id`,
+      {
+        replacements: {
+          userId: studentId,
+          resourceId: eqB,
+          startTime: sat(studentDayOffset, 19, 30),
+          endTime: sat(studentDayOffset, 20, 30),
+          purpose: studentPurpose('thread resubmitted pending'),
+          authorizationDocUrl: 'https://res.cloudinary.com/demo/sample.pdf',
+          loanReason: 'Revised student reason',
+          loanWorkflowNote: 'Updated workflow with handling safeguards',
+          loanTransportPlan: 'Updated transport plan with padded case',
+          rebookedFromBookingId: studentThreadDeniedId,
+          bookingThreadId: studentThreadDeniedId,
+          createdAt: new Date(now.getTime() - 12 * 60 * 60 * 1000),
+          updatedAt: new Date(now.getTime() - 12 * 60 * 60 * 1000),
+          referenceCode: await nextReferenceCode('equipment', eqB, new Date(now.getTime() - 12 * 60 * 60 * 1000)),
+        },
+        type: Sequelize.QueryTypes.SELECT,
+      }
+    );
+
+    await queryInterface.sequelize.query(
+      `UPDATE "Bookings" SET "bookingThreadId" = :threadId WHERE id = :id`,
+      { replacements: { threadId: studentThreadDeniedId, id: studentThreadDeniedId } }
+    );
+    await queryInterface.sequelize.query(
+      `UPDATE "Bookings" SET "bookingThreadId" = :threadId WHERE id = :id`,
+      { replacements: { threadId: studentThreadDeniedId, id: studentThreadPendingRows[0].id } }
     );
   },
 
