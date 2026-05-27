@@ -192,8 +192,8 @@ function parseEquipmentCsv(csvText) {
   try {
     await sequelize.authenticate();
 
-    const roomsPath = resolveCsvPath('PTCF rooms list.csv');
-    const equipmentPath = resolveCsvPath('PTCF equipment list.csv');
+    const roomsPath = resolveCsvPath('PTCF-rooms-list.csv');
+    const equipmentPath = resolveCsvPath('PTCF-equipments-list.csv');
     const roomRows = parseRoomsCsv(fs.readFileSync(roomsPath, 'utf8'));
     const equipmentRows = parseEquipmentCsv(fs.readFileSync(equipmentPath, 'utf8'));
 
@@ -267,4 +267,3 @@ function parseEquipmentCsv(csvText) {
     await sequelize.close();
   }
 })();
-

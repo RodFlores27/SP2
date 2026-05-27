@@ -232,8 +232,8 @@ module.exports = {
       }
     }
 
-    const roomsPath = resolveCsvPath('PTCF rooms list.csv');
-    const equipmentPath = resolveCsvPath('PTCF equipment list.csv');
+    const roomsPath = resolveCsvPath('PTCF-rooms-list.csv');
+    const equipmentPath = resolveCsvPath('PTCF-equipments-list.csv');
     const roomsSeed = parseRoomsCsv(fs.readFileSync(roomsPath, 'utf8'));
     const equipmentSeed = parseEquipmentCsv(fs.readFileSync(equipmentPath, 'utf8'));
 
@@ -249,4 +249,3 @@ module.exports = {
     await queryInterface.bulkDelete('Rooms', null, {});
   },
 };
-
