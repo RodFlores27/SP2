@@ -43,6 +43,7 @@ function parseCsv(content) {
 
 function resolveCsvPath(fileName) {
   const candidates = [
+    path.resolve(__dirname, '..', 'seed-data', fileName),
     path.resolve(__dirname, '..', '..', '..', fileName),
     path.resolve(process.cwd(), '..', fileName),
     path.resolve(process.cwd(), fileName),

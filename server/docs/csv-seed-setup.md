@@ -2,17 +2,17 @@
 
 This guide explains how to prepare the two CSV files used by the main seed script:
 
-- `C:\BSCS\SP\SP2\PTCF-rooms-list.csv`
-- `C:\BSCS\SP\SP2\PTCF-equipments-list.csv`
+- `server/seed-data/PTCF-rooms-list.csv`
+- `server/seed-data/PTCF-equipments-list.csv`
 
 The seeder reads these files and inserts `Rooms` and `Equipment` dummy data.
 
 ## 1) File Location
 
-Place both files at the workspace root:
+Place both files in the server seed data folder:
 
-- `C:\BSCS\SP\SP2\PTCF-rooms-list.csv`
-- `C:\BSCS\SP\SP2\PTCF-equipments-list.csv`
+- `server/seed-data/PTCF-rooms-list.csv`
+- `server/seed-data/PTCF-equipments-list.csv`
 
 ## 2) Rooms CSV Format
 

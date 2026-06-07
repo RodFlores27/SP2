@@ -1,0 +1,17 @@
+Name,Category,Category Code,Equipment Code,Description
+Shaker,Microbiology,MIC,MIC-SHK-001,"Double-deck laboratory shaker used for continuous mixing and agitation of microbial cultures, media, and plant tissue culture cell suspension samples, with an approximate capacity of 60 units of 125 mL Erlenmeyer flasks in a single operation."
+Laminar Flow Hood,Tissue Culture,TCU,TCU-LFH-001,"HEPA-filtered sterile workstation used for aseptic inoculation, transfer, and handling of plant tissue cultures and other sterile biological samples under contamination-controlled conditions."
+Spectrophotometer,Molecular Biology,MOB,MOB-SPM-001,"Analytical instrument used to measure absorbance or concentration of nucleic acids, proteins, and other samples."
+Growth Chamber,Tissue Culture,TCU,TCU-GRC-001,"Controlled environment chamber for plant tissue culture growth under regulated light, humidity, and temperature."
+Vertical Sterilizer,General,GEN,GEN-VST-001,"Steam sterilization equipment used solely for the sterilization of culture media, glassware, instruments, and other laboratory materials that require sterile conditions prior to use."
+Oven,General,GEN,GEN-OVN-001,Laboratory oven used for drying newly washed glassware and for moisture removal or controlled drying of laboratory samples under regulated temperature conditions.
+Distilling Apparatus,General,GEN,GEN-DAP-001,Apparatus used for purification of water and separation of liquid mixtures through distillation.
+Glass Bead Sterilizer,Tissue Culture,TCU,TCU-GBS-001,"Rapid sterilization device for forceps, scalpels, and small tools used in aseptic procedures."
+Light Meter,Tissue Culture,TCU,TCU-LMT-001,Instrument used to measure light intensity inside growth rooms and culture areas.
+Microscope,Microbiology,MIC,MIC-MSC-001,"Optical instrument used for observation and analysis of microorganisms, cells, and tissues."
+Pipettor,Molecular Biology,MOB,MOB-PIP-001,Precision liquid handling device used for accurate transfer of small liquid volumes in laboratory procedures.
+pH Meter,General,GEN,GEN-PHM-001,Instrument used to determine the acidity or alkalinity of solutions and culture media.
+Stirrer,General,GEN,GEN-STR-001,Laboratory device used for mixing and homogenizing liquid solutions and reagents.
+Analytical Balance,General,GEN,GEN-ANB-001,High-precision weighing instrument for accurate measurement of chemicals and reagents.
+Precision Balance,General,GEN,GEN-PRB-001,Balance used for precise weighing of laboratory samples and materials.
+Hot Plate,General,GEN,GEN-HPL-001,"Electrically heated platform used for heating solutions, reagents, and laboratory samples."
