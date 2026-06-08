@@ -2,6 +2,8 @@
 
 **Canonical deploy doc for this project.** Full stack: Vercel (frontend), Render (backend), Supabase (PostgreSQL), UptimeRobot (health pings). Older copies of `DEPLOYMENT-GUIDE.md` redirect here.
 
+New developer? Start with [`LOCAL-DEVELOPMENT-GUIDE.md`](LOCAL-DEVELOPMENT-GUIDE.md) before deploying.
+
 ## Architecture Overview
 
 ```
