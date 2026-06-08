@@ -51,6 +51,7 @@ Use this quick pass before touching Supabase, Render, or Vercel:
 
    - `server/.env` is for local development.
    - `server/.env.production` is a private local helper for production-targeted CLI commands, such as migrations and seed/reset scripts.
+   - Use `server/.env.example`, `server/.env.production.example`, and `client/.env.example` as safe templates.
    - Render does **not** need `server/.env.production`; the deployed backend uses the environment variables configured in the Render dashboard.
    - Do not commit `.env`, `.env.production`, or real secrets.
 
@@ -604,6 +605,8 @@ The local `docker-compose.kafka.yml` setup is only for development and milestone
 |------|------|
 | `client/vercel.json` | Vercel routing / SPA fallback |
 | `client/.env.example` | Template for `VITE_API_URL` locally |
+| `server/.env.example` | Template for local backend development |
+| `server/.env.production.example` | Template for trusted local production CLI commands |
 | `client/src/lib/axios.js` | API base URL from env |
 | `client/src/lib/imageUpload.js` | Upload URL from env |
 
