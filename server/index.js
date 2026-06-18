@@ -11,7 +11,60 @@ const { validateRuntimeConfig } = require('./config/runtime-check');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-app.use(cors());
+app.set('trust proxy', 1);
+
+// Configure CORS
+const isProduction = process.env.NODE_ENV === 'production';
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',').map(o => o.trim())
+  : (isProduction
+      ? [process.env.FRONTEND_URL].filter(Boolean)
+      : [process.env.FRONTEND_URL || 'http://localhost:5173', 'http://localhost:5173', 'http://127.0.0.1:5173']
+    );
+
+if (isProduction && allowedOrigins.length === 0) {
+  console.warn(
+    '[CORS] WARNING: Running in production mode but no CORS origins are configured via CORS_ORIGIN or FRONTEND_URL. All cross-origin browser requests will be blocked.'
+  );
+}
+
+app.use(
+  cors({ 
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+
+      const isAllowed = allowedOrigins.some((allowed) => {
+        if (allowed === '*') return true;
+        return allowed === origin;
+      });
+
+      if (isAllowed) {
+        callback(null, true);
+      } else {
+        console.warn('[CORS Blocked] Request origin: ' + origin);
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
+    credentials: true,
+  })
+);
+
+// Configure Helmet with secure CSP headers compatible with Swagger UI
+const helmet = require('helmet');
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "res.cloudinary.com"],
+        connectSrc: ["'self'"],
+      },
+    },
+  })
+);
 
 const httpLogStream = {
   write(message) {
@@ -46,6 +99,10 @@ app.use('/api/admin', adminRoutes);
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'PTCF server is running' });
 });
+
+// Centralized error handling middleware
+const { errorHandler } = require('./middleware/error-handler');
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);
