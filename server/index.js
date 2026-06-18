@@ -118,7 +118,27 @@ sequelize.authenticate()
         }
       });
     } else {
-      console.log('[kafka] Disabled (set KAFKA_ENABLED=true to enable)');
+      console.log('[events] Kafka disabled \u2014 using in-process event dispatcher');
+      const dispatcher = require('./utils/event-dispatcher');
+      const { processAuditEvent } = require('./utils/kafka/audit-consumer');
+      const { processAnalyticsEvent } = require('./utils/kafka/analytics-consumer');
+
+      dispatcher.on('booking-event', async (event) => {
+        // Promise.allSettled so one handler failure never blocks the other.
+        const [auditResult, analyticsResult] = await Promise.allSettled([
+          processAuditEvent(event),
+          processAnalyticsEvent(event),
+        ]);
+
+        if (auditResult.status === 'rejected') {
+          console.error('[events:audit] Handler threw unexpectedly:', auditResult.reason);
+        }
+        if (analyticsResult.status === 'rejected') {
+          console.error('[events:analytics] Handler threw unexpectedly:', analyticsResult.reason);
+        }
+      });
+
+      console.log('[events] In-process handlers registered: audit, analytics');
     }
   })
   .catch(err => console.error('DB connection error:', err));
