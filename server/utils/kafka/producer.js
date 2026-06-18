@@ -135,12 +135,23 @@ async function publishBookingEvent(eventType, data = {}) {
     throw new Error('eventType is required to publish a booking event');
   }
 
+  // Build event once, before deciding the delivery path.
+  const event = buildBookingEvent(eventType, data);
+
   if (!isKafkaEnabled()) {
+    // Dispatch in-process so audit logs and analytics are still written.
+    // Notifications are handled via existing isKafkaEnabled() fallbacks in
+    // booking.controller.js and booking-expiry.js — do not register them here.
+    // setImmediate defers emission to the next I/O cycle, matching the async
+    // delivery semantics callers expect and keeping HTTP responses non-blocking.
+    const dispatcher = require('../event-dispatcher');
+    setImmediate(() => dispatcher.emit('booking-event', event));
     return {
-      published: false,
+      published: true,
       enabled: false,
+      dispatched: 'local',
       topic: kafkaConfig.topics.bookingEvents,
-      reason: 'Kafka is disabled',
+      event,
     };
   }
 
@@ -154,7 +165,7 @@ async function publishBookingEvent(eventType, data = {}) {
     };
   }
 
-  const event = buildBookingEvent(eventType, data);
+  // event already built above — use it directly.
   const key = event.bookingId ? String(event.bookingId) : event.eventId;
 
   await producer.send({
