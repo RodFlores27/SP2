@@ -21,6 +21,11 @@ const uploadToCloudinary = async (
   fileBuffer,
   folder
 ) => {
+  if (!process.env.CLOUDINARY_API_KEY || process.env.CLOUDINARY_API_KEY.startsWith('your-')) {
+    console.log('[cloudinary] Dummy credentials detected — returning mock Cloudinary URL');
+    return 'https://res.cloudinary.com/demo/image/upload/sample.pdf';
+  }
+
   return new Promise((resolve, reject) => {
     const resolvedFolder = resolveCloudinaryFolder(folder);
     const uploadStream = cloudinary.uploader.upload_stream(

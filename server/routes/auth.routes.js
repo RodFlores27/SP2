@@ -15,12 +15,24 @@ const {
 const { authenticateToken, authorizeRoles } = require('../middleware/auth.middleware');
 
 const router = express.Router();
+const rateLimit = require('express-rate-limit');
+
+const authRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // limit each IP to 20 requests per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: 'Too many authentication attempts. Please try again after 15 minutes.',
+    code: 'AUTH_RATE_LIMIT_EXCEEDED',
+  },
+});
 
 // Login-only JWT:
 // - POST /register creates the account but does NOT return a token.
 // - POST /login validates credentials and returns a JWT.
-router.post('/register', register);
-router.post('/login', login);
+router.post('/register', authRateLimiter, register);
+router.post('/login', authRateLimiter, login);
 router.post('/refresh', refresh);
 router.post('/password-reset-request', requestPasswordReset);
 router.post('/email-verification/resend', resendEmailVerification);
