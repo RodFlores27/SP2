@@ -136,7 +136,7 @@ Copy-Item server/.env.example server/.env
 Copy-Item client/.env.example client/.env
 ```
 
-Fill in the required local values before running the app.
+Fill in the required local values for the .env files before running the app.
 
 ### 3. Prepare the Database
 

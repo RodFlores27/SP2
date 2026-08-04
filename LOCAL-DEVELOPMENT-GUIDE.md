@@ -141,7 +141,21 @@ Restart the backend after changing Kafka environment values.
 - Email-related actions do not crash the app; real delivery requires Resend values
 - If Kafka is enabled, `npm run kafka:check` succeeds and booking actions still persist to PostgreSQL
 
-## 8. Common Issues
+## 8. Optional: Reset the database
+**Local dev reset** (uses `development` in `config.cjs` and your `.env` `DB_*` variables):
+
+```bash
+npm run reset:mvp-demo
+npm run seed:foundation
+```
+
+If `AUTH_PROVIDER=supabase`, sync the seeded app users into Supabase Auth:
+
+```powershell
+npm run sync:supabase-auth
+```
+
+## 9. Common Issues
 
 - Database connection fails: check `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_DIALECT`.
 - Login fails with Supabase Auth: run `npm run sync:supabase-auth` after seeding.
