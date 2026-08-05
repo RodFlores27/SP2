@@ -18,7 +18,7 @@ This is the repeatable procedure for every single day/milestone. Follow it in or
 
 ## DURING DEVELOPMENT
 
-- [ ] Follow naming conventions in `PROJECT-ORGANIZATION.md`
+- [ ] Follow naming conventions in `../PROJECT-ORGANIZATION.md`
 - [ ] Update `server/docs/swagger.json` as you add/modify API endpoints (don't leave it until the end)
 - [ ] Keep Tailwind v4 CSS-first — use `@theme` and utility classes, no `tailwind.config.js` overrides
 - [ ] All file uploads through `server/utils/cloudinary.js`
@@ -35,7 +35,7 @@ Run the full Sync & Seal from `docs/workflows/milestone-sync-seal.md`. Quick che
 - [ ] **Completion report** created at `milestone_reports/MILESTONE-{N}-COMPLETION-REPORT.md`
 - [ ] `milestone_tests/README.md` updated with new test entry
 - [ ] `milestone_reports/README.md` updated with new report entry
-- [ ] `PROJECT-ORGANIZATION.md` updated if directory structure changed
+- [ ] `../PROJECT-ORGANIZATION.md` updated if directory structure changed
 - [ ] Root `package.json` has new `test:milestone-{N}` script
 - [ ] `server/docs/swagger.json` updated if API changed
 - [ ] `docs/milestones/week{N}-daily-brief.md` — mark milestone as ✅ Complete
@@ -65,7 +65,7 @@ If docs feel out of sync with the actual codebase, run this mental check:
 
 | Doc | Stale signal |
 |-----|-------------|
-| `PROJECT-ORGANIZATION.md` | Lists files that don't exist, or missing new files |
+| `../PROJECT-ORGANIZATION.md` | Lists files that don't exist, or missing new files |
 | `milestone_reports/README.md` | Missing the latest milestone entry |
 | `server/docs/swagger.json` | Missing endpoints that exist in `server/routes/` |
 | `AI briefing document.txt` | TODAY'S GOAL still shows a completed milestone |

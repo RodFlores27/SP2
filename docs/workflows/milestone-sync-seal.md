@@ -107,7 +107,7 @@ Milestone 4 will focus on: React Router setup, Axios instance, JWT interceptor, 
 ### 3. Updated Documentation
 - `milestone_tests/README.md` - Add new test entry
 - `milestone_reports/README.md` - Add new report entry
-- `PROJECT-ORGANIZATION.md` - Update if structure changed
+- `../PROJECT-ORGANIZATION.md` - Update if structure changed
 - Root `package.json` - Add test script
 - `server/docs/swagger.json` - Update API documentation if endpoints were added/modified
 

@@ -38,8 +38,8 @@ Do not commit `.env` files or real secrets.
 
 Important local values:
 
-- `server/.env`: database, auth, Cloudinary, Resend, server, and optional Kafka settings
-- `client/.env`: frontend API URL
+- `../server/.env`: database, auth, Cloudinary, Resend, server, and optional Kafka settings
+- `../client/.env`: frontend API URL
 - `VITE_API_URL` should usually be `http://localhost:4000/api`
 - `AUTH_PROVIDER=supabase` requires Supabase URL, anon key, and service role key
 - `KAFKA_ENABLED=false` lets you run the app without Kafka first
@@ -48,8 +48,8 @@ Important local values:
 
 The foundation seed uses these CSV files:
 
-- `server/seed-data/PTCF-rooms-list.csv`
-- `server/seed-data/PTCF-equipments-list.csv`
+- `../server/seed-data/PTCF-rooms-list.csv`
+- `../server/seed-data/PTCF-equipments-list.csv`
 
 If either file is missing, seeding rooms and equipment will fail.
 
@@ -114,7 +114,7 @@ Start Kafka from the project root:
 docker compose -f docker-compose.kafka.yml up
 ```
 
-In `server/.env`, set:
+In `../server/.env`, set:
 
 ```env
 KAFKA_ENABLED=true
@@ -159,9 +159,9 @@ npm run sync:supabase-auth
 
 - Database connection fails: check `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, and `DB_DIALECT`.
 - Login fails with Supabase Auth: run `npm run sync:supabase-auth` after seeding.
-- Frontend calls the wrong backend: check `client/.env` and confirm `VITE_API_URL=http://localhost:4000/api`.
-- Seed fails with missing CSV: confirm both files exist in `server/seed-data/`.
+- Frontend calls the wrong backend: check `../client/.env` and confirm `VITE_API_URL=http://localhost:4000/api`.
+- Seed fails with missing CSV: confirm both files exist in `../server/seed-data`.
 - Kafka errors during normal local work: set `KAFKA_ENABLED=false` and restart the backend.
-- Port conflict: change `PORT` in `server/.env` or stop the process using port `4000`.
+- Port conflict: change `PORT` in `../server/.env` or stop the process using port `4000`.
 
 For production deployment, use `DEPLOYMENT-GUIDE.md`.

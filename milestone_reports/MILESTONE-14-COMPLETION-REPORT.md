@@ -118,7 +118,7 @@ Docker Kafka verification note:
 - [x] Booking event envelope shape is test-covered.
 - [x] Local Docker Compose setup is documented.
 - [x] Root milestone test script is registered.
-- [x] `PROJECT-ORGANIZATION.md` updated for new files.
+- [x] `../docs/PROJECT-ORGANIZATION.md` updated for new files.
 - [x] `milestone_tests/README.md` updated.
 - [x] `milestone_reports/README.md` updated.
 

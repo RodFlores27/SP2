@@ -9,7 +9,7 @@ Read these in order:
 
 1. `C:\BSCS\SP\SP2\AI briefing document.txt` (focus on **TODAY'S GOAL**)
 2. `AGENTS.md` (this file)
-3. `PROJECT-ORGANIZATION.md`
+3. `docs/PROJECT-ORGANIZATION.md`
 4. `milestone_reports/README.md`
 5. `docs/workflows/milestone-sync-seal.md`
 6. For frontend UI, app-owned email template, or visible product naming changes, also read `docs/design/up-visual-identity-reskin.md`
@@ -156,7 +156,7 @@ Produce all required artifacts:
    - Include requirements checklist, implementation summary, verification results, quality/security notes, readiness, next steps
 3. Update `milestone_tests/README.md`
 4. Update `milestone_reports/README.md`
-5. Update `PROJECT-ORGANIZATION.md` if structure changed
+5. Update `docs/PROJECT-ORGANIZATION.md` if structure changed
 6. Update root `package.json` with `"test:milestone-{N}": "node milestone_tests/milestone-{N}-{kebab-case}.js"`
 7. Update `server/docs/swagger.json` if API changed; verify docs rendering at `/api-docs`
 
@@ -176,7 +176,7 @@ If user asks to "create/make/prepare a commit message", treat it as draft-only:
 ## 11) Deployment Documentation Authority
 
 - Canonical deployment guide: `RENDER-SUPABASE-DEPLOYMENT.md`
-- `DEPLOYMENT-GUIDE.md` is a redirect/stub; do not duplicate full deployment instructions there
+- `docs/DEPLOYMENT-GUIDE.md` is a redirect/stub; do not duplicate full deployment instructions there
 
 ## 12) Safety Do-Nots
 

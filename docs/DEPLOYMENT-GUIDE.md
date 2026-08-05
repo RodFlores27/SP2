@@ -44,17 +44,17 @@ Use this quick pass before touching Supabase, Render, or Vercel:
 
 2. Confirm the seed CSV files exist in the server seed data folder:
 
-   - `server/seed-data/PTCF-rooms-list.csv`
-   - `server/seed-data/PTCF-equipments-list.csv`
+   - `../server/seed-data/PTCF-rooms-list.csv`
+   - `../server/seed-data/PTCF-equipments-list.csv`
 
    The production seed command depends on these files for rooms and equipment.
 
 3. Keep environment files private:
 
-   - `server/.env` is for local development.
-   - `server/.env.production` is a private local helper for production-targeted CLI commands, such as migrations and seed/reset scripts.
-   - Use `server/.env.example`, `server/.env.production.example`, and `client/.env.example` as safe templates.
-   - Render does **not** need `server/.env.production`; the deployed backend uses the environment variables configured in the Render dashboard.
+   - `../server/.env` is for local development.
+   - `../server/.env.production` is a private local helper for production-targeted CLI commands, such as migrations and seed/reset scripts.
+   - Use `../server/.env.example`, `../server/.env.production.example`, and `../client/.env.example` as safe templates.
+   - Render does **not** need `../server/.env.production`; the deployed backend uses the environment variables configured in the Render dashboard.
    - Do not commit `.env`, `.env.production`, or real secrets.
 
 ---
@@ -99,13 +99,13 @@ echo "DATABASE_URL=postgresql://postgres:[PASSWORD]@db.xxx.supabase.co:5432/post
 npx sequelize-cli db:migrate --env production
 ```
 
-`server/config/config.cjs` loads `server/.env.production` for `--env production`. Render still uses Render dashboard environment variables when the deployed backend runs, not the local .env.production file.
+`../server/config/config.cjs` loads `../server/.env.production` for `--env production`. Render still uses Render dashboard environment variables when the deployed backend runs, not the local .env.production file.
 
-Supabase SQL Editor is only recommended if you are comfortable translating every Sequelize migration under `server/migrations/` into equivalent SQL and running them in timestamp order. This project currently has more than 20 migration files, so avoid keeping a hand-written partial migration list in this guide.
+Supabase SQL Editor is only recommended if you are comfortable translating every Sequelize migration under `../server/migrations` into equivalent SQL and running them in timestamp order. This project currently has more than 20 migration files, so avoid keeping a hand-written partial migration list in this guide.
 
 ### Step 4: Seed Initial Data (Optional)
 
-Run your seeder to add test data. This depends on both CSV files in `server/seed-data/`.
+Run your seeder to add test data. This depends on both CSV files in `../server/seed-data`.
 
 ```bash
 npx sequelize-cli db:seed:all --env production
@@ -226,8 +226,8 @@ npx sequelize-cli db:seed:all --env development
 
 This project currently uses manual Render dashboard configuration as the main deployment path.
 
-1. **Ensure your `server/package.json`** has the correct start script: `npm start`
-2. **Do not rely on `render.yaml`** unless it has been intentionally populated. The current file is empty, so configure the service directly in Render.
+1. **Ensure your `../server/package.json`** has the correct start script: `npm start`
+2. **Do not rely on `../render.yaml`** unless it has been intentionally populated. The current file is empty, so configure the service directly in Render.
 
 ### Step 2: Deploy to Render
 
@@ -320,7 +320,7 @@ On the other hand, Authentication emails (password resets, email verification, m
    - `Sender name: PTCF Reservation System`
    - `Sender email: your verified Resend sender`
 
-See `docs/supabase-auth.md` for the full Google OAuth, Resend SMTP, and DNS checklist. Use `docs/email-testing-checklist.md` for the end-to-end auth and booking email test pass.
+See `supabase-auth.md` for the full Google OAuth, Resend SMTP, and DNS checklist. Use `email-testing-checklist.md` for the end-to-end auth and booking email test pass.
 
 Kafka note:
 
@@ -445,7 +445,7 @@ app.get('/api/health', (req, res) => {
 **Key:** `VITE_API_URL`  
 **Value:** `https://ptcf-backend.onrender.com/api` (use your real Render service URL)
 
-The client sets Axios `baseURL` from `import.meta.env.VITE_API_URL` in [`client/src/lib/axios.js`](client/src/lib/axios.js); it must include the **`/api` suffix** so requests hit `https://…onrender.com/api/...`, not the bare origin.
+The client sets Axios `baseURL` from `import.meta.env.VITE_API_URL` in [`../client/src/lib/axios.js`](../client/src/lib/axios.js); it must include the **`/api` suffix** so requests hit `https://…onrender.com/api/...`, not the bare origin.
 
 #### Verify `VITE_API_URL` before sharing the app
 
@@ -509,7 +509,7 @@ curl https://ptcf-backend.onrender.com/api/equipment
 
 ### Issue: CORS Error
 
-The backend currently uses permissive CORS in `server/index.js`:
+The backend currently uses permissive CORS in `../server/index.js`:
 
 ```javascript
 app.use(cors());
@@ -583,7 +583,7 @@ Serverless functions on Vercel expect a different shape than a long-running Expr
 
 ### Why not use Docker Kafka in production?
 
-The local `docker-compose.kafka.yml` setup is only for development and milestone testing. Production should use Aiven so Kafka stays available independently of the app host and does not rely on a local broker container.
+The local `../docker-compose.kafka.yml` setup is only for development and milestone testing. Production should use Aiven so Kafka stays available independently of the app host and does not rely on a local broker container.
 
 ---
 
@@ -591,12 +591,12 @@ The local `docker-compose.kafka.yml` setup is only for development and milestone
 
 | File | Role |
 |------|------|
-| `client/vercel.json` | Vercel routing / SPA fallback |
-| `client/.env.example` | Template for `VITE_API_URL` locally |
-| `server/.env.example` | Template for local backend development |
-| `server/.env.production.example` | Template for trusted local production CLI commands |
-| `client/src/lib/axios.js` | API base URL from env |
-| `client/src/lib/imageUpload.js` | Upload URL from env |
+| `../client/vercel.json` | Vercel routing / SPA fallback |
+| `../client/.env.example` | Template for `VITE_API_URL` locally |
+| `../server/.env.example` | Template for local backend development |
+| `../server/.env.production.example` | Template for trusted local production CLI commands |
+| `../client/src/lib/axios.js` | API base URL from env |
+| `../client/src/lib/imageUpload.js` | Upload URL from env |
 
 Local dev remains backward compatible: point `VITE_API_URL` at `http://localhost:4000/api`.
 

@@ -125,14 +125,14 @@ PTCF Project/
 ## Naming Conventions
 
 ### Milestone Tests
-**Location:** `milestone_tests/`  
+**Location:** `../milestone_tests`  
 **Format:** `milestone-{number}-{description}.js`  
 **Examples:**
 - `milestone-2-auth-verification.js`
 - `milestone-3-crud-endpoints.js`
 
 ### Milestone Reports
-**Location:** `milestone_reports/`  
+**Location:** `../milestone_reports`  
 **Format:** `MILESTONE-{number}-COMPLETION-REPORT.md`  
 **Examples:**
 - `MILESTONE-2-COMPLETION-REPORT.md`
@@ -157,7 +157,7 @@ PTCF Project/
 **Utilities:** `{purpose}.js` (lowercase, in client/src/lib/)
 
 ### Test Utilities
-**Location:** `milestone_tests/utils/`  
+**Location:** `../milestone_tests/utils`  
 **Purpose:** Shared helper functions for milestone tests  
 **Files:**
 - `test-helpers.js` - Common test utilities (server health check, etc.)
@@ -167,7 +167,7 @@ PTCF Project/
 
 ## Running Tests
 
-The root `package.json` includes scripts to run milestone verification tests:
+The root `../package.json` includes scripts to run milestone verification tests:
 
 ```bash
 # Run individual milestone tests
@@ -214,9 +214,9 @@ npm run test:all
 - Write clear, documented code
 
 ### 3. Complete Milestone
-- Create verification test script in `milestone_tests/`
+- Create verification test script in `../milestone_tests`
 - Run all tests and verify functionality
-- Create completion report in `milestone_reports/`
+- Create completion report in `../milestone_reports`
 - Update this organization document if structure changes
 
 ## Notes
