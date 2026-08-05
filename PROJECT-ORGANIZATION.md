@@ -219,36 +219,6 @@ npm run test:all
 - Create completion report in `milestone_reports/`
 - Update this organization document if structure changes
 
-## Test Data
-
-### Seeded Users
-- `student@uplb.edu.ph` / `password123` (regular_user)
-- `staff@uplb.edu.ph` / `staff123` (ptcf_staff)
-- `admin@uplb.edu.ph` / `admin123` (system_admin)
-- `researcher1@uplb.edu.ph` / `password123` (regular_user)
-- `researcher2@uplb.edu.ph` / `password123` (regular_user)
-
-### Seeded Equipment
-- Laminar Flow Hood
-- Autoclave
-- Growth Chamber
-
-### Seeded Rooms
-- Culture Room A (capacity: 8)
-- Preparation Room (capacity: 4)
-
-### Seeded Bookings
-- Demo bookings with various scenarios:
-  - Pencil booking for equipment (student)
-  - Firm booking for room (staff/admin workflows)
-  - Strict 1v1 contention scenarios (defender/challenger)
-  - Firm booking **pending staff approval**
-  - Pencil booking (researcher1, Growth Chamber)
-  - Displaced/on-hold showcase rows in targeted seed workflows
-  - Mix of users (student, staff, admin, researcher)
-  - Mix of resources (equipment and rooms)
-  - Future dates for all bookings
-
 ## Notes
 
 - All milestone-related files use "milestone" terminology, not "day"
