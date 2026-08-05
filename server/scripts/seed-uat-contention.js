@@ -1548,7 +1548,7 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
           '',
           new Date(existingDefender.startTime).toISOString(),
           new Date(existingDefender.endTime).toISOString(),
-          '(purpose left empty by design)',
+          '(purpose left empty by visual_design)',
         ]);
         continue;
       }
@@ -1610,7 +1610,7 @@ function isOverlapping(aStart, aEnd, bStart, bEnd) {
         resource.row?.name || '',
         defender.startTime.toISOString(),
         defender.endTime.toISOString(),
-        '(purpose left empty by design)',
+        '(purpose left empty by visual_design)',
       ]);
     }
 

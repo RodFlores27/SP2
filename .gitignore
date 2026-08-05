@@ -20,6 +20,6 @@ npm-debug.log*
 Thumbs.db
 *.local
 
-# Windsurf IDE folder (no longer needed — workflow docs moved to docs/workflows/)
+# Windsurf IDE folder (no longer needed — workflow docs moved to docs/staff_workflows/)
 .windsurf/
 .idea/

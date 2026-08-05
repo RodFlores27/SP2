@@ -9,10 +9,10 @@ Read these in order:
 
 1. `C:\BSCS\SP\SP2\AI briefing document.txt` (focus on **TODAY'S GOAL**)
 2. `AGENTS.md` (this file)
-3. `docs/PROJECT-ORGANIZATION.md`
+3. `docs/architecture/PROJECT-ORGANIZATION.md`
 4. `milestone_reports/README.md`
-5. `docs/workflows/milestone-sync-seal.md`
-6. For frontend UI, app-owned email template, or visible product naming changes, also read `docs/design/up-visual-identity-reskin.md`
+5. `docs/development/milestone-sync-seal.md`
+6. For frontend UI, app-owned email template, or visible product naming changes, also read `docs/visual_design/up-visual-identity-reskin.md`
 
 For small follow-up tweaks after a milestone is already wrapped, avoid reloading historical milestone reports/tests unless needed for debugging.
 
@@ -101,7 +101,7 @@ When editing frontend styles/components:
 
 For any frontend UI, app-owned email template, or visible product naming change:
 
-- Read `docs/design/up-visual-identity-reskin.md` before editing.
+- Read `docs/visual_design/up-visual-identity-reskin.md` before editing.
 - Preserve the UP-inspired visual system from Milestone 20.
 - Use `PTCF Reservation` as the product title and `Plant Tissue Culture Facility` where the facility name is needed.
 - Do not reintroduce `UPLB ICropS` as an app title, email title, or product brand label. Existing room/location seed data may remain unchanged unless the user explicitly asks.
@@ -140,23 +140,23 @@ Milestones:
 - One milestone equals one day of work.
 - Number milestones sequentially across weeks.
 - Refer to milestones by number, not just date/day.
-- Check completion state in `milestone_reports/README.md`.
+- Check completion state in `docs/milestones/reports/README.md`.
 
 ### Sync & Seal (required when milestone implementation is done)
 
 Produce all required artifacts:
 
 1. Verification test script:
-   - `milestone_tests/milestone-{N}-{kebab-case-name}.js`
+   - `docs/tests/milestone_tests/milestone-{N}-{kebab-case-name}.js`
    - Must import and run `checkServerHealth` first
    - Must include success and failure scenarios
    - Use `✅` / `❌` indicators and final summary block
 2. Completion report:
-   - `milestone_reports/MILESTONE-{N}-COMPLETION-REPORT.md`
+   - `docs/milestones/reports/MILESTONE-{N}-COMPLETION-REPORT.md`
    - Include requirements checklist, implementation summary, verification results, quality/security notes, readiness, next steps
-3. Update `milestone_tests/README.md`
-4. Update `milestone_reports/README.md`
-5. Update `docs/PROJECT-ORGANIZATION.md` if structure changed
+3. Update `docs/tests/milestone_tests/README.md`
+4. Update `docs/milestones/reports/README.md`
+5. Update `docs/architecture/PROJECT-ORGANIZATION.md` if structure changed
 6. Update root `package.json` with `"test:milestone-{N}": "node milestone_tests/milestone-{N}-{kebab-case}.js"`
 7. Update `server/docs/swagger.json` if API changed; verify docs rendering at `/api-docs`
 
@@ -176,7 +176,7 @@ If user asks to "create/make/prepare a commit message", treat it as draft-only:
 ## 11) Deployment Documentation Authority
 
 - Canonical deployment guide: `RENDER-SUPABASE-DEPLOYMENT.md`
-- `docs/DEPLOYMENT-GUIDE.md` is a redirect/stub; do not duplicate full deployment instructions there
+- `docs/development/DEPLOYMENT-GUIDE.md` is a redirect/stub; do not duplicate full deployment instructions there
 
 ## 12) Safety Do-Nots
 

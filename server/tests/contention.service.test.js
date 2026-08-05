@@ -99,11 +99,11 @@ async function run() {
     );
   }
 
-  console.log('contention.service tests passed');
+  console.log('contention.service milestone_tests passed');
 }
 
 run().catch((e) => {
-  console.error('contention.service tests failed');
+  console.error('contention.service milestone_tests failed');
   console.error(e);
   process.exit(1);
 });
