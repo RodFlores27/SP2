@@ -165,3 +165,18 @@ npm run sync:supabase-auth
 - Port conflict: change `PORT` in `../../server/.env` or stop the process using port `4000`.
 
 For production deployment, use `DEPLOYMENT-GUIDE.md`.
+
+## 10. Core Development Convention: Booking Identifiers
+
+The booking system deliberately keeps two identifiers:
+
+- **Internal primary key:** `Bookings.id` is the stable numeric key used by database relationships and internal record lookups.
+- **User-facing reference:** `Bookings.referenceCode` is the stakeholder-facing booking label, for example `ICR-CRA-004-26`.
+
+Do not replace or repurpose `Bookings.id`. When showing a booking to a person—in the UI, an email, a calendar, or a user-readable API response—use `referenceCode` when available and fall back to `#id` only for legacy or null rows.
+
+### Future direction
+
+Do not migrate to `referenceCode` as the sole database ID simply to remove the second attribute. Reference-code formats are business rules and may change at stakeholder request; changing a primary-key scheme to match them would make database relationships and historical records fragile.
+
+If the system later needs one stable identifier to share across external systems, assess adding an immutable public identifier (such as a UUID) while retaining `Bookings.id` as the database primary key. Keep `referenceCode` separately generated and versionable so its format can evolve without a data migration.

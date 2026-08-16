@@ -61,7 +61,7 @@ Use local Docker Kafka only for development and local milestone verification. Do
 
 ### Aiven topic note
 
-Create `booking-events` in Aiven before deploying. The backend checks that the topic exists, but production defaults should not depend on app startup creating managed Kafka topics.
+Create `booking-events` topic in Aiven before deploying. The backend checks that the topic exists, but production defaults should not depend on app startup creating managed Kafka topics.
 
 If you intentionally want the app to create the topic and the Aiven service user has permission, set:
 
@@ -123,7 +123,7 @@ The MVP uses one Kafka topic:
 booking-events
 ```
 
-This is configurable with `KAFKA_BOOKING_EVENTS_TOPIC`, but all Week 3 tests and docs assume the default topic.
+This is configurable with `KAFKA_BOOKING_EVENTS_TOPIC`, but all Week 3 tests and docs assume the default topic `booking-events`.
 
 ## Event Envelope
 
@@ -166,45 +166,54 @@ booking.converted_to_firm
 booking.displaced_slot_reopened
 ```
 
-Do not reintroduce the removed `confirmed` status. The current firm booking flow uses `pending_approval` and `approved`.
+The app no longer uses the status `confirmed` for firm bookings, it is removed. Instead, the current firm booking flow now uses `pending_approval` and `approved`.  
 
 The Kafka event contract follows the Milestone 13 booking lifecycle. Event `status` values may include `on_hold`, `displaced`, and `completed`, and strict 1v1 contention details are carried in payload fields such as `contentionRole` and `challengingBookingId`. The `booking.converted_to_firm` event exists because pencil-to-firm conversion became an explicit lifecycle transition before Kafka publishing was added.
 
 ## Producer Behavior
 
-The producer helper lives under `../../server/utils/kafka`.
+Producer code lives in two files under `../../server/utils/kafka`:
 
-- `buildBookingEvent` creates the shared envelope.
-- `publishBookingEvent` sends to the configured topic.
-- `publishBookingLifecycleEvent` adapts Booking model data to event fields.
-- Publishing is non-blocking for booking API behavior: failures are logged and returned as controlled results.
-- Kafka is not the source of truth; PostgreSQL booking writes happen first.
+- `producer.js` is the Kafka transport helper. Start here to trace producer connection setup, topic checks, `buildBookingEvent`, and `publishBookingEvent`.
+- `booking-events.js` is the booking-domain adapter. Start here to see `BOOKING_EVENT_TYPES`, how Booking model data becomes event fields, and `publishBookingLifecycleEvent`.
 
 ## Consumers
 
-Consumers run in-process with the Express server for the MVP.
+Consumers run in-process with the Express server for the MVP. Each consumer reads `booking-events` using its own configured Kafka consumer group, then performs a database or email side effect.
 
-```txt
-notification-consumer -> sends Resend emails through server/utils/booking-notifications.js
-audit-log-consumer    -> writes append-only AuditLogs rows
-analytics-consumer    -> writes deduplicated BookingAnalyticsEvents rows
-```
+### Consumer source files
 
-Notification delivery idempotency is persisted in:
+- **Notification consumer:** `../../server/utils/kafka/notification-consumer.js`
+  - Starts with `startNotificationConsumer` and processes events with `processBookingNotificationEvent`.
+  - Resolves the booking and resource name, then chooses the appropriate email helper in `../../server/utils/booking-notifications.js`.
+  - The email helper sends through Resend and delegates delivery tracking to `../../server/utils/notification-delivery.js`.
+  - Uses the `KAFKA_NOTIFICATION_CONSUMER_GROUP` group (default: `notification-consumer`).
 
-```txt
-NotificationDeliveries
-```
+- **Audit consumer:** `../../server/utils/kafka/audit-consumer.js`
+  - Starts with `startAuditConsumer` and processes events with `processAuditEvent`.
+  - Persists an append-only audit record through the Sequelize `AuditLog` model in `../../server/models/auditlog.js`, backed by the `AuditLogs` table.
+  - Duplicate event IDs are safely treated as already handled rather than creating another audit row.
+  - Uses the `KAFKA_AUDIT_CONSUMER_GROUP` group (default: `audit-log-consumer`).
 
-The notification path deduplicates by:
+- **Analytics consumer:** `../../server/utils/kafka/analytics-consumer.js`
+  - Starts with `startAnalyticsConsumer` and processes events with `processAnalyticsEvent`.
+  - Persists an analytics event through the Sequelize `BookingAnalyticsEvent` model in `../../server/models/bookinganalyticsevent.js`, backed by the `BookingAnalyticsEvents` table.
+  - Duplicate event IDs are safely treated as already handled, keeping analytics counts idempotent.
+  - Uses the `KAFKA_ANALYTICS_CONSUMER_GROUP` group (default: `analytics-consumer`).
+
+### Notification delivery records
+
+`NotificationDeliveries` is a PostgreSQL table, not a Kafka topic, consumer, or function. It is created by `../../server/migrations/20260510100000-create-notification-deliveries.js` and represented in code by the Sequelize `NotificationDelivery` model in `../../server/models/notificationdelivery.js`.
+
+Before sending an email, `../../server/utils/notification-delivery.js` creates or finds a delivery row using this unique identity:
 
 ```txt
 eventId + notificationType + recipientEmail
 ```
 
-and tracks `processing`, `sent`, and `failed` states for delivery observability.
+The row records the delivery attempt and its `processing`, `sent`, or `failed` status. This lets the application prevent the same Kafka event from sending the same notification to the same recipient more than once, while retaining delivery diagnostics.
 
-Startup happens after DB authentication in `../../server/index.js` when `KAFKA_ENABLED=true`. Startup failures are logged, and the server continues running.
+Startup happens after database authentication in `../../server/index.js`: it calls `startNotificationConsumer`, `startAuditConsumer`, and `startAnalyticsConsumer` when `KAFKA_ENABLED=true`. Startup failures are logged, and the server continues running. `../../server/utils/kafka/index.js` re-exports these helpers, but the source files above are the best places to trace each consumer.
 
 ## Verification Commands
 
@@ -282,29 +291,6 @@ The test captures email calls in-process instead of sending real Resend email, s
 - The analytics view is simple event-count reporting, not full utilization analytics.
 - Local KafkaJS runs may print a non-blocking `TimeoutNegativeWarning`; previous tests still passed when this warning appeared.
 
-## Booking Reference Display (UI)
+## NOTE: Booking Identifier Convention
 
-The system now keeps two booking identifiers:
-
-- Internal primary key: `Bookings.id` (numeric)
-- User-facing reference: `Bookings.referenceCode` (for example `ICR-CRA-004-26`)
-
-UI screens should display `referenceCode` when available and only fall back to `#id` for legacy/null rows.
-
-### If you still see old `#1234` values
-
-1. Restart the backend after pulling latest changes so updated controller payloads are loaded.
-2. Refresh the frontend page (hard refresh if needed).
-3. Re-seed using your normal flow (`npm run seed:all:local`) so seeded rows include `referenceCode`.
-4. Confirm these endpoints now return `referenceCode` where needed:
-   - `/api/bookings/availability` (calendar labels/tooltip paths)
-   - My Bookings overlap hint rows (`overlappingOnHoldPencils`, `overlappingFirmBookings`)
-   - Admin analytics recent events include booking relation with `referenceCode`
-
-### Display migration scope completed
-
-- Calendar (month/week/day/agenda labels and hover headline prefix)
-- My Bookings alerts (`View details` lists, contention detail lines, previous attempts)
-- Book Now conflict cards and confirmation prompts
-- Staff Dashboard resubmissions `Rebooked from ...`
-- Admin Panel `Recent Event Summaries`
+Kafka producers and consumers may handle booking identity data. Before changing them, review the [Core Development Convention: Booking Identifiers](LOCAL-DEVELOPMENT-GUIDE.md#core-development-convention-booking-identifiers) in `LOCAL-DEVELOPMENT-GUIDE.md`.
